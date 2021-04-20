@@ -24,11 +24,14 @@ object Publish {
   lazy val settings = Seq(
     credentials += Credentials(repoRealm, repoHost, repoUser, repoPassword),
     publishTo := version { v: String =>
-      val server = repoUrl
-      if (v.trim.endsWith("SNAPSHOT"))
-        Some("snapshots" at server + "snapshots")
-      else
-        Some("releases"  at server + "releases")
+      if(repoUrl.isEmpty) {
+        None
+      } else {
+        if (v.trim.endsWith("SNAPSHOT"))
+          Some("snapshots" at repoUrl)
+        else
+          Some("releases" at repoUrl)
+      }
     }.value
   )
 

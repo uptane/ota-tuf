@@ -8,8 +8,17 @@ HOST=$2
 if [ "$MYSQL_COMMAND" = "mysql" ]; then
     MYSQL=mysql
 else
-    MYSQL="docker run -i --rm --link $HOST mariadb:10.2 mysql"
+    MYSQL="docker run -i --rm --link $HOST mariadb:10.4 mysql"
 fi
+
+if ! command -v mysqladmin &> /dev/null
+then
+    MYSQLADMIN="docker run -i --rm --link $HOST mariadb:10.4 mysqladmin"
+else
+    MYSQLADMIN=mysqladmin
+fi
+
+until $MYSQLADMIN ping --silent --protocol=TCP -h $HOST -P 3306 -u root -proot; do echo waiting for mysql; sleep 1; done
 
 $MYSQL -v -h $HOST -u root -proot <<EOF
 CREATE USER 'tuf_repo' identified by 'tuf_repo' ;
