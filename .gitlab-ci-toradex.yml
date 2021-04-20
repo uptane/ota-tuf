@@ -18,7 +18,6 @@ variables:
 
 include:
   - project: rd/innovation/continuous-delivery/ci-container-build
-    ref: scala-ci-img
     file: gitlab-ci-templates/jfrog-sbt-docker-publish.yaml
 
 image: artifactory-horw.int.toradex.com/ota-docker-dev-horw/tdx-inno-ci-scala:0.0.1
@@ -26,11 +25,15 @@ image: artifactory-horw.int.toradex.com/ota-docker-dev-horw/tdx-inno-ci-scala:0.
 services:
   - name: docker:dind
 
+default:
+  cache:
+    key: tuf
+    paths:
+      - .ivy2/
+      - .sbt/
+
 test:
   stage: test
-  only:
-    refs:
-      - master
   services:
     - name: advancedtelematic/tuf-nginx:latest
       alias: tuf-nginx
@@ -47,10 +50,6 @@ test:
     - ./deploy/gitlab-db-setup.sh mysql db
   script:
     - sbt ut:test
-  cache:
-    paths:
-      - .ivy2/
-      - .sbt/
 
 release sbt artifacts:
   stage: release jars
@@ -68,35 +67,23 @@ release sbt artifacts:
     - jfrog rt build-collect-env libtuf $CI_BUILD_ID
     - sbt +publish
     - jfrog rt build-publish libtuf $CI_BUILD_ID
-  cache:
-    paths:
-      - .ivy2/
-      - .sbt/
 
 build docker image reposerver:
   stage: build image
-  # only:
-  #   - master
+  only:
+    - master
   extends: .jfrog-sbt-docker-publish
   variables:
     ARTIFACTORY_REPO: ota-docker-dev-horw
     SERVICE_NAME: tuf-reposerver
-    Sbt_NAME: reposerver/
-  cache:
-    paths:
-      - .ivy2/
-      - .sbt/
+    SBT_NAME: reposerver/
 
 build docker image keyserver:
-  # only:
-  #   - master
   stage: build image
+  only:
+    - master
   extends: .jfrog-sbt-docker-publish
   variables:
     ARTIFACTORY_REPO: ota-docker-dev-horw
     SERVICE_NAME: tuf-keyserver
     SBT_NAME: keyserver/
-  cache:
-    paths:
-      - .ivy2/
-      - .sbt/
