@@ -1,0 +1,58 @@
+name: test contain
+on: [push]
+jobs:
+  run-tests:
+    runs-on: ubuntu-latest
+    container: uptane/ci:latest
+    services:
+      tuf-nginx:
+        image: advancedtelematic/tuf-nginx:latest
+
+      db:
+        image: mariadb:10.4
+        env:
+          MYSQL_ROOT_PASSWORD: "root"
+          MYSQL_DATABASE: "ota_tuf"
+          MYSQL_USER: "ota_tuf"
+          MYSQL_PASSWORD: "ota_tuf"
+        # command:
+        #     - --character-set-server=utf8
+        #     - --collation-server=utf8_unicode_ci
+        #     - --max_connections=1000
+
+    env:
+      DB_URL: "jdbc:mariadb://db:3306/ota_tuf"
+      MTLS_REPOSERVER_URI: "https://tuf-nginx:8181/"
+      SBT_OPTS: "-sbt-launch-dir .sbt/launchers -sbt-dir .sbt -ivy .ivy2 -Dsbt.color=true -Dscala.color=true"
+      PUBLISH_REALM: Artifactory Realm
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Cache sbt dependencies
+        uses: actions/cache@v2
+        with:
+          path: |
+            .sbt
+            .ivy2
+          key: ${{ runner.os }}-sbt-deps
+      - run: ./deploy/gitlab-db-setup.sh mysql db
+      - run: sbt ut:test
+
+
+# build CI nginx:
+#   stage: prepare
+#   image: advancedtelematic/gitlab-jobs:0.2.5
+#   except:
+#     - schedules
+#   only:
+#     changes:
+#       - cli/src/test/resources/*
+#       - deploy/ci.nginx.Dockerfile
+#   tags:
+#     - docker-sock
+#     - vault-token
+#   script:
+#     - export VAULT_TOKEN=$(cat /opt/vault/token)
+#     - gitlab-docker-login $VAULT_ADDR
+#     - cd deploy && ./build-tuf-nginx.sh
+#     - docker push advancedtelematic/tuf-nginx:latest
