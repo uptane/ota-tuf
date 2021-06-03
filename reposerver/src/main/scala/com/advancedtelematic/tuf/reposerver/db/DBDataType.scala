@@ -3,11 +3,13 @@ package com.advancedtelematic.tuf.reposerver.db
 import java.time.Instant
 
 import com.advancedtelematic.libats.data.DataType.Checksum
-import com.advancedtelematic.libtuf.data.ClientDataType.{DelegatedRoleName, TufRole}
+import com.advancedtelematic.libtuf.data.ClientDataType.{DelegatedRoleName, TufRole, DelegatedPathPattern}
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
-import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RepoId}
+import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RepoId, KeyId, KeyType, TufKey}
+
 import com.advancedtelematic.libtuf_server.repo.server.DataType.SignedRole
 
+import java.security.PublicKey
 
 protected [db] object DBDataType {
   protected [db] case class DbSignedRole(repoId: RepoId, roleType: RoleType, content: JsonSignedPayload, checksum: Checksum, length: Long, version: Int, expireAt: Instant)
@@ -23,4 +25,15 @@ protected [db] object DBDataType {
     def asDbSignedRole(repoId: RepoId): DbSignedRole =
       DbSignedRole(repoId, value.tufRole.roleType, value.content, value.checksum, value.length, value.version, value.expiresAt)
   }
+
+  protected [db] case class DbTrustedDelegation(repoId: RepoId,
+                      name: DelegatedRoleName,
+                      keyids: List[KeyId],
+                      paths: List[DelegatedPathPattern],
+                      threshold: Int = 1,
+                      terminating: Boolean = true)
+  
+  protected [db] case class DbTrustedDelegationKey(repoId: RepoId, keyId: KeyId, keyValue: TufKey)
+
+
 }

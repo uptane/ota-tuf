@@ -12,7 +12,7 @@ import com.advancedtelematic.libats.http.Errors.{EntityAlreadyExists, MissingEnt
 import com.advancedtelematic.libats.http.RefinedMarshallingSupport._
 import com.advancedtelematic.libats.http.UUIDKeyAkka._
 import com.advancedtelematic.libtuf.data.ClientCodecs._
-import com.advancedtelematic.libtuf.data.ClientDataType.{RootRole, TargetCustom, TargetsRole}
+import com.advancedtelematic.libtuf.data.ClientDataType.{RootRole, TargetCustom, TargetsRole, Delegations, Delegation}
 import com.advancedtelematic.libtuf.data.TufCodecs._
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 import com.advancedtelematic.libats.http.RefinedMarshallingSupport._
@@ -266,6 +266,20 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
       } ~
       (get & path(JsonRoleTypeMetaPath)) { roleType =>
         findRole(repoId, roleType)
+      } ~
+      pathPrefix("trusted-delegations" ) {
+        (pathEnd & put & entity(as[List[Delegation]])) { payload =>
+          complete(delegations.addTrustedDelegations(repoId, payload).map(_ => StatusCodes.NoContent))
+        } ~
+        (pathEnd & get) {
+          complete(delegations.getTrustedDelegations(repoId))
+        } ~
+        (put & path("keys") & entity(as[List[TufKey]])) { keys =>
+            complete(delegations.addTrustedKeys(repoId, keys).map(_ => StatusCodes.NoContent))
+        } ~
+        (get & path("keys")) {
+          complete(delegations.getTrustedKeys(repoId))
+        }
       } ~
       path("delegations" / DelegatedRoleUriPath) { delegatedRoleName =>
         (put & entity(as[SignedPayload[TargetsRole]])) { payload =>

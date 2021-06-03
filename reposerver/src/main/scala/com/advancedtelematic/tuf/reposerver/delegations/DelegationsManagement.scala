@@ -50,9 +50,10 @@ class SignedRoleDelegationsFind()(implicit val db: Database, val ec: ExecutionCo
   }
 }
 
-
+//  Interface to set/get delegation entities. These should return non database types
 class DelegationsManagement()(implicit val db: Database, val ec: ExecutionContext)
                                                   extends DelegationRepositorySupport with SignedRoleRepositorySupport {
+  import com.advancedtelematic.libtuf.data.TufDataType.TufKey
   def create(repoId: RepoId, roleName: DelegatedRoleName, delegationMetadata: SignedPayload[TargetsRole])
             (implicit signedRoleGeneration: SignedRoleGeneration): Future[Unit] = async {
     val targetsRole = await(signedRoleRepository.find[TargetsRole](repoId)).role
@@ -69,6 +70,22 @@ class DelegationsManagement()(implicit val db: Database, val ec: ExecutionContex
 
   def find(repoId: RepoId, roleName: DelegatedRoleName): Future[JsonSignedPayload] =
     delegationsRepo.find(repoId, roleName).map(_.content)
+
+  def addTrustedDelegations(repoId: RepoId, delegations:List[Delegation]): Future[Seq[Any]] = {
+    delegationsRepo.persistTrustedDelegations(repoId, delegations)
+  }
+  def getTrustedDelegations(repoId: RepoId): Future[Seq[Delegation]] = {
+      delegationsRepo.findAllTrustedDelegations(repoId).map(f => f.map(d => Delegation(d.name,
+      d.keyids, d.paths, d.threshold, d.terminating)))
+  }
+  def addTrustedKeys(repoId: RepoId, keys: List[TufKey]): Future[Seq[Unit]] = {
+    delegationsRepo.persistTrustedDelegationKeys(repoId, keys)
+  }
+  def getTrustedKeys(repoId: RepoId): Future[Seq[TufKey]] = {
+    delegationsRepo.findAllTrustedDelegationKeys(repoId).map(f => f.map(k => k.keyValue))
+  }
+
+
 
   private def findDelegationMetadataByName(targetsRole: TargetsRole, delegatedRoleName: DelegatedRoleName): Delegation = {
     targetsRole.delegations.flatMap(_.roles.find(_.name == delegatedRoleName)).getOrElse(throw Errors.DelegationNotDefined)
