@@ -2,6 +2,7 @@ stages:
   - test
   - release jars
   - build image
+  - deploy
 
 variables:
   DOCKER_TLS_CERTDIR: ""
@@ -15,6 +16,13 @@ variables:
   PUBLISH_REALM: Artifactory Realm
   ARTIFACTORY_USERNAME: cicd-innovation
   ARTIFACTORY_URL: https://artifactory-horw.int.toradex.com/artifactory
+
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
+      when: never
+    - if: '$CI_COMMIT_BRANCH'
 
 include:
   - project: rd/innovation/continuous-delivery/ci-container-build
@@ -68,11 +76,15 @@ release sbt artifacts:
     - sbt +publish
     - jfrog rt build-publish libtuf $CI_BUILD_ID
 
+.master-or-mr-rule:
+  rules:
+    - if: '($CI_COMMIT_BRANCH == "master") || ($CI_PIPELINE_SOURCE == "merge_request_event")'
+
 build docker image reposerver:
   stage: build image
-  only:
-    - master
-  extends: .jfrog-sbt-docker-publish
+  extends:
+    - .jfrog-sbt-docker-publish
+    - .master-or-mr-rule
   variables:
     ARTIFACTORY_REPO: ota-docker-dev-horw
     SERVICE_NAME: tuf-reposerver
@@ -80,10 +92,33 @@ build docker image reposerver:
 
 build docker image keyserver:
   stage: build image
-  only:
-    - master
-  extends: .jfrog-sbt-docker-publish
+  extends:
+    - .jfrog-sbt-docker-publish
+    - .master-or-mr-rule
   variables:
     ARTIFACTORY_REPO: ota-docker-dev-horw
     SERVICE_NAME: tuf-keyserver
     SBT_NAME: keyserver/
+
+.deploy-image:
+  stage: deploy
+  # need to disable "Auto-cancel redundant pipelines" and "Skip outdated deployment jobs"
+  # in Setting -> CI/CD -> General piplines
+  trigger:
+    strategy: depend
+    include:
+      - local: gitlab/deploy-image.yml
+
+deploy tuf-reposerver:
+  extends:
+    - .deploy-image
+    - .master-or-mr-rule
+  variables:
+    SERVICE: tuf-reposerver
+
+deploy tuf-keyserver:
+  extends:
+    - .deploy-image
+    - .master-or-mr-rule
+  variables:
+    SERVICE: tuf-keyserver
