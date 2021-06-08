@@ -323,4 +323,10 @@ protected [db] class DelegationRepository()(implicit db: Database, ec: Execution
     })
     DBIO.sequence(toBeInserted).transactionally
   }
+  def deleteAllTrustedDelegationKeys(repoId: RepoId): Future[Int] = db.run {
+    Schema.trustedDelegationKeys.filter(_.repoId === repoId).delete
+  }
+  def deleteAllTrustedDelegations(repoId: RepoId): Future[Int] = db.run {
+    Schema.trustedDelegations.filter(_.repoId === repoId).delete
+  }
 }
