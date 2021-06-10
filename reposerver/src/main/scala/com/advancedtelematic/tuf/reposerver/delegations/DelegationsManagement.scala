@@ -3,6 +3,7 @@ package com.advancedtelematic.tuf.reposerver.delegations
 import akka.http.scaladsl.util.FastFuture
 import cats.data.Validated.{Invalid, Valid}
 import cats.data.ValidatedNel
+import cats.implicits._
 import com.advancedtelematic.libats.data.RefinedUtils._
 import com.advancedtelematic.libtuf.crypt.TufCrypto
 import com.advancedtelematic.libtuf.data.ClientCodecs._
@@ -20,7 +21,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 class SignedRoleDelegationsFind()(implicit val db: Database, val ec: ExecutionContext) extends DelegationRepositorySupport {
-  import cats.implicits._
+
   import com.advancedtelematic.libtuf.crypt.CanonicalJson._
   import com.advancedtelematic.libtuf.data.TufCodecs._
   import io.circe.syntax._
@@ -69,12 +70,55 @@ class DelegationsManagement()(implicit val db: Database, val ec: ExecutionContex
     }
   }
 
+  def validateTrustedDelegations(repoId: RepoId, newDelegations : List[Delegation], existingTargets: TargetsRole): ValidatedNel[String, List[Delegation]] = {
+    existingTargets.delegations match {
+      case Some(delegations) => {
+        // Need to change the return type to match the list of `delegation` vs `Delegations`
+        validateDelegations(repoId, delegations.copy(roles = newDelegations)) match {
+          case Valid(d) => d.roles.validNel
+          case Invalid(errors) => errors.invalid[List[Delegation]]
+        }
+      }
+      case _ => "Invalid or non-existent reference keys used by trusted delegations".invalidNel[List[Delegation]]
+    }
+  }
+  def validateDelegations(repoId: RepoId, delegations: Option[Delegations]): ValidatedNel[String, Delegations] = {
+    delegations match {
+      case Some(s) => validateDelegations(repoId, s)
+      // an empty delegations block is valid
+      case _ => Delegations(Map(), List()).validNel[String]
+    }
+  }
+
+  def validateDelegations(repoId: RepoId, delegations: Delegations): ValidatedNel[String, Delegations] = {
+    val keyErrors = for {
+      delegation <- delegations.roles
+      keyid <- delegation.keyids
+      if (delegations.keys.contains(keyid) === false)
+    } yield "Invalid delegation key referenced by: " + delegation.name
+    if (keyErrors.nonEmpty) {
+      //NonEmptyList.of(badKeys.head, badKeys.tail.asInstanceOf[List[String]]).invalid[Delegations]
+      keyErrors.toNel match {
+        case Some(k) => k.invalid[Delegations]
+      }
+    } else
+      delegations.validNel[String]
+  }
+
   def find(repoId: RepoId, roleName: DelegatedRoleName): Future[JsonSignedPayload] =
     delegationsRepo.find(repoId, roleName).map(_.content)
 
   def addTrustedDelegations(repoId: RepoId, delegations:List[Delegation]): Future[Seq[Any]] = {
-    delegationsRepo.persistTrustedDelegations(repoId, delegations)
+    for {
+      signedTargets <- signedRoleRepository.find[TargetsRole](repoId)
+      validDelegations <- validateTrustedDelegations(repoId, delegations, signedTargets.role) match {
+        case Valid(delegations) =>
+          delegationsRepo.persistTrustedDelegations(repoId, delegations)
+        case i @ Invalid(errors) => throw Errors.InvalidTrustedDelegations(errors)
+      }
+    } yield validDelegations
   }
+
   def getTrustedDelegations(repoId: RepoId): Future[Seq[Delegation]] = {
       delegationsRepo.findAllTrustedDelegations(repoId).map(f => f.map(d => Delegation(d.name,
       d.keyids, d.paths, d.threshold, d.terminating)))
@@ -97,10 +141,17 @@ class DelegationsManagement()(implicit val db: Database, val ec: ExecutionContex
     for {
       _ <- delegationsRepo.deleteAllTrustedDelegationKeys(repoId)
       _ <- delegationsRepo.deleteAllTrustedDelegations(repoId)
-      if(delegations.keys.nonEmpty)
-        trustedKeys <- addTrustedKeys(repoId, delegations.keys.values.toList)
-      if(delegations.roles.nonEmpty)
-        trustedDelegations <- addTrustedDelegations(repoId, delegations.roles)
+      trustedKeys <- if (delegations.keys.nonEmpty) {
+          addTrustedKeys(repoId, delegations.keys.values.toList)
+        } else {
+          Future.successful (Unit)
+        }
+      trustedDelegations <- if(delegations.roles.nonEmpty) {
+          addTrustedDelegations(repoId, delegations.roles)
+        }
+        else {
+          Future.successful (Unit)
+        }
     } yield (trustedKeys, trustedDelegations)
   }
 

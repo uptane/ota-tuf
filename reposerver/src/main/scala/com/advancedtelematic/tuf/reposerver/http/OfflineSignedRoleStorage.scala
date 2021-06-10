@@ -45,7 +45,7 @@ class OfflineSignedRoleStorage(keyserverClient: KeyserverClient)
     for {
       validatedPayloadSig <- payloadSignatureIsValid(repoId, signedPayload)
       existingTargets <- targetItemRepo.findFor(repoId)
-      delegationsValidated = validateDelegations(repoId, signedPayload)
+      delegationsValidated = delegationsMgmnt.validateDelegations(repoId, signedPayload.signed.delegations)
       targetItemsValidated = validatedPayloadTargets(repoId, signedPayload, existingTargets)
 
       signedRoleValidated <- (validatedPayloadSig, delegationsValidated, targetItemsValidated).mapN(ValidatedItems) match {
@@ -62,27 +62,6 @@ class OfflineSignedRoleStorage(keyserverClient: KeyserverClient)
       }
   } yield signedRoleValidated
 }
-
-  private def validateDelegations(repoId: RepoId, signedPayload: SignedPayload[TargetsRole]): ValidatedNel[String, Delegations] = {
-    signedPayload.signed.delegations match {
-      case Some(s) => {
-        val keyErrors = for {
-          delegation <- s.roles
-          keyid <- delegation.keyids
-          if (s.keys.contains(keyid) === false)
-        } yield "Invalid delegation key referenced by: " + delegation.name
-        if (keyErrors.nonEmpty) {
-          //NonEmptyList.of(badKeys.head, badKeys.tail.asInstanceOf[List[String]]).invalid[Delegations]
-          keyErrors.toNel match {
-            case Some(k) => k.invalid[Delegations]
-          }
-        } else
-          s.validNel[String]
-      }
-      // an empty delegations block is valid
-      case _ => Delegations(Map(), List()).validNel[String]
-    }
-  }
 
   private def validatedPayloadTargets(repoId: RepoId, payload: SignedPayload[TargetsRole], existingTargets: Seq[TargetItem]): ValidatedNel[String, List[TargetItem]] = {
     def errorMsg(filename: TargetFilename, msg: Any): String = s"target item error ${filename.value}: $msg"
