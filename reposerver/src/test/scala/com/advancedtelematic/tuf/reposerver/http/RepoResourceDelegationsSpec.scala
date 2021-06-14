@@ -84,6 +84,14 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     Put(apiUri(s"repo/${repoId.show}/trusted-delegations/keys"), tufKeys.asJson) ~> routes
   }
 
+  private def getTrustedDelegations()(implicit repoId: RepoId): RouteTestResult = {
+    Get(apiUri(s"repo/${repoId.show}/trusted-delegations")) ~> routes
+  }
+
+  private def getTrustedDelegationKeys()(implicit repoId: RepoId): RouteTestResult = {
+    Get(apiUri(s"repo/${repoId.show}/trusted-delegations/keys")) ~> routes
+  }
+
   test("Rejects trusted delegations without reference keys") {
     implicit val repoId = addTargetToRepo()
     addNewTrustedDelegations(List(delegation)) ~> check {
@@ -111,19 +119,69 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     }
   }
 
-  // TODO: test won't work until we start using the db items to generate targets.json
-//  test("Accepts trusted delegations using trusted keys") {
-//    implicit val repoId = addTargetToRepo()
-//    val newKeys = Ed25519KeyType.crypto.generateKeyPair()
-//    addNewTrustedDelegationKeys(List(newKeys.pubkey)) ~> check {
-//      status shouldBe StatusCodes.NoContent
-//    }
-//    // add the trusted delegation referencing the newly trusted key
-//    addNewTrustedDelegations(List(delegation.copy(keyids = List(newKeys.pubkey.id)))) ~> check {
-//      status shouldBe StatusCodes.NoContent
-//      responseAs[ErrorRepresentation].code shouldBe ErrorCodes.InvalidTrustedDelegations
-//    }
-//  }
+  test("Accepts trusted delegations using trusted keys") {
+    implicit val repoId = addTargetToRepo()
+    val newKeys = Ed25519KeyType.crypto.generateKeyPair()
+    addNewTrustedDelegationKeys(List(newKeys.pubkey)) ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+    // add the trusted delegation referencing the newly trusted key
+    addNewTrustedDelegations(List(delegation.copy(keyids = List(newKeys.pubkey.id)))) ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+  }
+
+  test("Gets trusted delegations") {
+    implicit val repoId = addTargetToRepo()
+    val newKeys = Ed25519KeyType.crypto.generateKeyPair()
+    addNewTrustedDelegationKeys(List(newKeys.pubkey)) ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+    // use the newly trusted keys
+    val newTrustedDelegation = delegation.copy(keyids = List(newKeys.pubkey.id))
+    addNewTrustedDelegations(List(newTrustedDelegation)) ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+    getTrustedDelegations() ~> check {
+      status shouldBe StatusCodes.OK
+      println(response)
+      responseAs[List[Delegation]] should contain(newTrustedDelegation)
+    }
+  }
+
+  test("Gets trusted delegation keys") {
+    implicit val repoId = addTargetToRepo()
+    val newKeys = Ed25519KeyType.crypto.generateKeyPair()
+    addNewTrustedDelegationKeys(List(newKeys.pubkey)) ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+    getTrustedDelegationKeys() ~> check {
+      status shouldBe StatusCodes.OK
+      println(response)
+      responseAs[List[TufKey]] should contain(newKeys.pubkey)
+    }
+  }
+
+  test("Replaces trusted delegations when offline targets uploaded") {
+    implicit val repoId = addTargetToRepo()
+    addDelegationToRepo()
+    getTrustedDelegations() ~> check {
+      status shouldBe StatusCodes.OK
+      println(response)
+      // only items in published delegations should be present
+      responseAs[List[Delegation]] shouldBe delegations.roles
+    }
+  }
+
+  test("Replaces trusted delegation keys when offline targets uploaded") {
+    implicit val repoId = addTargetToRepo()
+    addDelegationToRepo()
+    getTrustedDelegationKeys() ~> check {
+      status shouldBe StatusCodes.OK
+      // only items in published delegations should be present
+      responseAs[List[TufKey]] shouldBe delegations.keys.values.toList
+    }
+  }
 
   test("Rejects trusted delegations using unknown keys") {
     implicit val repoId = addTargetToRepo()

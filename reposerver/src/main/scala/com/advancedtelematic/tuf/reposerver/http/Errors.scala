@@ -49,7 +49,7 @@ object Errors {
     JsonError(ErrorCodes.InvalidOfflineTargets, StatusCodes.BadRequest, errors.asJson, "Invalid offline targets")
 
   def InvalidTrustedDelegations(errors: NonEmptyList[String]) =
-    JsonError(ErrorCodes.InvalidTrustedDelegations, StatusCodes.BadRequest, errors.asJson, "Invalid offline targets")
+    JsonError(ErrorCodes.InvalidTrustedDelegations, StatusCodes.BadRequest, errors.asJson, "Invalid trusted delegations")
 
   case class NotImplemented(message: String)
     extends com.advancedtelematic.libats.http.Errors.Error(com.advancedtelematic.libtuf.data.ErrorCodes.Reposerver.NotImplemented, StatusCodes.NotImplemented, message)

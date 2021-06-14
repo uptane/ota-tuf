@@ -33,7 +33,7 @@ import org.slf4j.LoggerFactory
 
 class OfflineSignedRoleStorage(keyserverClient: KeyserverClient)
                                         (implicit val db: Database, val ec: ExecutionContext)
-  extends SignedRoleRepositorySupport with TargetItemRepositorySupport{
+  extends SignedRoleRepositorySupport with TargetItemRepositorySupport with TrustedDelegationSupport {
 
   private val _log = LoggerFactory.getLogger(this.getClass)
 
@@ -45,7 +45,7 @@ class OfflineSignedRoleStorage(keyserverClient: KeyserverClient)
     for {
       validatedPayloadSig <- payloadSignatureIsValid(repoId, signedPayload)
       existingTargets <- targetItemRepo.findFor(repoId)
-      delegationsValidated = delegationsMgmnt.validateDelegations(repoId, signedPayload.signed.delegations)
+      delegationsValidated = validateTrustedDelegations(repoId, signedPayload.signed.delegations)
       targetItemsValidated = validatedPayloadTargets(repoId, signedPayload, existingTargets)
 
       signedRoleValidated <- (validatedPayloadSig, delegationsValidated, targetItemsValidated).mapN(ValidatedItems) match {
@@ -54,7 +54,6 @@ class OfflineSignedRoleStorage(keyserverClient: KeyserverClient)
           for {
             (targets, timestamps) <- signedRoleGeneration.freshSignedDependent(repoId, signedTargetRole, signedPayload.signed.expires)
             _ <- signedRoleRepository.storeAll(targetItemRepo)(repoId: RepoId, List(signedTargetRole, targets, timestamps), items.targetItems)
-            _ <- delegationsMgmnt.replaceDelegationsBlock(repoId, items.delegations)
           } yield (existingTargets, signedTargetRole).validNel
 
         case i @ Invalid(_) =>

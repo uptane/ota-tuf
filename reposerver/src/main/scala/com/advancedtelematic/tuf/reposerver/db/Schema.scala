@@ -4,17 +4,14 @@ import java.time.Instant
 
 import akka.http.scaladsl.model.Uri
 import com.advancedtelematic.libats.data.DataType.{Checksum, Namespace}
-import com.advancedtelematic.libtuf.data.ClientDataType.{DelegatedRoleName, TargetCustom, DelegatedPathPattern}
+import com.advancedtelematic.libtuf.data.ClientDataType.{DelegatedRoleName, TargetCustom}
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
-import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RepoId, TargetFilename, KeyId, KeyType, TufKey}
-import com.advancedtelematic.libtuf.data.TufCodecs._
-import java.security.{PublicKey}
+import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RepoId, TargetFilename}
 import slick.jdbc.MySQLProfile.api._
 import SlickMappings._
 import com.advancedtelematic.libtuf_server.data.Requests.TargetComment
-import com.advancedtelematic.tuf.reposerver.db.DBDataType.{DbDelegation, DbSignedRole, DbTrustedDelegation, DbTrustedDelegationKey}
+import com.advancedtelematic.tuf.reposerver.db.DBDataType.{DbDelegation, DbSignedRole}
 import SlickValidatedString._
-import slick.jdbc.JdbcProfile
 import com.advancedtelematic.tuf.reposerver.data.RepositoryDataType.StorageMethod.StorageMethod
 import com.advancedtelematic.tuf.reposerver.data.RepositoryDataType.TargetItem
 
@@ -95,32 +92,4 @@ object Schema {
   }
 
   protected [db] val delegations = TableQuery[DelegationTable]
-
-  class TrustedDelegationTable(tag: Tag) extends Table[DbTrustedDelegation](tag, "trusted_delegations") {
-
-    def repoId = column[RepoId]("repo_id")
-    def roleName = column[DelegatedRoleName]("name")
-    def keyids = column[List[KeyId]]("key_ids")
-    def paths = column[List[DelegatedPathPattern]]("paths")
-    def threshold = column[Int]("threshold")
-    def terminating = column[Boolean]("terminating")
-
-    def pk = primaryKey("trusted_delegations_pk", (repoId, roleName))
-
-    override def * = (repoId, roleName, keyids, paths, threshold, terminating) <> ((DbTrustedDelegation.apply _).tupled, DbTrustedDelegation.unapply)
-  }
-
-  protected [db] val trustedDelegations = TableQuery[TrustedDelegationTable]
-
-  class TrustedDelegationKeyTable(tag: Tag) extends Table[DbTrustedDelegationKey](tag, "trusted_delegation_keys") {
-    def repoId = column[RepoId]("repo_id")
-    def keyId = column[KeyId]("key_id")
-    def keyValue = column[TufKey]("key_value")
-
-    def pk = primaryKey("trusted_delegation_keys_pk", (repoId, keyId))
-
-    override def * = (repoId, keyId, keyValue) <> ((DbTrustedDelegationKey.apply _).tupled, DbTrustedDelegationKey.unapply)
-  }
-
-  protected [db] val trustedDelegationKeys = TableQuery[TrustedDelegationKeyTable]
 }

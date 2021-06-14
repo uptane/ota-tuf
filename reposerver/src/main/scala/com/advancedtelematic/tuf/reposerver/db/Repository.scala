@@ -11,7 +11,7 @@ import akka.stream.scaladsl.Source
 import com.advancedtelematic.libats.data.DataType.Namespace
 import com.advancedtelematic.libats.data.ErrorCode
 import com.advancedtelematic.libats.http.Errors.{EntityAlreadyExists, MissingEntity, MissingEntityId, RawError}
-import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RepoId, RoleType, TargetFilename, TufKey}
+import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RepoId, RoleType, TargetFilename}
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 import com.advancedtelematic.tuf.reposerver.data.RepositoryDataType._
 import com.advancedtelematic.libtuf_server.repo.server.DataType._
@@ -19,10 +19,10 @@ import com.advancedtelematic.libats.slick.db.SlickExtensions._
 import com.advancedtelematic.libats.slick.codecs.SlickRefined._
 import com.advancedtelematic.libats.slick.db.SlickUUIDKey._
 import com.advancedtelematic.libats.slick.db.SlickAnyVal._
-import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, DelegatedRoleName, SnapshotRole, TimestampRole, TufRole, Delegation}
+import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, DelegatedRoleName, SnapshotRole, TimestampRole, TufRole}
 import com.advancedtelematic.libtuf_server.data.Requests.TargetComment
 import com.advancedtelematic.libtuf_server.data.TufSlickMappings._
-import com.advancedtelematic.tuf.reposerver.db.DBDataType.{DbDelegation, DbSignedRole, DbTrustedDelegation, DbTrustedDelegationKey}
+import com.advancedtelematic.tuf.reposerver.db.DBDataType.{DbDelegation, DbSignedRole}
 import com.advancedtelematic.tuf.reposerver.db.TargetItemRepositorySupport.MissingNamespaceException
 import com.advancedtelematic.tuf.reposerver.http.Errors._
 import com.advancedtelematic.libtuf_server.repo.server.Errors.SignedRoleNotFound
@@ -302,31 +302,8 @@ protected [db] class DelegationRepository()(implicit db: Database, ec: Execution
   def find(repoId: RepoId, roleNames: DelegatedRoleName*): Future[DbDelegation] = db.run {
     Schema.delegations.filter(_.repoId === repoId).filter(_.roleName.inSet(roleNames)).result.failIfNotSingle(DelegationNotFound)
   }
+
   def persist(repoId: RepoId, roleName: DelegatedRoleName, content: JsonSignedPayload): Future[Unit] = db.run {
     Schema.delegations.insertOrUpdate(DbDelegation(repoId, roleName, content)).map(_ => ())
-  }
-  def findAllTrustedDelegations(repoId: RepoId): Future[Seq[DbTrustedDelegation]] = db.run {
-    Schema.trustedDelegations.filter(_.repoId === repoId).result
-  }
-  def findAllTrustedDelegationKeys(repoId: RepoId): Future[Seq[DbTrustedDelegationKey]] = db.run {
-    Schema.trustedDelegationKeys.filter(_.repoId === repoId).result
-  }
-  def persistTrustedDelegations(repoId: RepoId, trustedDelegations: List[Delegation]): Future[Seq[Unit]] = db.run {
-    val toBeInserted = trustedDelegations.map(d => {
-      Schema.trustedDelegations.insertOrUpdate(DbTrustedDelegation(repoId, d.name, d.keyids, d.paths, d.threshold)).map(_ => ())
-    })
-    DBIO.sequence(toBeInserted).transactionally
-  }
-  def persistTrustedDelegationKeys(repoId: RepoId, trustedKeys: List[TufKey]) : Future[Seq[Unit]] = db.run {
-    val toBeInserted = trustedKeys.map(k => {
-      Schema.trustedDelegationKeys.insertOrUpdate(DbTrustedDelegationKey(repoId, k.id, k)).map(_ => ())
-    })
-    DBIO.sequence(toBeInserted).transactionally
-  }
-  def deleteAllTrustedDelegationKeys(repoId: RepoId): Future[Int] = db.run {
-    Schema.trustedDelegationKeys.filter(_.repoId === repoId).delete
-  }
-  def deleteAllTrustedDelegations(repoId: RepoId): Future[Int] = db.run {
-    Schema.trustedDelegations.filter(_.repoId === repoId).delete
   }
 }

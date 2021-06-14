@@ -25,13 +25,19 @@ class SignedRoleGeneration(keyserverClient: KeyserverClient,
 
   private val log = LoggerFactory.getLogger(this.getClass)
 
-  def regenerateAllSignedRoles(repoId: RepoId): Future[JsonSignedPayload] = async {
+  def regenerateAllSignedRoles(repoId: RepoId, trustedDelegations: Option[Delegations] = None): Future[JsonSignedPayload] = async {
     await(fetchRootRole(repoId))
 
     val expireAt = defaultExpire
 
     val targetVersion = await(nextVersion[TargetsRole](repoId))
-    val targetDelegations = await(extractDelegationsFromTargetsRole(repoId))
+    val targetDelegations = await{
+      if (trustedDelegations.isDefined)
+        FastFuture.successful(trustedDelegations)
+      else {
+        extractDelegationsFromTargetsRole(repoId)
+      }
+    }
     val targetRole = await(genTargetsFromExistingItems(repoId, targetDelegations, expireAt, targetVersion))
     val signedTarget = await(signRole(repoId, targetRole))
 

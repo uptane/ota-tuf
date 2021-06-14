@@ -269,16 +269,16 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
       } ~
       pathPrefix("trusted-delegations" ) {
         (pathEnd & put & entity(as[List[Delegation]])) { payload =>
-          complete(delegations.addTrustedDelegations(repoId, payload).map(_ => StatusCodes.NoContent))
+          complete(targetRoleGeneration.addTrustedDelegations(repoId, payload)(signedRoleGeneration).map(_ => StatusCodes.NoContent))
         } ~
         (pathEnd & get) {
-          complete(delegations.getTrustedDelegations(repoId))
+          complete(targetRoleGeneration.getTrustedDelegations(repoId))
         } ~
         (put & path("keys") & entity(as[List[TufKey]])) { keys =>
-            complete(delegations.addTrustedKeys(repoId, keys).map(_ => StatusCodes.NoContent))
+            complete(targetRoleGeneration.addTrustedDelegationKeys(repoId, keys)(signedRoleGeneration).map(_ => StatusCodes.NoContent))
         } ~
         (get & path("keys")) {
-          complete(delegations.getTrustedKeys(repoId))
+          complete(targetRoleGeneration.getTrustedDelegationKeys(repoId))
         }
       } ~
       path("delegations" / DelegatedRoleUriPath) { delegatedRoleName =>
