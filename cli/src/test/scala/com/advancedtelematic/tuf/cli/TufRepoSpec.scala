@@ -154,7 +154,7 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
   test("add external RSA signature to targets") {
     val repo = initRepo[RepoServerRepo](RsaKeyType)
     val targetsKeyName = KeyName("somekey")
-    val targetsKeyPair = repo.genKeys(targetsKeyName, KeyType.default).get
+    val targetsKeyPair = repo.genKeys(targetsKeyName, RsaKeyType).get
 
     val unsignedTargets = repo.readUnsignedRole[TargetsRole].get
     val signature = TufCrypto.signPayload(targetsKeyPair.privkey, unsignedTargets.asJson).sig
@@ -163,15 +163,16 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
     repo.addRoleKeys(RoleType.ROOT, List(targetsKeyName)).success
     repo.signRoot(Seq(KeyName("root")), defaultExpiration).success
 
-    repo.signTargets(Seq.empty, defaultExpiration, signatures = Some(Map(targetsKeyName -> signature))).success
+    repo.signTargets(Seq.empty, defaultExpiration, signatures = Some(Map(targetsKeyName -> signature))).get
   }
 
+  // TODO: This is only supported for RSA Keys, make this explicit when calling Cli
   test("add multiple external RSA signatures to targets") {
     val repo = initRepo[RepoServerRepo](RsaKeyType)
     val targetsKey1Name = KeyName("somekey")
     val targetsKey2Name = KeyName("someotherkey")
-    val targetsKey1Pair = repo.genKeys(targetsKey1Name, KeyType.default).success.value
-    val targetsKey2Pair = repo.genKeys(targetsKey2Name, KeyType.default).success.value
+    val targetsKey1Pair = repo.genKeys(targetsKey1Name, RsaKeyType).success.value
+    val targetsKey2Pair = repo.genKeys(targetsKey2Name, RsaKeyType).success.value
 
     val unsignedTargets = repo.readUnsignedRole[TargetsRole].success.value
     val signature1 = TufCrypto.signPayload(targetsKey1Pair.privkey, unsignedTargets.asJson).sig
@@ -189,7 +190,7 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
     // sign targets the old way
     val repo = initRepo[RepoServerRepo](RsaKeyType)
     val targetsKeyName = KeyName("somekey")
-    val _ = repo.genKeys(targetsKeyName, KeyType.default).success.value
+    repo.genKeys(targetsKeyName, RsaKeyType).success.value
 
     val path = repo.signTargets(Seq(targetsKeyName), defaultExpiration).get
     val targetsJson = parseFile(path.toFile).flatMap(_.as[SignedPayload[TargetsRole]]).right.value
