@@ -1,11 +1,13 @@
 package com.advancedtelematic.tuf.reposerver.delegations
 
+import akka.http.scaladsl.util.FastFuture
 import cats.data.Validated.{Invalid, Valid}
 import cats.data.ValidatedNel
+import cats.implicits._
 import com.advancedtelematic.libats.data.RefinedUtils._
 import com.advancedtelematic.libtuf.crypt.TufCrypto
 import com.advancedtelematic.libtuf.data.ClientCodecs._
-import com.advancedtelematic.libtuf.data.ClientDataType.{DelegatedRoleName, Delegation, MetaItem, MetaPath, TargetsRole, ValidMetaPath}
+import com.advancedtelematic.libtuf.data.ClientDataType.{DelegatedRoleName, Delegation, Delegations, MetaItem, MetaPath, TargetsRole, ValidMetaPath}
 import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RepoId, SignedPayload}
 import com.advancedtelematic.libtuf_server.crypto.Sha256Digest
 import com.advancedtelematic.libtuf_server.repo.server.DataType.SignedRole
@@ -19,7 +21,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 class SignedRoleDelegationsFind()(implicit val db: Database, val ec: ExecutionContext) extends DelegationRepositorySupport {
-  import cats.implicits._
+
   import com.advancedtelematic.libtuf.crypt.CanonicalJson._
   import com.advancedtelematic.libtuf.data.TufCodecs._
   import io.circe.syntax._
@@ -50,7 +52,6 @@ class SignedRoleDelegationsFind()(implicit val db: Database, val ec: ExecutionCo
   }
 }
 
-
 class DelegationsManagement()(implicit val db: Database, val ec: ExecutionContext)
                                                   extends DelegationRepositorySupport with SignedRoleRepositorySupport {
   def create(repoId: RepoId, roleName: DelegatedRoleName, delegationMetadata: SignedPayload[TargetsRole])
@@ -69,6 +70,7 @@ class DelegationsManagement()(implicit val db: Database, val ec: ExecutionContex
 
   def find(repoId: RepoId, roleName: DelegatedRoleName): Future[JsonSignedPayload] =
     delegationsRepo.find(repoId, roleName).map(_.content)
+
 
   private def findDelegationMetadataByName(targetsRole: TargetsRole, delegatedRoleName: DelegatedRoleName): Delegation = {
     targetsRole.delegations.flatMap(_.roles.find(_.name == delegatedRoleName)).getOrElse(throw Errors.DelegationNotDefined)

@@ -12,7 +12,7 @@ import com.advancedtelematic.libats.http.Errors.{EntityAlreadyExists, MissingEnt
 import com.advancedtelematic.libats.http.RefinedMarshallingSupport._
 import com.advancedtelematic.libats.http.UUIDKeyAkka._
 import com.advancedtelematic.libtuf.data.ClientCodecs._
-import com.advancedtelematic.libtuf.data.ClientDataType.{RootRole, TargetCustom, TargetsRole}
+import com.advancedtelematic.libtuf.data.ClientDataType.{RootRole, TargetCustom, TargetsRole, Delegations, Delegation}
 import com.advancedtelematic.libtuf.data.TufCodecs._
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 import com.advancedtelematic.libats.http.RefinedMarshallingSupport._
@@ -59,6 +59,7 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
   private val roleRefresher = new RepoRoleRefresh(keyserverClient, new TufRepoSignedRoleProvider(), new TufRepoTargetItemsProvider())
   private val targetRoleGeneration = new TargetRoleEdit(keyserverClient, signedRoleGeneration)
   private val delegations = new DelegationsManagement()
+  private val trustedDelegations = new TrustedDelegations
 
   /*
     extractRequestEntity is needed for tests only. We should get this value from the `Content-Length` header.
@@ -266,6 +267,22 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
       } ~
       (get & path(JsonRoleTypeMetaPath)) { roleType =>
         findRole(repoId, roleType)
+      } ~
+      pathPrefix("trusted-delegations" ) {
+        (pathEnd & put & entity(as[List[Delegation]])) { payload =>
+          complete(trustedDelegations.add(repoId, payload)(signedRoleGeneration).map(_ => StatusCodes.NoContent))
+        } ~
+        (pathEnd & get) {
+          complete(trustedDelegations.get(repoId))
+        } ~
+        path("keys") {
+          (put & entity(as[List[TufKey]])) { keys =>
+            complete(trustedDelegations.addKeys(repoId, keys)(signedRoleGeneration).map(_ => StatusCodes.NoContent))
+          } ~
+          get {
+            complete(trustedDelegations.getKeys(repoId))
+          }
+        }
       } ~
       path("delegations" / DelegatedRoleUriPath) { delegatedRoleName =>
         (put & entity(as[SignedPayload[TargetsRole]])) { payload =>

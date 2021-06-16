@@ -3,13 +3,16 @@ package com.advancedtelematic.tuf.reposerver.http
 import akka.http.scaladsl.util.FastFuture
 import cats.data.Validated.{Invalid, Valid}
 import cats.data.ValidatedNel
-import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, TargetCustom, TargetsRole, TufRole}
-import com.advancedtelematic.libtuf.data.TufDataType.{RepoId, SignedPayload, TargetFilename}
+import cats.instances.string._
+import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, Delegations, TargetCustom, TargetsRole, TufRole}
+import com.advancedtelematic.libtuf.data.TufDataType.{RepoId, SignedPayload, TargetFilename, TufKey}
 import com.advancedtelematic.libtuf_server.repo.server.DataType._
 import com.advancedtelematic.tuf.reposerver.data.RepositoryDataType._
 import com.advancedtelematic.tuf.reposerver.db.{SignedRoleRepositorySupport, TargetItemRepositorySupport}
 import io.circe.Encoder
 import cats.implicits._
+import cats.data.Validated._
+import cats.data.NonEmptyList
 import com.advancedtelematic.libats.data.DataType.Checksum
 import com.advancedtelematic.libats.http.Errors.MissingEntityId
 import com.advancedtelematic.libtuf.data.ClientCodecs._
@@ -23,34 +26,38 @@ import scala.concurrent.{ExecutionContext, Future}
 import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient
 import com.advancedtelematic.libtuf_server.repo.server.DataType.SignedRole
 import com.advancedtelematic.tuf.reposerver.data.RepositoryDataType.TargetItem
+import com.advancedtelematic.tuf.reposerver.delegations.DelegationsManagement
 import com.advancedtelematic.tuf.reposerver.http.RoleChecksumHeader.RoleChecksum
 import com.advancedtelematic.tuf.reposerver.target_store.TargetStore
 import org.slf4j.LoggerFactory
 
 class OfflineSignedRoleStorage(keyserverClient: KeyserverClient)
                                         (implicit val db: Database, val ec: ExecutionContext)
-  extends SignedRoleRepositorySupport with TargetItemRepositorySupport{
+  extends SignedRoleRepositorySupport with TargetItemRepositorySupport {
 
   private val _log = LoggerFactory.getLogger(this.getClass)
 
   private val signedRoleGeneration = TufRepoSignedRoleGeneration(keyserverClient)
+  private val trustedDelegations = new TrustedDelegations
 
-  def store(repoId: RepoId, signedPayload: SignedPayload[TargetsRole]): Future[ValidatedNel[String, (Seq[TargetItem], SignedRole[TargetsRole])]] =
-    for {
-      validatedPayloadSig <- payloadSignatureIsValid(repoId, signedPayload)
-      existingTargets <- targetItemRepo.findFor(repoId)
-      targetItemsValidated = validatedPayloadSig.andThen(_ => validatedPayloadTargets(repoId, signedPayload, existingTargets))
-      signedRoleValidated <- targetItemsValidated match {
-        case Valid(items) =>
+  def store(repoId: RepoId, signedPayload: SignedPayload[TargetsRole]): Future[ValidatedNel[String, (Seq[TargetItem], SignedRole[TargetsRole])]] = async {
+      val validatedPayloadSig = await(payloadSignatureIsValid(repoId, signedPayload))
+      val existingTargets = await(targetItemRepo.findFor(repoId))
+      val delegationsValidated = trustedDelegations.validate(repoId, signedPayload.signed.delegations)
+      val targetItemsValidated = validatedPayloadTargets(repoId, signedPayload, existingTargets)
+      val signedRoleValidated = (validatedPayloadSig, delegationsValidated, targetItemsValidated).mapN {
+        case (_, _, targetItems) =>
           val signedTargetRole = SignedRole.withChecksum[TargetsRole](repoId, signedPayload.asJsonSignedPayload, signedPayload.signed.version, signedPayload.signed.expires)
-          for {
-            (targets, timestamps) <- signedRoleGeneration.freshSignedDependent(repoId, signedTargetRole, signedPayload.signed.expires)
-            _ <- signedRoleRepository.storeAll(targetItemRepo)(repoId: RepoId, List(signedTargetRole, targets, timestamps), items)
-          } yield (existingTargets, signedTargetRole).validNel
-        case i @ Invalid(_) =>
-          FastFuture.successful(i)
-      }
-    } yield signedRoleValidated
+
+          async {
+            val (targets, timestamps) = await(signedRoleGeneration.freshSignedDependent(repoId, signedTargetRole, signedPayload.signed.expires))
+            await(signedRoleRepository.storeAll(targetItemRepo)(repoId: RepoId, List(signedTargetRole, targets, timestamps), targetItems))
+            (existingTargets, signedTargetRole).validNel[String]
+          }
+      }.fold(err => FastFuture.successful(err.invalid), identity)
+    await(signedRoleValidated)
+  }
+
 
   private def validatedPayloadTargets(repoId: RepoId, payload: SignedPayload[TargetsRole], existingTargets: Seq[TargetItem]): ValidatedNel[String, List[TargetItem]] = {
     def errorMsg(filename: TargetFilename, msg: Any): String = s"target item error ${filename.value}: $msg"
