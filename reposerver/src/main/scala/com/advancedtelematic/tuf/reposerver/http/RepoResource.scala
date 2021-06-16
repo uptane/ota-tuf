@@ -59,6 +59,7 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
   private val roleRefresher = new RepoRoleRefresh(keyserverClient, new TufRepoSignedRoleProvider(), new TufRepoTargetItemsProvider())
   private val targetRoleGeneration = new TargetRoleEdit(keyserverClient, signedRoleGeneration)
   private val delegations = new DelegationsManagement()
+  private val trustedDelegations = new TrustedDelegations
 
   /*
     extractRequestEntity is needed for tests only. We should get this value from the `Content-Length` header.
@@ -269,16 +270,18 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
       } ~
       pathPrefix("trusted-delegations" ) {
         (pathEnd & put & entity(as[List[Delegation]])) { payload =>
-          complete(targetRoleGeneration.addTrustedDelegations(repoId, payload)(signedRoleGeneration).map(_ => StatusCodes.NoContent))
+          complete(trustedDelegations.add(repoId, payload)(signedRoleGeneration).map(_ => StatusCodes.NoContent))
         } ~
         (pathEnd & get) {
-          complete(targetRoleGeneration.getTrustedDelegations(repoId))
+          complete(trustedDelegations.get(repoId))
         } ~
-        (put & path("keys") & entity(as[List[TufKey]])) { keys =>
-            complete(targetRoleGeneration.addTrustedDelegationKeys(repoId, keys)(signedRoleGeneration).map(_ => StatusCodes.NoContent))
-        } ~
-        (get & path("keys")) {
-          complete(targetRoleGeneration.getTrustedDelegationKeys(repoId))
+        path("keys") {
+          (put & entity(as[List[TufKey]])) { keys =>
+            complete(trustedDelegations.addKeys(repoId, keys)(signedRoleGeneration).map(_ => StatusCodes.NoContent))
+          } ~
+          get {
+            complete(trustedDelegations.getKeys(repoId))
+          }
         }
       } ~
       path("delegations" / DelegatedRoleUriPath) { delegatedRoleName =>

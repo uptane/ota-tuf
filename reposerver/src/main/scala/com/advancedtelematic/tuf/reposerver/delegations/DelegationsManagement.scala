@@ -52,10 +52,8 @@ class SignedRoleDelegationsFind()(implicit val db: Database, val ec: ExecutionCo
   }
 }
 
-//  Interface to set/get delegation entities. These should return non database types
 class DelegationsManagement()(implicit val db: Database, val ec: ExecutionContext)
                                                   extends DelegationRepositorySupport with SignedRoleRepositorySupport {
-  import com.advancedtelematic.libtuf.data.TufDataType.TufKey
   def create(repoId: RepoId, roleName: DelegatedRoleName, delegationMetadata: SignedPayload[TargetsRole])
             (implicit signedRoleGeneration: SignedRoleGeneration): Future[Unit] = async {
     val targetsRole = await(signedRoleRepository.find[TargetsRole](repoId)).role

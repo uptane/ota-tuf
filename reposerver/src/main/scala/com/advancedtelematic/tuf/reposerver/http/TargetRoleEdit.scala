@@ -19,7 +19,7 @@ import io.circe.Decoder
 
 class TargetRoleEdit(roleSigningClient: KeyserverClient, signedRoleGeneration: SignedRoleGeneration)
                     (implicit val db: Database, val ec: ExecutionContext)
-  extends TargetItemRepositorySupport with FilenameCommentRepository.Support with TrustedDelegationSupport {
+  extends TargetItemRepositorySupport with FilenameCommentRepository.Support {
 
   def addTargetItem(targetItem: TargetItem): Future[JsonSignedPayload] = for {
     _ <- targetItemRepo.persist(targetItem)
@@ -31,6 +31,5 @@ class TargetRoleEdit(roleSigningClient: KeyserverClient, signedRoleGeneration: S
     _ <- targetItemRepo.deleteItemAndComments(filenameCommentRepo)(repoId, filename)
     _ <- signedRoleGeneration.regenerateAllSignedRoles(repoId)
   } yield ()
-
 
 }

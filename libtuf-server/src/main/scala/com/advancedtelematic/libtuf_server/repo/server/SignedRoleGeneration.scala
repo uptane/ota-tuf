@@ -25,28 +25,30 @@ class SignedRoleGeneration(keyserverClient: KeyserverClient,
 
   private val log = LoggerFactory.getLogger(this.getClass)
 
-  def regenerateAllSignedRoles(repoId: RepoId, trustedDelegations: Option[Delegations] = None): Future[JsonSignedPayload] = async {
-    await(fetchRootRole(repoId))
+  def signAllRolesFor(repoId: RepoId, targetsRole: TargetsRole): Future[JsonSignedPayload] = async {
+    val signedTarget = await(signRole(repoId, targetsRole))
 
-    val expireAt = defaultExpire
-
-    val targetVersion = await(nextVersion[TargetsRole](repoId))
-    val targetDelegations = await{
-      if (trustedDelegations.isDefined)
-        FastFuture.successful(trustedDelegations)
-      else {
-        extractDelegationsFromTargetsRole(repoId)
-      }
-    }
-    val targetRole = await(genTargetsFromExistingItems(repoId, targetDelegations, expireAt, targetVersion))
-    val signedTarget = await(signRole(repoId, targetRole))
-
-    val (newSnapshots, newTimestamps) = await(freshSignedDependent(repoId, signedTarget, expireAt))
+    val (newSnapshots, newTimestamps) = await(freshSignedDependent(repoId, signedTarget, targetsRole.expires))
 
     await(signedRoleProvider.persistAll(repoId, List(signedTarget, newSnapshots, newTimestamps)))
 
     signedTarget.content
   }
+
+  def regenerateAllSignedRoles(repoId: RepoId): Future[JsonSignedPayload] = async {
+    await(fetchRootRole(repoId))
+
+    val expireAt = defaultExpire
+
+    val targetVersion = await(nextVersion[TargetsRole](repoId))
+
+    val targetDelegations = await(extractDelegationsFromTargetsRole(repoId))
+
+    val targetRole = await(genTargetsFromExistingItems(repoId, targetDelegations, expireAt, targetVersion))
+
+    await(signAllRolesFor(repoId, targetRole))
+  }
+
 
   def regenerateSnapshots(repoId: RepoId): Future[(SignedRole[SnapshotRole], SignedRole[TimestampRole])] = async {
     val existingTargets = await(signedRoleProvider.find[TargetsRole](repoId))
@@ -153,11 +155,15 @@ class SignedRoleGeneration(keyserverClient: KeyserverClient,
     }.recover {
       case _: MissingEntityId[_] => None
     }
+  def genTargetsFromExistingItems(repoId: RepoId, delegations: Option[Delegations]=None): Future[TargetsRole] = for {
+    nextVersion <- nextVersion[TargetsRole](repoId)
+    targetItems <- targetsProvider.findTargets(repoId)
+  } yield TargetsRole(defaultExpire, targetItems.items, nextVersion, delegations, targetItems.customJson)
 
-  private def genTargetsFromExistingItems(repoId: RepoId, delegations: Option[Delegations], expireAt: Instant, version: Int): Future[TargetsRole] =
-    for {
-      items <- targetsProvider.findTargets(repoId)
-    } yield TargetsRole(expireAt, items.items, version, delegations, items.customJson)
+
+  def genTargetsFromExistingItems(repoId: RepoId, delegations: Option[Delegations], expireAt: Instant, version: Int): Future[TargetsRole] = for {
+    items <- targetsProvider.findTargets(repoId)
+  } yield TargetsRole(expireAt, items.items, version, delegations, items.customJson)
 
   def ensureTargetsCanBeSigned(repoId: RepoId): Future[SignedRole[TargetsRole]] = async {
     val targetsRole = await(signedRoleProvider.find[TargetsRole](repoId)).role

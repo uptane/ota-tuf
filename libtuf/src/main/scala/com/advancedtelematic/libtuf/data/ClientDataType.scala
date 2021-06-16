@@ -117,8 +117,7 @@ object ClientDataType {
         "DelegatedPathPattern cannot be empty or bigger than 254 chars or contain `..`"
       )
     }
-    implicit val pathDecoder: Decoder[DelegatedPathPattern] = deriveDecoder[DelegatedPathPattern]
-    implicit val pathEncoder: Encoder[DelegatedPathPattern] = deriveEncoder[DelegatedPathPattern]
+    implicit val delegatedPatternCode = deriveCodec[DelegatedPathPattern]
   }
 
   final class DelegatedRoleName private (val value: String) extends ValidatedString

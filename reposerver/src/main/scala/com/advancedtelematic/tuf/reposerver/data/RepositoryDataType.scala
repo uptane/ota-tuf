@@ -15,6 +15,5 @@ object RepositoryDataType {
 
   import StorageMethod._
 
-  // Why is targetItem treated differently than the other database items over in db/DBDataType.scala???
   case class TargetItem(repoId: RepoId, filename: TargetFilename, uri: Option[Uri], checksum: Checksum, length: Long, custom: Option[TargetCustom] = None, storageMethod: StorageMethod = Managed)
 }

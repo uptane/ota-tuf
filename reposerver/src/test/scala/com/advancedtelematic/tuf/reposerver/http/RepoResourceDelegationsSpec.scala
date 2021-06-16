@@ -41,12 +41,21 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
 
   val delegations = Delegations(Map(keyPair.pubkey.id -> keyPair.pubkey), List(delegation))
 
-  private def addDelegationToRepo(_delegations: Delegations = delegations)
+  private def uploadOfflineSignedTargetsRole(_delegations: Delegations = delegations)
                                   (implicit repoId: RepoId, pos: Position): Unit = {
     val signedTargets = buildSignedTargetsRoleWithDelegations(_delegations)(repoId, pos)
     Put(apiUri(s"repo/${repoId.show}/targets"), signedTargets).withValidTargetsCheckSum ~> routes ~> check {
       status shouldBe StatusCodes.NoContent
     }
+  }
+
+  private def buildDelegations(pubKey: TufKey, roleName: String = "mydelegation", pattern: String="mypath/*"): Delegations = {
+    val delegation = {
+      val delegationPath = pattern.unsafeApply[DelegatedPathPattern]
+      val delegatedRoleName = roleName.unsafeApply[DelegatedRoleName]
+      Delegation(delegatedRoleName, List(pubKey.id), List(delegationPath))
+    }
+    Delegations(Map(pubKey.id -> pubKey), List(delegation))
   }
 
   private def buildSignedTargetsRoleWithDelegations(_delegations: Delegations = delegations)
@@ -100,17 +109,17 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     }
   }
 
-  test("Accepts trusted delegation keys") {
+  keyTypeTest("Accepts trusted delegation keys") { keyType =>
     implicit val repoId = addTargetToRepo()
-    val newKeys = Ed25519KeyType.crypto.generateKeyPair()
+    val newKeys = keyType.crypto.generateKeyPair()
     addNewTrustedDelegationKeys(List(newKeys.pubkey)) ~> check {
       status shouldBe StatusCodes.NoContent
     }
   }
 
-  test("Accepts trusted delegation keys idempotent") {
+  keyTypeTest("Accepts trusted delegation keys idempotent") { keyType =>
     implicit val repoId = addTargetToRepo()
-    val newKeys = Ed25519KeyType.crypto.generateKeyPair()
+    val newKeys = keyType.crypto.generateKeyPair()
     addNewTrustedDelegationKeys(List(newKeys.pubkey)) ~> check {
       status shouldBe StatusCodes.NoContent
     }
@@ -119,9 +128,9 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     }
   }
 
-  test("Accepts trusted delegations using trusted keys") {
+  keyTypeTest("Accepts trusted delegations using trusted keys") { keyType =>
     implicit val repoId = addTargetToRepo()
-    val newKeys = Ed25519KeyType.crypto.generateKeyPair()
+    val newKeys = keyType.crypto.generateKeyPair()
     addNewTrustedDelegationKeys(List(newKeys.pubkey)) ~> check {
       status shouldBe StatusCodes.NoContent
     }
@@ -131,9 +140,9 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     }
   }
 
-  test("Gets trusted delegations") {
+  keyTypeTest("Gets trusted delegations") { keyType =>
     implicit val repoId = addTargetToRepo()
-    val newKeys = Ed25519KeyType.crypto.generateKeyPair()
+    val newKeys = keyType.crypto.generateKeyPair()
     addNewTrustedDelegationKeys(List(newKeys.pubkey)) ~> check {
       status shouldBe StatusCodes.NoContent
     }
@@ -149,9 +158,9 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     }
   }
 
-  test("Gets trusted delegation keys") {
+  keyTypeTest("Gets trusted delegation keys") { keyType =>
     implicit val repoId = addTargetToRepo()
-    val newKeys = Ed25519KeyType.crypto.generateKeyPair()
+    val newKeys = keyType.crypto.generateKeyPair()
     addNewTrustedDelegationKeys(List(newKeys.pubkey)) ~> check {
       status shouldBe StatusCodes.NoContent
     }
@@ -162,24 +171,15 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     }
   }
 
-  test("Replaces trusted delegations when offline targets uploaded") {
+  keyTypeTest("Replaces trusted delegation keys when offline targets uploaded") { keyType =>
     implicit val repoId = addTargetToRepo()
-    addDelegationToRepo()
-    getTrustedDelegations() ~> check {
-      status shouldBe StatusCodes.OK
-      println(response)
-      // only items in published delegations should be present
-      responseAs[List[Delegation]] shouldBe delegations.roles
-    }
-  }
-
-  test("Replaces trusted delegation keys when offline targets uploaded") {
-    implicit val repoId = addTargetToRepo()
-    addDelegationToRepo()
+    val newKeys = keyType.crypto.generateKeyPair()
+    val newDelegationsBlock = buildDelegations(newKeys.pubkey)
+    uploadOfflineSignedTargetsRole(newDelegationsBlock)
     getTrustedDelegationKeys() ~> check {
       status shouldBe StatusCodes.OK
       // only items in published delegations should be present
-      responseAs[List[TufKey]] shouldBe delegations.keys.values.toList
+      responseAs[List[TufKey]] shouldBe newDelegationsBlock.keys.values.toList
     }
   }
 
@@ -198,21 +198,17 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     val newKeys = Ed25519KeyType.crypto.generateKeyPair()
     val signedTargets = buildSignedTargetsRoleWithDelegations(delegations.copy(roles = List(delegation.copy(keyids = List(newKeys.pubkey.id)))))
 
-    signedTargets.onComplete {
-      case Success(targetsRole) =>
-        pushSignedTargetsMetadata(targetsRole) ~> check {
-          status shouldBe StatusCodes.BadRequest
-          responseAs[ErrorRepresentation].code shouldBe ErrorCodes.InvalidOfflineTargets
-        }
-      case Failure(e) =>
-        fail("Failed to create pre-requisite targets role: " + e)
+    val targetsRole = signedTargets.futureValue
+    pushSignedTargetsMetadata(targetsRole) ~> check {
+      status shouldBe StatusCodes.BadRequest
+      responseAs[ErrorRepresentation].code shouldBe ErrorCodes.InvalidOfflineTargets
     }
   }
 
   test("accepts delegated targets") {
     implicit val repoId = addTargetToRepo()
 
-    addDelegationToRepo()
+    uploadOfflineSignedTargetsRole()
 
     Get(apiUri(s"repo/${repoId.show}/targets.json")) ~> routes ~> check {
       status shouldBe StatusCodes.OK
@@ -223,7 +219,7 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
   test("accepts delegated role metadata when signed with known keys") {
     implicit val repoId = addTargetToRepo()
 
-    addDelegationToRepo()
+    uploadOfflineSignedTargetsRole()
 
     val signedDelegation = buildSignedDelegatedTargets()
 
@@ -235,7 +231,7 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
   test("accepts overwrite of existing delegated role metadata") {
     implicit val repoId = addTargetToRepo()
 
-    addDelegationToRepo()
+    uploadOfflineSignedTargetsRole()
 
     val signedDelegation = buildSignedDelegatedTargets()
 
@@ -251,7 +247,7 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
   test("returns delegated role metadata") {
     implicit val repoId = addTargetToRepo()
 
-    addDelegationToRepo()
+    uploadOfflineSignedTargetsRole()
 
     val signedDelegationRole = buildSignedDelegatedTargets()
 
@@ -279,7 +275,7 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
   test("rejects delegated metadata when not signed according to threshold") {
     implicit val repoId = addTargetToRepo()
 
-    addDelegationToRepo(delegations.copy(roles = List(delegation.copy(threshold = 2))))
+    uploadOfflineSignedTargetsRole(delegations.copy(roles = List(delegation.copy(threshold = 2))))
 
     val signedDelegation = buildSignedDelegatedTargets()
 
@@ -292,7 +288,7 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
   test("does not allow repeated signatures to check threshold") {
     implicit val repoId = addTargetToRepo()
 
-    addDelegationToRepo(delegations.copy(roles = List(delegation.copy(threshold = 2))))
+    uploadOfflineSignedTargetsRole(delegations.copy(roles = List(delegation.copy(threshold = 2))))
 
     val default = buildSignedDelegatedTargets()
     val signedDelegation = SignedPayload(default.signatures.head +: default.signatures, default.signed, default.json)
@@ -306,7 +302,7 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
   test("rejects delegated metadata when not properly signed") {
     implicit val repoId = addTargetToRepo()
 
-    addDelegationToRepo()
+    uploadOfflineSignedTargetsRole()
 
     val otherKey = Ed25519KeyType.crypto.generateKeyPair()
     val delegationTargets = TargetsRole(Instant.now().plus(30, ChronoUnit.DAYS), targets = Map.empty, version = 2)
@@ -322,7 +318,7 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
   test("re-generates snapshot role after storing delegations") {
     implicit val repoId = addTargetToRepo()
 
-    addDelegationToRepo()
+    uploadOfflineSignedTargetsRole()
 
     Get(apiUri(s"repo/${repoId.show}/snapshot.json")) ~> routes ~> check {
       status shouldBe StatusCodes.OK
@@ -333,7 +329,7 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
   test("SnapshotRole includes signed delegation length") {
     implicit val repoId = addTargetToRepo()
 
-    addDelegationToRepo()
+    uploadOfflineSignedTargetsRole()
 
     val signedDelegationRole = buildSignedDelegatedTargets()
 
@@ -361,7 +357,7 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
 
     implicit val repoId = addTargetToRepo()
 
-    addDelegationToRepo()
+    uploadOfflineSignedTargetsRole()
 
     val signedDelegationRole = buildSignedDelegatedTargets()
 
@@ -388,7 +384,7 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
   test("Adding a single target keeps delegations") {
     implicit val repoId = addTargetToRepo()
 
-    addDelegationToRepo()
+    uploadOfflineSignedTargetsRole()
 
     Post(apiUri(s"repo/${repoId.show}/targets/myfile"), testFile) ~> routes ~> check {
       status shouldBe StatusCodes.OK

@@ -33,34 +33,31 @@ import org.slf4j.LoggerFactory
 
 class OfflineSignedRoleStorage(keyserverClient: KeyserverClient)
                                         (implicit val db: Database, val ec: ExecutionContext)
-  extends SignedRoleRepositorySupport with TargetItemRepositorySupport with TrustedDelegationSupport {
+  extends SignedRoleRepositorySupport with TargetItemRepositorySupport {
 
   private val _log = LoggerFactory.getLogger(this.getClass)
 
   private val signedRoleGeneration = TufRepoSignedRoleGeneration(keyserverClient)
-  private val delegationsMgmnt = new DelegationsManagement()
+  private val trustedDelegations = new TrustedDelegations
 
-  def store(repoId: RepoId, signedPayload: SignedPayload[TargetsRole]): Future[ValidatedNel[String, (Seq[TargetItem], SignedRole[TargetsRole])]] = {
-    case class ValidatedItems(payloadSig: SignedPayload[TargetsRole], delegations: Delegations, targetItems: List[TargetItem])
-    for {
-      validatedPayloadSig <- payloadSignatureIsValid(repoId, signedPayload)
-      existingTargets <- targetItemRepo.findFor(repoId)
-      delegationsValidated = validateTrustedDelegations(repoId, signedPayload.signed.delegations)
-      targetItemsValidated = validatedPayloadTargets(repoId, signedPayload, existingTargets)
-
-      signedRoleValidated <- (validatedPayloadSig, delegationsValidated, targetItemsValidated).mapN(ValidatedItems) match {
-        case Valid(items) =>
+  def store(repoId: RepoId, signedPayload: SignedPayload[TargetsRole]): Future[ValidatedNel[String, (Seq[TargetItem], SignedRole[TargetsRole])]] = async {
+      val validatedPayloadSig = await(payloadSignatureIsValid(repoId, signedPayload))
+      val existingTargets = await(targetItemRepo.findFor(repoId))
+      val delegationsValidated = trustedDelegations.validate(repoId, signedPayload.signed.delegations)
+      val targetItemsValidated = validatedPayloadTargets(repoId, signedPayload, existingTargets)
+      val signedRoleValidated = (validatedPayloadSig, delegationsValidated, targetItemsValidated).mapN {
+        case (_, _, targetItems) =>
           val signedTargetRole = SignedRole.withChecksum[TargetsRole](repoId, signedPayload.asJsonSignedPayload, signedPayload.signed.version, signedPayload.signed.expires)
-          for {
-            (targets, timestamps) <- signedRoleGeneration.freshSignedDependent(repoId, signedTargetRole, signedPayload.signed.expires)
-            _ <- signedRoleRepository.storeAll(targetItemRepo)(repoId: RepoId, List(signedTargetRole, targets, timestamps), items.targetItems)
-          } yield (existingTargets, signedTargetRole).validNel
 
-        case i @ Invalid(_) =>
-          FastFuture.successful(i)
-      }
-  } yield signedRoleValidated
-}
+          async {
+            val (targets, timestamps) = await(signedRoleGeneration.freshSignedDependent(repoId, signedTargetRole, signedPayload.signed.expires))
+            await(signedRoleRepository.storeAll(targetItemRepo)(repoId: RepoId, List(signedTargetRole, targets, timestamps), targetItems))
+            (existingTargets, signedTargetRole).validNel[String]
+          }
+      }.fold(err => FastFuture.successful(err.invalid), identity)
+    await(signedRoleValidated)
+  }
+
 
   private def validatedPayloadTargets(repoId: RepoId, payload: SignedPayload[TargetsRole], existingTargets: Seq[TargetItem]): ValidatedNel[String, List[TargetItem]] = {
     def errorMsg(filename: TargetFilename, msg: Any): String = s"target item error ${filename.value}: $msg"
