@@ -3,7 +3,6 @@ package com.advancedtelematic.tuf.reposerver.http
 import akka.http.scaladsl.model.headers.{RawHeader, `Content-Length`}
 import akka.http.scaladsl.model.{EntityStreamException, HttpEntity, ParsingException, StatusCodes, Uri}
 import akka.http.scaladsl.server._
-import akka.http.scaladsl.unmarshalling.PredefinedFromStringUnmarshallers.CsvSeq
 import akka.http.scaladsl.unmarshalling._
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
@@ -12,16 +11,14 @@ import com.advancedtelematic.libats.http.Errors.{EntityAlreadyExists, MissingEnt
 import com.advancedtelematic.libats.http.RefinedMarshallingSupport._
 import com.advancedtelematic.libats.http.UUIDKeyAkka._
 import com.advancedtelematic.libtuf.data.ClientCodecs._
-import com.advancedtelematic.libtuf.data.ClientDataType.{RootRole, TargetCustom, TargetsRole, Delegations, Delegation}
+import com.advancedtelematic.libtuf.data.ClientDataType.{Delegation, RootRole, TargetCustom, TargetsRole}
 import com.advancedtelematic.libtuf.data.TufCodecs._
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
-import com.advancedtelematic.libats.http.RefinedMarshallingSupport._
 import com.advancedtelematic.libats.http.AnyvalMarshallingSupport._
 import com.advancedtelematic.libtuf.data.TufCodecs._
 import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.libats.data.DataType.Namespace
-import com.advancedtelematic.libtuf.data.TufDataType.TargetFormat.TargetFormat
-import com.advancedtelematic.libtuf.data.TufDataType.{HardwareIdentifier, RepoId, TargetFilename, _}
+import com.advancedtelematic.libtuf.data.TufDataType._
 import com.advancedtelematic.libtuf_server.data.Marshalling._
 import com.advancedtelematic.libtuf_server.data.Requests.{CommentRequest, CreateRepositoryRequest, _}
 import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient
@@ -37,11 +34,11 @@ import com.advancedtelematic.tuf.reposerver.http.Errors.{NoRepoForNamespace, Req
 import com.advancedtelematic.tuf.reposerver.http.RoleChecksumHeader._
 import com.advancedtelematic.tuf.reposerver.target_store.TargetStore
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
+import io.circe.Json
 import org.slf4j.LoggerFactory
 import slick.jdbc.MySQLProfile.api._
 
 import scala.async.Async._
-import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
@@ -57,7 +54,7 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
   private implicit val signedRoleGeneration = TufRepoSignedRoleGeneration(keyserverClient)
   private val offlineSignedRoleStorage = new OfflineSignedRoleStorage(keyserverClient)
   private val roleRefresher = new RepoRoleRefresh(keyserverClient, new TufRepoSignedRoleProvider(), new TufRepoTargetItemsProvider())
-  private val targetRoleGeneration = new TargetRoleEdit(keyserverClient, signedRoleGeneration)
+  private val targetRoleEdit = new TargetRoleEdit(signedRoleGeneration)
   private val delegations = new DelegationsManagement()
   private val trustedDelegations = new TrustedDelegations
 
@@ -99,16 +96,6 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
 
   val log = LoggerFactory.getLogger(this.getClass)
 
-  private val targetCustomParameters: Directive1[TargetCustom] =
-    parameters(
-      'name.as[TargetName],
-      'version.as[TargetVersion],
-      'hardwareIds.as(CsvSeq[HardwareIdentifier]).?(immutable.Seq.empty[HardwareIdentifier]),
-      'targetFormat.as[TargetFormat].?
-    ).tmap { case (name, version, hardwareIds, targetFormat) =>
-      TargetCustom(name, version, hardwareIds, targetFormat.orElse(Some(TargetFormat.BINARY)))
-    }
-
   private val TargetFilenamePath = Segments.flatMap {
     _.mkString("/").refineTry[ValidTargetFilename].toOption
   }
@@ -133,7 +120,6 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
     case MalformedRequestContentRejection(msg, _) => complete((StatusCodes.BadRequest, msg))
   }.result()
 
-
   private def createRepo(namespace: Namespace, repoId: RepoId): Route =
     handleRejections(malformedRequestContentRejectionHandler) {
       entity(as[CreateRepositoryRequest]) { request =>
@@ -143,7 +129,7 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
 
   private def addTargetItem(namespace: Namespace, item: TargetItem): Future[JsonSignedPayload] =
     for {
-      result <- targetRoleGeneration.addTargetItem(item)
+      result <- targetRoleEdit.addTargetItem(item)
       _ <- tufTargetsPublisher.targetAdded(namespace, item)
     } yield result
 
@@ -167,7 +153,7 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
   }
 
   private def addTargetFromContent(namespace: Namespace, filename: TargetFilename, repoId: RepoId): Route = {
-    targetCustomParameters { custom =>
+    TargetCustomParameterExtractors.all { custom =>
       concat(
         withSizeLimit(userRepoSizeLimit) {
           withRequestTimeout(userRepoUploadRequestTimeout) {
@@ -231,7 +217,7 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
   def deleteTargetItem(repoId: RepoId, filename: TargetFilename): Route = complete {
     for {
       _ <- targetStore.delete(repoId, filename)
-      _ <- targetRoleGeneration.deleteTargetItem(repoId, filename)
+      _ <- targetRoleEdit.deleteTargetItem(repoId, filename)
     } yield StatusCodes.NoContent
   }
 
@@ -323,6 +309,12 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
             complete(targetStore.completeMultipartUpload(repoId, filename, body.uploadId, body.partETags))
           }
         }
+      } ~
+        pathPrefix("proprietary-custom" / TargetFilenamePath) { filename =>
+          (patch & entity(as[Json])) { proprietaryCustom =>
+            val f = targetRoleEdit.updateTargetProprietaryCustom(repoId, filename, proprietaryCustom)
+            complete(f.map(_ => StatusCodes.NoContent))
+          }
       } ~
       pathPrefix("targets") {
         path(TargetFilenamePath) { filename =>
