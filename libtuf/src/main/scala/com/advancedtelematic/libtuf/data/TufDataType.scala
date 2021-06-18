@@ -122,7 +122,7 @@ object TufDataType {
   case class JsonSignedPayload(signatures: Seq[ClientSignature], signed: Json)
 
   object KeyType {
-    val default = RsaKeyType
+    val default: KeyType = Ed25519KeyType
   }
 
   sealed trait KeyType {
