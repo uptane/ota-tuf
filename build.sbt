@@ -58,7 +58,7 @@ lazy val serverDependencies = libraryDependencies ++= {
 }
 
 lazy val commonSettings = Seq(
-  organization := "com.advancedtelematic",
+  organization := "io.github.uptane",
   scalaVersion := "2.12.10",
   scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8", "-Xexperimental", "-Ypartial-unification"),
   scalacOptions in (Compile, console) ~= (_.filterNot(_ == "-Ywarn-unused-import")),
@@ -66,6 +66,14 @@ lazy val commonSettings = Seq(
   resolvers += "ATS Snapshots" at "https://nexus.ota.here.com/content/repositories/snapshots",
   libatsVersion := "0.3.0-109-ge12f057",
   licenses += ("MPL-2.0", url("http://mozilla.org/MPL/2.0/")),
+  description := "scala tuf implementation support",
+  homepage := Some(url("https://github.com/uptane/ota-tuf")),
+  scmInfo := Some(
+    ScmInfo(
+      url("https://github.com/uptane/ota-tuf"),
+      "scm:git@github.com:uptane/ota-tuf.git"
+    )
+  ),
   buildInfoOptions += BuildInfoOption.ToMap,
   buildInfoOptions += BuildInfoOption.BuildTime,
   dependencyCheckAssemblyAnalyzerEnabled := Some(false)) ++

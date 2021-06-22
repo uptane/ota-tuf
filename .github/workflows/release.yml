@@ -19,8 +19,7 @@ jobs:
       - uses: olafurpg/setup-scala@v11
         with:
           java-version: adopt@1.8
-      - name: Coursier cache
-        uses: coursier/cache-action@v6
+      - uses: coursier/cache-action@v6
       - run: printf "realm=Sonatype Nexus Repository Manager\nhost=s01.oss.sonatype.org\nuser=${SONATYPE_USER}\npassword=${SONATYPE_PASSWORD}\n" > ${SBT_CREDENTIALS}
       - run: sbt +publish
 
