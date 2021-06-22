@@ -10,9 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
 #      SONATYPE_USER: ${{ secrets.SONATYPE_USER }}
-      SONATYPE_USER: somethinguser
-#      SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
-      SONATYPE_PASSWORD: somethingpass
+      SONATYPE_USER: dh3dfyEL
+      SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
       SBT_CREDENTIALS: .sonatype-credentials
     steps:
       - uses: actions/checkout@v2
@@ -23,37 +22,26 @@ jobs:
           java-version: adopt@1.8
       - uses: coursier/cache-action@v6
       - run: printf "realm=Sonatype Nexus Repository Manager\nhost=s01.oss.sonatype.org\nuser=${SONATYPE_USER}\npassword=${SONATYPE_PASSWORD}\n" > ${SBT_CREDENTIALS}
-      - run: cat $SBT_CREDENTIALS
+      - run: cat $SBT_CREDENTIALS | sed -e -r 's/password/lol/g'
       - run: sbt +publish
 
-  build-images:
-    name: Build and Push Images
-    runs-on: ubuntu-latest
-#    needs: run-tests
-#    container: uptane/ci:latest
-    # env:
-    #   SBT_OPTS: "-sbt-launch-dir .sbt/launchers -sbt-dir .sbt -ivy .ivy2 -Dsbt.color=true -Dscala.color=true"
-    steps:
-      - uses: actions/checkout@v2
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v1
-        with:
-          username: ${{ secrets.DOCKER_USER }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-      - uses: olafurpg/setup-scala@v11
-        with:
-          java-version: adopt@1.8
-      - name: Coursier cache
-        uses: coursier/cache-action@v6
-      # - name: Cache sbt dependencies
-      #   uses: actions/cache@v2
-      #   with:
-      #     path: |
-      #       .sbt
-      #       .ivy2
-      #     key: ${{ runner.os }}-sbt-deps
-      - run: sbt docker:publishLocal
-      - run: docker tag advancedtelematic/tuf-reposerver:$GITHUB_SHA uptane/tuf-reposerver:$GITHUB_SHA
-      - run: docker tag advancedtelematic/tuf-keyserver:$GITHUB_SHA uptane/tuf-keyserver:$GITHUB_SHA
-      - run: docker push uptane/tuf-reposerver:$GITHUB_SHA
-      - run: docker push uptane/tuf-keyserver:$GITHUB_SHA
+  # build-images:
+  #   name: Build and Push Images
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #     - name: Log in to Docker Hub
+  #       uses: docker/login-action@v1
+  #       with:
+  #         username: ${{ secrets.DOCKER_USER }}
+  #         password: ${{ secrets.DOCKER_PASSWORD }}
+  #     - uses: olafurpg/setup-scala@v11
+  #       with:
+  #         java-version: adopt@1.8
+  #     - name: Coursier cache
+  #       uses: coursier/cache-action@v6
+  #     - run: sbt docker:publishLocal
+  #     - run: docker tag advancedtelematic/tuf-reposerver:$GITHUB_SHA uptane/tuf-reposerver:$GITHUB_SHA
+  #     - run: docker tag advancedtelematic/tuf-keyserver:$GITHUB_SHA uptane/tuf-keyserver:$GITHUB_SHA
+  #     - run: docker push uptane/tuf-reposerver:$GITHUB_SHA
+  #     - run: docker push uptane/tuf-keyserver:$GITHUB_SHA
