@@ -22,8 +22,7 @@ jobs:
           java-version: adopt@1.8
       - uses: coursier/cache-action@v6
       - run: printf "realm=Sonatype Nexus Repository Manager\nhost=s01.oss.sonatype.org\nuser=${SONATYPE_USER}\npassword=${SONATYPE_PASSWORD}\n" > ${SBT_CREDENTIALS}
-      - run: cat $SBT_CREDENTIALS
-      - run: sbt +publish
+      - run: sbt -v -Dsbt.boot.credentials=".sonatype-credentials" +publish
 
   # build-images:
   #   name: Build and Push Images
