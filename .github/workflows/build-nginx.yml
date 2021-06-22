@@ -6,7 +6,7 @@ on:
       - deploy/ci.nginx.Dockerfile
 jobs:
   build-image:
-    name: Build Image
+    name: Build Nginx Image
     runs-on: ubuntu-latest
     steps:
       - name: Log in to Docker Hub
