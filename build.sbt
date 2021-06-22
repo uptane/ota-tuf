@@ -60,6 +60,8 @@ lazy val serverDependencies = libraryDependencies ++= {
 lazy val commonSettings = Seq(
   organization := "io.github.uptane",
   scalaVersion := "2.12.10",
+  organizationName := "uptane",
+  organizationHomepage := Some(url("https://uptane.github.io/")),
   scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8", "-Xexperimental", "-Ypartial-unification"),
   scalacOptions in (Compile, console) ~= (_.filterNot(_ == "-Ywarn-unused-import")),
   resolvers += "ATS Releases" at "https://nexus.ota.here.com/content/repositories/releases",
@@ -72,6 +74,14 @@ lazy val commonSettings = Seq(
     ScmInfo(
       url("https://github.com/uptane/ota-tuf"),
       "scm:git@github.com:uptane/ota-tuf.git"
+    )
+  ),
+  developers := List(
+    Developer(
+      id    = "simao",
+      name  = "Simão Mata",
+      email = "sm@0io.eu",
+      url   = url("https://0io.eu")
     )
   ),
   buildInfoOptions += BuildInfoOption.ToMap,
