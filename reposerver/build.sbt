@@ -1,8 +1,7 @@
 libraryDependencies ++= {
   Seq(
     "org.flywaydb" % "flyway-core" % "6.0.8",
-    "com.amazonaws" % "aws-java-sdk-s3" % "1.11.338",
-    "com.advancedtelematic" %% "libats-auth" % CustomSettings.libatsVersion.value
+    "com.amazonaws" % "aws-java-sdk-s3" % "1.11.338"
   )
 }
 
