@@ -1,7 +1,7 @@
 name: Release
 on:
   push:
-    branches: [master, uptane-sm/ci-cd]
+    branches: [master]
     tags: ["*"]
 
 jobs:
@@ -32,8 +32,8 @@ jobs:
       - name: Log in to Docker Hub
         uses: docker/login-action@v1
         with:
-          username: ${{ secrets.DOCKER_USER }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          username: ${{ secrets.DOCKERHUB_USER }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
       - uses: olafurpg/setup-scala@v11
         with:
           java-version: adopt@1.8
