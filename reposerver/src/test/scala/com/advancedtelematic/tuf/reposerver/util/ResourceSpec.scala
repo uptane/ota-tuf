@@ -1,53 +1,42 @@
 package com.advancedtelematic.tuf.reposerver.util
 
+import akka.actor.ActorSystem
+import akka.http.scaladsl.model._
+import akka.http.scaladsl.server.{Directive1, Directives, Route}
+import akka.http.scaladsl.testkit.{RouteTestTimeout, ScalatestRouteTest}
+import akka.http.scaladsl.util.FastFuture
+import akka.stream.scaladsl.Source
+import akka.testkit.TestDuration
+import akka.util.ByteString
+import com.advancedtelematic.libats.data.DataType.{Checksum, Namespace}
+import com.advancedtelematic.libats.http.NamespaceDirectives
+import com.advancedtelematic.libats.http.tracing.NullServerRequestTracing
+import com.advancedtelematic.libats.messaging.MemoryMessageBus
+import com.advancedtelematic.libats.test.DatabaseSpec
+import com.advancedtelematic.libtuf.crypt.{Sha256FileDigest, TufCrypto}
+import com.advancedtelematic.libtuf.data.ClientCodecs._
+import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, RoleKeys, RootRole, TargetCustom, TargetsRole}
+import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
+import com.advancedtelematic.libtuf.data.TufDataType._
+import com.advancedtelematic.libtuf.http.ReposerverHttpClient
+import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient
+import com.advancedtelematic.tuf.reposerver.http.{NamespaceValidation, TufReposerverRoutes}
+import com.advancedtelematic.tuf.reposerver.target_store.{LocalTargetStoreEngine, TargetStore}
+import com.advancedtelematic.tuf.reposerver.util.ResourceSpec.TargetInfo
+import io.circe.Json
+import sttp.client.{NothingT, SttpBackend}
+
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
-import java.security.PublicKey
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.NoSuchElementException
 import java.util.concurrent.ConcurrentHashMap
-
-import com.advancedtelematic.libtuf.crypt.TufCrypto._
-import akka.http.scaladsl.testkit.{RouteTestTimeout, ScalatestRouteTest}
-import com.advancedtelematic.libtuf.data.TufDataType._
-import io.circe.{Decoder, Encoder, Json}
-import com.advancedtelematic.libats.test.DatabaseSpec
-
-import scala.concurrent.Future
-import akka.actor.ActorSystem
-import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.ws.Message
-import akka.http.scaladsl.server.{Directive1, Directives, Route}
-import akka.http.scaladsl.util.FastFuture
-import akka.stream.scaladsl.{Flow, Source}
-import com.advancedtelematic.libtuf.data.ClientCodecs._
-
-import scala.concurrent.duration._
 import scala.collection.JavaConverters._
-import scala.util.Try
-import akka.testkit.TestDuration
-import akka.util.ByteString
-import com.advancedtelematic.libats.auth.NamespaceDirectives
-import com.advancedtelematic.libats.data.DataType.{Checksum, Namespace}
-import com.advancedtelematic.libats.messaging.MemoryMessageBus
-import com.advancedtelematic.libtuf.crypt.{Sha256FileDigest, TufCrypto}
-import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
-import com.advancedtelematic.libtuf.data.TufDataType.RoleType
-import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, RoleKeys, RootRole, TargetCustom, TargetsRole}
-import com.advancedtelematic.libtuf.data.TufDataType.RepoId
-import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient
-import com.advancedtelematic.tuf.reposerver.http.{NamespaceValidation, TufReposerverRoutes}
-import com.advancedtelematic.tuf.reposerver.target_store.{LocalTargetStoreEngine, TargetStore}
-
-import scala.concurrent.Promise
-import cats.syntax.either._
-import com.advancedtelematic.libats.http.tracing.NullServerRequestTracing
-import com.advancedtelematic.libtuf.http.ReposerverHttpClient
-import com.advancedtelematic.tuf.reposerver.util.ResourceSpec.TargetInfo
-import sttp.client.{NothingT, SttpBackend}
-
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.{Future, Promise}
+import scala.concurrent.duration._
+import scala.util.Try
 
 class FakeKeyserverClient extends KeyserverClient {
 
@@ -240,7 +229,7 @@ trait ResourceSpec extends TufReposerverSpec
 
   val fakeKeyserverClient: FakeKeyserverClient = new FakeKeyserverClient
 
-  val defaultNamespaceExtractor = NamespaceDirectives.defaultNamespaceExtractor.map(_.namespace)
+  val defaultNamespaceExtractor = NamespaceDirectives.defaultNamespaceExtractor
 
   val namespaceValidation = new NamespaceValidation(defaultNamespaceExtractor) {
     override def apply(repoId: RepoId): Directive1[Namespace] = defaultNamespaceExtractor
@@ -265,9 +254,9 @@ trait ResourceSpec extends TufReposerverSpec
 
   protected def updateTargetsMetadata(repoId: RepoId, targetInfo: TargetInfo): Unit = {
     import cats.syntax.option._
+    import com.advancedtelematic.libtuf.data.TufCodecs._
     import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
     import io.circe.syntax._
-    import com.advancedtelematic.libtuf.data.TufCodecs._
 
     val rootRole = fakeKeyserverClient.fetchRootRole(repoId).futureValue
     val targetKeyId = rootRole.signed.roles(RoleType.TARGETS).keyids.head
