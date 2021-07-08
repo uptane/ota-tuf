@@ -2,13 +2,12 @@ package com.advancedtelematic.tuf.reposerver.http
 
 import akka.http.scaladsl.model.{StatusCodes, Uri}
 import akka.http.scaladsl.server.Route
-import com.advancedtelematic.libats.http.ErrorHandler
+import com.advancedtelematic.libats.http.{ErrorHandler, NamespaceDirectives}
 import com.advancedtelematic.libtuf.data.TufDataType.RepoId
 import org.scalatest.concurrent.PatienceConfiguration
 import org.scalatest.prop.Whenever
 import org.scalatest.{BeforeAndAfterAll, Inspectors}
 import cats.syntax.show._
-import com.advancedtelematic.libats.auth.NamespaceDirectives
 import com.advancedtelematic.libtuf_server.crypto.Sha256Digest
 import com.advancedtelematic.libtuf_server.data.Requests.{CommentRequest, TargetComment}
 import com.advancedtelematic.libtuf_server.repo.client.ReposerverClient.RequestTargetItem
@@ -24,7 +23,7 @@ class RepoResourceNamespaceExtractionSpec extends TufReposerverSpec
 
   implicit val ec = ExecutionContext.global
 
-  val dbValidation = new DatabaseNamespaceValidation(NamespaceDirectives.defaultNamespaceExtractor.map(_.namespace))
+  val dbValidation = new DatabaseNamespaceValidation(NamespaceDirectives.defaultNamespaceExtractor)
 
   private val tufTargetsPublisher = new TufTargetsPublisher(messageBusPublisher)
 
