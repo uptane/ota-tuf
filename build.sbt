@@ -54,6 +54,7 @@ lazy val serverDependencies = libraryDependencies ++= {
   )
 }
 
+
 lazy val commonSettings = Seq(
   organization := "io.github.uptane",
   scalaVersion := "2.12.14",
@@ -62,7 +63,7 @@ lazy val commonSettings = Seq(
   scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8", "-Xexperimental", "-Ypartial-unification"),
   Compile / console / scalacOptions ~= (_.filterNot(_ == "-Ywarn-unused-import")),
   resolvers += Resolver.sonatypeRepo("releases"),
-  libatsVersion := "1.0.2",
+  libatsVersion := "1.0.2-27-g759a6e9-SNAPSHOT",
   licenses += ("MPL-2.0", url("http://mozilla.org/MPL/2.0/")),
   description := "scala tuf implementation support",
   buildInfoOptions += BuildInfoOption.ToMap,
@@ -97,13 +98,13 @@ lazy val sonarSettings = Seq(
 )
 
 lazy val libtuf = (project in file("libtuf"))
-  .enablePlugins(BuildInfoPlugin, Versioning.Plugin)
+  .enablePlugins(Versioning.Plugin, BuildInfoPlugin)
   .configs(commonConfigs:_*)
   .settings(commonSettings)
   .settings(Publish.settings)
 
 lazy val libtuf_server = (project in file("libtuf-server"))
-  .enablePlugins(BuildInfoPlugin, Versioning.Plugin)
+  .enablePlugins(Versioning.Plugin, BuildInfoPlugin)
   .configs(commonConfigs:_*)
   .settings(commonSettings)
   .settings(serverDependencies)
@@ -114,9 +115,9 @@ lazy val keyserver = (project in file("keyserver"))
   .enablePlugins(BuildInfoPlugin, Versioning.Plugin, JavaAppPackaging)
   .configs(commonConfigs:_*)
   .settings(commonSettings)
-  .settings(Publish.disable)
   .settings(Packaging.docker("tuf-keyserver"))
   .settings(serverDependencies)
+  .settings(BuildInfoSettings("com.advancedtelematic.tuf.keyserver"))
   .dependsOn(libtuf)
   .dependsOn(libtuf_server)
 
@@ -125,16 +126,29 @@ lazy val reposerver = (project in file("reposerver"))
   .configs(commonConfigs:_*)
   .settings(commonSettings)
   .settings(serverDependencies)
-  .settings(Publish.disable)
   .settings(Packaging.docker("tuf-reposerver"))
+  .settings(BuildInfoSettings("com.advancedtelematic.tuf.reposerver"))
   .dependsOn(libtuf)
   .dependsOn(libtuf_server)
+
+lazy val tuf_server = (project in file("tuf-server"))
+  .enablePlugins(BuildInfoPlugin, Versioning.Plugin, JavaAppPackaging)
+  .configs(commonConfigs:_*)
+  .settings(commonSettings)
+  .settings(serverDependencies)
+  .settings(Packaging.docker("tuf-server"))
+  .settings(BuildInfoSettings("io.github.uptane.tuf.tuf_server"))
+  .dependsOn(libtuf)
+  .dependsOn(libtuf_server)
+  .dependsOn(keyserver)
+  .dependsOn(reposerver)
 
 lazy val cli = (project in file("cli"))
   .enablePlugins(BuildInfoPlugin, Versioning.Plugin, JavaAppPackaging, S3ReleasePlugin)
   .configs(commonConfigs:_*)
   .settings(commonSettings)
   .settings(Publish.disable)
+  .settings(BuildInfoSettings("com.advancedtelematic.tuf.cli"))
   .settings(
     topLevelDirectory := Some("garage-sign"),
     executableScriptName := "garage-sign",

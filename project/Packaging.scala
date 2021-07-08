@@ -11,7 +11,7 @@ import com.typesafe.sbt.packager.linux.LinuxPlugin.autoImport._
 object Packaging {
   def docker(distPackageName: String) = {
     Seq(
-      Docker / dockerRepository := Some("advancedtelematic"),
+      Docker / dockerRepository := Some("uptane"),
 
       Docker / packageName := distPackageName,
 

@@ -13,7 +13,6 @@ class R__MigrateKeysToJsonEncoded extends AppMigration  {
   Security.addProvider(new BouncyCastleProvider)
 
   implicit val system = ActorSystem(this.getClass.getSimpleName)
-  implicit val materializer = ActorMaterializer()
   import system.dispatcher
 
   override def migrate(implicit db: Database) = new KeysToJsonEncodedMigration().run.map(_ => ())
