@@ -3,14 +3,12 @@ package com.advancedtelematic.tuf.reposerver.http
 import akka.http.scaladsl.util.FastFuture
 import cats.data.Validated.{Invalid, Valid}
 import cats.data.ValidatedNel
-import cats.instances.string._
 import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, Delegations, TargetCustom, TargetsRole, TufRole}
 import com.advancedtelematic.libtuf.data.TufDataType.{RepoId, SignedPayload, TargetFilename, TufKey}
 import com.advancedtelematic.libtuf_server.repo.server.DataType._
 import com.advancedtelematic.tuf.reposerver.data.RepositoryDataType._
 import com.advancedtelematic.tuf.reposerver.db.{SignedRoleRepositorySupport, TargetItemRepositorySupport}
 import io.circe.Encoder
-import cats.implicits._
 import cats.data.Validated._
 import cats.data.NonEmptyList
 import com.advancedtelematic.libats.data.DataType.Checksum

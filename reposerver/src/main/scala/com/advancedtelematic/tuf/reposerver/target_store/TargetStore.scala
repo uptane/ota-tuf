@@ -2,8 +2,6 @@ package com.advancedtelematic.tuf.reposerver.target_store
 
 import java.net.URL
 import java.time.Instant
-
-import cats.implicits._
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
