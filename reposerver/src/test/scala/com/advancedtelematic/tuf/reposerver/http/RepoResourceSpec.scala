@@ -3,6 +3,7 @@ package com.advancedtelematic.tuf.reposerver.http
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
+import org.scalatest.EitherValues._
 import akka.http.scaladsl.model.Multipart.FormData.BodyPart
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers._
@@ -44,6 +45,7 @@ import org.scalatest.time.{Seconds, Span}
 import org.scalatest.{Assertion, BeforeAndAfterAll, Inspectors}
 
 import scala.concurrent.Future
+import org.scalatest.OptionValues._
 
 class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
   with ResourceSpec with BeforeAndAfterAll with Inspectors with Whenever with PatienceConfiguration with SignedRoleRepositorySupport {
@@ -664,6 +666,167 @@ class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
       custom.map(_.version) should contain(TargetVersion("someversion"))
       custom.map(_.hardwareIds.map(_.value)) should contain(Seq("1", "2", "3"))
       custom.flatMap(_.targetFormat) should contain(TargetFormat.BINARY)
+    }
+  }
+
+  test("accepts custom json to nest into target custom") {
+    val repoId = addTargetToRepo()
+    val targetFilename: TargetFilename = Refined.unsafeApply("target/with/desc")
+
+    Put(apiUri(s"repo/${repoId.show}/targets/${targetFilename.value}?name=somename&version=someversion"), form) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+    }
+
+    val payload = io.circe.jawn.parse("""{"param0":0,"param1":{"nested1":1,"nested2":"mystring"}}""").right.value
+
+    Patch(apiUri(s"repo/${repoId.show}/proprietary-custom/${targetFilename.value}"), payload) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+
+    Get(apiUri(s"repo/${repoId.show}/targets.json")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+
+      val custom = responseAs[SignedPayload[TargetsRole]].signed.targets(targetFilename).customParsed[TargetCustom].value
+      custom.name shouldBe TargetName("somename")
+      custom.version shouldBe TargetVersion("someversion")
+
+      custom.proprietary shouldBe payload
+    }
+  }
+
+  test("accepts empty object in custom proprietary json") {
+    val repoId = addTargetToRepo()
+    val targetFilename: TargetFilename = Refined.unsafeApply("target/with/desc")
+
+    Put(apiUri(s"""repo/${repoId.show}/targets/${targetFilename.value}?name=somename&version=someversion"""), form) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+    }
+
+    Patch(apiUri(s"""repo/${repoId.show}/proprietary-custom/${targetFilename.value}"""), Map("some" -> "value").asJson) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+
+    Patch(apiUri(s"""repo/${repoId.show}/proprietary-custom/${targetFilename.value}"""), Json.obj()) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+
+    Get(apiUri(s"repo/${repoId.show}/targets.json")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val custom = responseAs[SignedPayload[TargetsRole]].signed.targets(targetFilename).customParsed[TargetCustom].value
+      custom.proprietary shouldBe Json.obj()
+    }
+  }
+
+  test("PATCH target proprietary json attributes overwrite existing json parameters on top level") {
+    val repoId = addTargetToRepo()
+    val targetFilename: TargetFilename = Refined.unsafeApply("target/with/desc")
+
+    val payload = Map("myattr" -> Map("myattr1" -> 0)).asJson
+
+    Put(apiUri(s"""repo/${repoId.show}/targets/${targetFilename.value}?name=somename&version=someversion"""), form) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+    }
+
+    Patch(apiUri(s"""repo/${repoId.show}/proprietary-custom/${targetFilename.value}"""), payload) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+
+    val payload2 = Map("myattr" -> Map("myattr1" -> 2)).asJson
+
+    Patch(apiUri(s"""repo/${repoId.show}/proprietary-custom/${targetFilename.value}"""), payload2) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+
+    Get(apiUri(s"repo/${repoId.show}/targets.json")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+
+      val custom = responseAs[SignedPayload[TargetsRole]].signed.targets(targetFilename).customParsed[TargetCustom].value
+
+      custom.proprietary shouldBe payload2
+    }
+  }
+
+  test("PATCH proprietary json top level parameter overwrites entire object, does not deep merge") {
+    val repoId = addTargetToRepo()
+    val targetFilename: TargetFilename = Refined.unsafeApply("target/with/desc")
+
+    val payload = Map("myattr" -> Map("myattr1" -> 0)).asJson
+
+    Put(apiUri(s"""repo/${repoId.show}/targets/${targetFilename.value}?name=somename&version=someversion"""), form) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+    }
+
+    Patch(apiUri(s"""repo/${repoId.show}/proprietary-custom/${targetFilename.value}"""), payload) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+
+    val payload2 = Map("myattr" -> Map("myattr2" -> 2)).asJson
+
+    Patch(apiUri(s"""repo/${repoId.show}/proprietary-custom/${targetFilename.value}"""), payload2) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+
+    Get(apiUri(s"repo/${repoId.show}/targets.json")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+
+      val custom = responseAs[SignedPayload[TargetsRole]].signed.targets(targetFilename).customParsed[TargetCustom].value
+
+      custom.proprietary shouldBe payload2
+    }
+  }
+
+  test("PATCH proprietary json can add attributes on top level") {
+    val repoId = addTargetToRepo()
+    val targetFilename: TargetFilename = Refined.unsafeApply("target/with/desc")
+
+    val payload = Map("myattr" -> Map("myattr1" -> 0)).asJson
+
+    Put(apiUri(s"""repo/${repoId.show}/targets/${targetFilename.value}?name=somename&version=someversion"""), form) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+    }
+
+    Patch(apiUri(s"""repo/${repoId.show}/proprietary-custom/${targetFilename.value}"""), payload) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+
+    val payload2 = Map("myattr2" -> Map("myattr2" -> 2)).asJson
+
+    Patch(apiUri(s"""repo/${repoId.show}/proprietary-custom/${targetFilename.value}"""), payload2) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+
+    Get(apiUri(s"repo/${repoId.show}/targets.json")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+
+      val custom = responseAs[SignedPayload[TargetsRole]].signed.targets(targetFilename).customParsed[TargetCustom].value
+
+      custom.proprietary shouldBe Map("myattr2" -> Map("myattr2" -> 2), "myattr" -> Map("myattr1" -> 0)).asJson
+    }
+  }
+
+  test("PATCH proprietary json attributes cannot override non proprietary values") {
+    val repoId = addTargetToRepo()
+    val targetFilename: TargetFilename = Refined.unsafeApply("target/with/desc")
+
+    Put(apiUri(s"""repo/${repoId.show}/targets/${targetFilename.value}?name=somename&version=someversion"""), form) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+    }
+
+    val payload = Map("name" -> "othername", "version" -> "other-version", "myparam" -> "one").asJson
+
+    Patch(apiUri(s"""repo/${repoId.show}/proprietary-custom/${targetFilename.value}"""), payload) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+
+    Get(apiUri(s"repo/${repoId.show}/targets.json")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+
+      val custom = responseAs[SignedPayload[TargetsRole]].signed.targets(targetFilename).customParsed[TargetCustom].value
+
+      custom.name shouldBe TargetName("somename")
+      custom.version shouldBe TargetVersion("someversion")
+
+      custom.proprietary shouldBe Map("myparam" -> "one").asJson
     }
   }
 

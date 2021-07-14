@@ -12,7 +12,8 @@ import com.advancedtelematic.libtuf.data.TufDataType.TargetFormat.TargetFormat
 import com.advancedtelematic.libtuf.data.TufDataType.{HardwareIdentifier, KeyId, RoleType, TargetFilename, TargetName, TargetVersion, TufKey}
 import com.advancedtelematic.libtuf.data.ValidatedString.{ValidatedString, ValidatedStringValidation}
 import eu.timepit.refined.api.{Refined, Validate}
-import io.circe.{Decoder, Json}
+import io.circe.{Encoder, Decoder, Json}
+import io.circe.generic.semiauto._
 
 
 object ClientDataType {
@@ -116,6 +117,7 @@ object ClientDataType {
         "DelegatedPathPattern cannot be empty or bigger than 254 chars or contain `..`"
       )
     }
+    implicit val delegatedPatternCode = deriveCodec[DelegatedPathPattern]
   }
 
   final class DelegatedRoleName private (val value: String) extends ValidatedString

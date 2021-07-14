@@ -18,9 +18,7 @@ else
     MYSQLADMIN=mysqladmin
 fi
 
-until $MYSQLADMIN ping --silent --protocol=TCP -h $HOST -P 3306 -u root -proot; do
-    echo waiting for mysql; sleep 1
-done
+until $MYSQLADMIN ping --silent --protocol=TCP -h $HOST -P 3306 -u root -proot; do echo waiting for mysql; sleep 1; done
 
 $MYSQL -v -h $HOST -u root -proot <<EOF
 CREATE USER 'tuf_repo' identified by 'tuf_repo' ;

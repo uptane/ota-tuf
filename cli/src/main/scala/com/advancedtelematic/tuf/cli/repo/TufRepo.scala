@@ -251,7 +251,7 @@ abstract class TufRepo[S <: TufServerClient](val repoPath: Path)(implicit ec: Ex
     signatures
       .map { case (key, sig) => (keyStorage.readPublicKey(key), sig) }
       .sequence
-      .map { sigs =>
+      .map { sigs => // TODO: RSASSA_PSS_SHA256 hard coded here. This is not good enough.
         sigs.transform { case (key, sig) => ClientSignature(key.id, RSASSA_PSS_SHA256, sig) }
       }
   }

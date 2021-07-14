@@ -1,7 +1,6 @@
 package com.advancedtelematic.tuf.reposerver.db
 
 import java.time.Instant
-
 import scala.util.Success
 import scala.util.Failure
 import akka.NotUsed
@@ -19,7 +18,7 @@ import com.advancedtelematic.libats.slick.db.SlickExtensions._
 import com.advancedtelematic.libats.slick.codecs.SlickRefined._
 import com.advancedtelematic.libats.slick.db.SlickUUIDKey._
 import com.advancedtelematic.libats.slick.db.SlickAnyVal._
-import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, DelegatedRoleName, SnapshotRole, TimestampRole, TufRole}
+import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, DelegatedRoleName, SnapshotRole, TargetCustom, TimestampRole, TufRole}
 import com.advancedtelematic.libtuf_server.data.Requests.TargetComment
 import com.advancedtelematic.libtuf_server.data.TufSlickMappings._
 import com.advancedtelematic.tuf.reposerver.db.DBDataType.{DbDelegation, DbSignedRole}
@@ -54,6 +53,14 @@ protected [db] class TargetItemRepository()(implicit db: Database, ec: Execution
   import Schema.targetItems
 
   def persist(targetItem: TargetItem): Future[TargetItem] = db.run(persistAction(targetItem))
+
+  def setCustom(repoId: RepoId, targetFilename: TargetFilename, custom: Option[TargetCustom]): Future[Unit] = db.run {
+    targetItems
+      .filter(_.repoId === repoId).filter(_.filename === targetFilename)
+      .map(_.custom)
+      .update(custom)
+      .handleSingleUpdateError(TargetNotFoundError)
+  }
 
   def deleteItemAndComments(filenameComments: FilenameCommentRepository)(repoId: RepoId, filename: TargetFilename): Future[Unit] = db.run {
     filenameComments.deleteAction(repoId, filename)

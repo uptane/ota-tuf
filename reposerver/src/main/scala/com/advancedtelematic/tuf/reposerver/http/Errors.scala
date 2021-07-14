@@ -18,6 +18,7 @@ object ErrorCodes {
   val TooManyReposForNamespace = ErrorCode("too_many_repos_for_namespace")
   val DelegationNotFound = ErrorCode("delegations_not_found")
   val DelegationNotDefined = ErrorCode("delegations_not_defined")
+  val InvalidTrustedDelegations = ErrorCode("trusted_delegations_invalid")
   val PayloadSignatureInvalid = ErrorCode("payload_signature_invalid")
   val InvalidOfflineTargets = ErrorCode("invalid_offline_targets")
   val RequestCanceledByUpstream = ErrorCode("request_canceled_by_upstream")
@@ -46,6 +47,9 @@ object Errors {
 
   def InvalidOfflineTargets(errors: NonEmptyList[String]) =
     JsonError(ErrorCodes.InvalidOfflineTargets, StatusCodes.BadRequest, errors.asJson, "Invalid offline targets")
+
+  def InvalidTrustedDelegations(errors: NonEmptyList[String]) =
+    JsonError(ErrorCodes.InvalidTrustedDelegations, StatusCodes.BadRequest, errors.asJson, "Invalid trusted delegations")
 
   case class NotImplemented(message: String)
     extends com.advancedtelematic.libats.http.Errors.Error(com.advancedtelematic.libtuf.data.ErrorCodes.Reposerver.NotImplemented, StatusCodes.NotImplemented, message)

@@ -13,7 +13,7 @@ function get_token {
     client_id=$(jq -r '.oauth2.client_id' <<<"$treehub_creds")
     client_secret=$(jq -r '.oauth2.client_secret' <<<"$treehub_creds")
     scope=$(jq -r '.oauth2.scope' <<<"$treehub_creds")
-    curl -s -u "$client_id:$client_secret" "$auth_server" -d grant_type=client_credentials -d scope=$scope | jq -r .access_token
+    curl -s -u "$client_id:$client_secret" "$auth_server/token" -d grant_type=client_credentials -d scope=$scope | jq -r .access_token
 }
 
 while getopts ":hc:i:t:v:f:" opt; do
