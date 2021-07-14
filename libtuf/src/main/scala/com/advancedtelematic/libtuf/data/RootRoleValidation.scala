@@ -2,7 +2,6 @@ package com.advancedtelematic.libtuf.data
 
 import cats.data.Validated.Invalid
 import cats.data.{ValidatedNel, _}
-import cats.implicits._
 import com.advancedtelematic.libtuf.crypt.TufCrypto
 import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.libtuf.data.ClientDataType.RootRole

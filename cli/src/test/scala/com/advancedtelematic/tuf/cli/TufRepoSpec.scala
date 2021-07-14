@@ -5,8 +5,6 @@ import java.nio.file.Files
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.Base64
-
-import cats.implicits._
 import com.advancedtelematic.libats.data.DataType.{HashMethod, ValidChecksum}
 import com.advancedtelematic.libtuf.crypt.SignedPayloadSignatureOps._
 import com.advancedtelematic.libtuf.crypt.TufCrypto

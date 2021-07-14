@@ -11,7 +11,6 @@ import ClientDataType.TufRole._
 import io.circe.syntax._
 import cats.syntax.either._
 import cats.data.StateT
-import cats.instances.either._
 import io.circe._
 import io.circe.{ ACursor, Decoder, Json }
 
