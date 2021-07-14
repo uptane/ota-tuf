@@ -26,7 +26,7 @@ lazy val commonDeps = libraryDependencies ++= {
 
 lazy val serverDependencies = libraryDependencies ++= {
   lazy val akkaV = "2.6.5"
-  lazy val akkaHttpV = "10.1.12"
+  lazy val akkaHttpV = "10.1.14"
   lazy val libatsV = libatsVersion.value
   lazy val slickV = "3.2.0"
   lazy val catsV = "2.0.0"
