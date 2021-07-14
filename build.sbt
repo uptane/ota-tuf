@@ -63,7 +63,7 @@ lazy val commonSettings = Seq(
   organizationName := "uptane",
   organizationHomepage := Some(url("https://uptane.github.io/")),
   scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8", "-Xexperimental", "-Ypartial-unification"),
-  scalacOptions in (Compile, console) ~= (_.filterNot(_ == "-Ywarn-unused-import")),
+  Compile / console / scalacOptions ~= (_.filterNot(_ == "-Ywarn-unused-import")),
   resolvers += Resolver.sonatypeRepo("releases"),
   libatsVersion := "0.4.0-18-g8d4141f",
   licenses += ("MPL-2.0", url("http://mozilla.org/MPL/2.0/")),
@@ -73,8 +73,8 @@ lazy val commonSettings = Seq(
   dependencyCheckAssemblyAnalyzerEnabled := Some(false)) ++
   Seq(inConfig(ItTest)(Defaults.testTasks): _*) ++
   Seq(inConfig(UnitTest)(Defaults.testTasks): _*) ++
-  (testOptions in UnitTest := Seq(Tests.Filter(unitFilter))) ++
-  (testOptions in IntegrationTest := Seq(Tests.Filter(itFilter))) ++
+  (UnitTest / testOptions := Seq(Tests.Filter(unitFilter))) ++
+  (IntegrationTest / testOptions := Seq(Tests.Filter(itFilter))) ++
   Versioning.settings ++
   commonDeps
 
@@ -141,7 +141,7 @@ lazy val cli = (project in file("cli"))
   .settings(
     topLevelDirectory := Some("garage-sign"),
     executableScriptName := "garage-sign",
-    mappings in Universal += (file("cli/LICENSE") -> "docs/LICENSE"),
+    Universal / mappings += (file("cli/LICENSE") -> "docs/LICENSE"),
     s3Bucket := "ota-tuf-cli-releases",
     libraryDependencies += "com.typesafe" % "config" % "1.3.4" % Test,
     reinstallGarageSign := {
@@ -156,7 +156,7 @@ lazy val cli = (project in file("cli"))
       val targetDir = (new File(bin)).getParent
 
       stage.value
-      val stagingDir = (stagingDirectory in Universal).value
+      val stagingDir = (Universal / stagingDirectory).value
       val files = (stagingDir ** "*").get
       files.foreach { file =>
         val p = file.getAbsolutePath
@@ -176,7 +176,7 @@ lazy val ota_tuf = (project in file("."))
   .settings(Release.settings(libtuf, libtuf_server, keyserver, reposerver))
   .aggregate(libtuf_server, libtuf, keyserver, reposerver, cli)
   .settings(sonarSettings)
-  .settings(aggregate in sonarScan := false)
+  .settings(sonarScan / aggregate := false)
 
 lazy val reinstallGarageSign = taskKey[Unit]("Reinstall garage-sign in a dir in the home directory")
 
