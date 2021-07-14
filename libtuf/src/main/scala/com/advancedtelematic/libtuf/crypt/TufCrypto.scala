@@ -9,7 +9,6 @@ import java.security.{KeyFactory, MessageDigest, Signature => _, _}
 
 import cats.data.Validated.{Invalid, Valid}
 import cats.data.ValidatedNel
-import cats.implicits._
 import com.advancedtelematic.libats.data.RefinedUtils.RefineTry
 import com.advancedtelematic.libtuf.crypt.CanonicalJson._
 import com.advancedtelematic.libtuf.data.ClientDataType.{RootRole, TufRole}

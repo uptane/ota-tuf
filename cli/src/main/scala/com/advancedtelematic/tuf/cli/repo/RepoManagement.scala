@@ -4,8 +4,6 @@ import java.io._
 import java.net.URI
 import java.nio.file.{Files, Path}
 import java.util.zip.{ZipEntry, ZipFile, ZipOutputStream}
-
-import cats.implicits._
 import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.libtuf.data.ClientDataType.TufRole._
 import com.advancedtelematic.libtuf.data.ClientDataType.{RootRole, TufRole, TufRoleOps}
