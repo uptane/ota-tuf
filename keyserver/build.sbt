@@ -1,6 +1,6 @@
 libraryDependencies ++= {
   Seq(
-    "org.flywaydb" % "flyway-core" % "6.0.8"
+    "org.flywaydb" % "flyway-core" % "6.5.7"
   )
 }
 
