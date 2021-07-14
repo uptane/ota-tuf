@@ -11,7 +11,7 @@ import sbtrelease.ReleasePlugin.autoImport._
 object Release {
 
   def settings(toPublish: Project*) = {
-    val publishSteps = toPublish.map(p => ReleaseStep(releaseStepTask(publish in p), enableCrossBuild = true))
+    val publishSteps = toPublish.map(p => ReleaseStep(releaseStepTask(p / publish), enableCrossBuild = true))
 
     val prepareSteps: Seq[ReleaseStep] = Seq(
       checkSnapshotDependencies)

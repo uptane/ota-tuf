@@ -101,8 +101,6 @@ class CliKeyStorage private (root: Path) {
   } yield (pub, priv)
 
   def importPublicKey(pemPath: Path, keyNames: List[KeyName]): Try[Unit] = {
-    import cats.instances.list._
-    import cats.instances.try_._
     import cats.syntax.traverse._
 
     for {

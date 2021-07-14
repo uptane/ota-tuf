@@ -2,7 +2,6 @@ package com.advancedtelematic.tuf.reposerver.http
 
 import cats.data.Validated.{Invalid, Valid}
 import cats.data.{NonEmptyList, ValidatedNel}
-import cats.implicits._
 import com.advancedtelematic.libats.http.Errors.MissingEntityId
 import com.advancedtelematic.tuf.reposerver.http.Errors._
 import com.advancedtelematic.libtuf.data.ClientDataType.{Delegation, Delegations, TargetsRole}

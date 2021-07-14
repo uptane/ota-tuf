@@ -55,7 +55,7 @@ object S3ReleasePlugin extends AutoPlugin {
     s3DepsRelease := logTaskExceptions(streams.value.log) {
       import sbt._
       val log = streams.value.log
-      val graph = (moduleGraph in Compile in thisProject).value
+      val graph = (ThisProject / Compile / moduleGraph).value
       val upload = new S3Upload(log, s3Credentials.value)
 
       val depsUpload = new S3Dependenciesupload(log, upload)
