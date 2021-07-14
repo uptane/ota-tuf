@@ -18,7 +18,7 @@ lazy val commonDeps = libraryDependencies ++= {
   lazy val libatsV = libatsVersion.value
 
   Seq(
-    "org.scala-lang.modules" %% "scala-async" % "0.9.7",
+    "org.scala-lang.modules" %% "scala-async" % "0.9.6",
     "io.github.uptane" %% "libats" % libatsV,
     "org.scalatest" %% "scalatest" % scalaTestV % "test"
   )
