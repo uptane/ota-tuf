@@ -49,7 +49,7 @@ lazy val serverDependencies = libraryDependencies ++= {
     "io.github.uptane" %% "libats-logging" % libatsV,
     "com.typesafe.slick" %% "slick" % slickV,
     "com.typesafe.slick" %% "slick-hikaricp" % slickV,
-    "org.mariadb.jdbc" % "mariadb-java-client" % "2.4.4",
+    "org.mariadb.jdbc" % "mariadb-java-client" % "2.7.3",
 
     "org.typelevel" %% "cats-core" % catsV withSources(),
     "org.typelevel" %% "cats-kernel" % catsV,
