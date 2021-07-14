@@ -29,7 +29,7 @@ lazy val serverDependencies = libraryDependencies ++= {
   lazy val akkaHttpV = "10.1.12"
   lazy val libatsV = libatsVersion.value
   lazy val slickV = "3.2.0"
-  lazy val catsV = "2.0.0"
+  lazy val catsV = "2.6.1"
 
   Seq(
     "com.typesafe.akka" %% "akka-actor" % akkaV,
