@@ -65,7 +65,7 @@ lazy val commonSettings = Seq(
   scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8", "-Xexperimental", "-Ypartial-unification"),
   scalacOptions in (Compile, console) ~= (_.filterNot(_ == "-Ywarn-unused-import")),
   resolvers += Resolver.sonatypeRepo("releases"),
-  libatsVersion := "0.4.0-18-g8d4141f",
+  libatsVersion := "0.4.0-21-g0e8d408",
   licenses += ("MPL-2.0", url("http://mozilla.org/MPL/2.0/")),
   description := "scala tuf implementation support",
   buildInfoOptions += BuildInfoOption.ToMap,
