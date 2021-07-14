@@ -38,7 +38,7 @@ lazy val serverDependencies = libraryDependencies ++= {
     "com.typesafe.akka" %% "akka-http" % akkaHttpV,
     "com.typesafe.akka" %% "akka-slf4j" % akkaV,
     "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpV % "test",
-    "com.softwaremill.sttp.client" %% "akka-http-backend" % "2.0.9" % "test",
+    "com.softwaremill.sttp.client" %% "akka-http-backend" % "2.2.9" % "test",
 
     "io.github.uptane" %% "libats-http" % libatsV,
     "io.github.uptane" %% "libats-http-tracing" % libatsV,
