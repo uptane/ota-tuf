@@ -35,6 +35,6 @@ jobs:
           path: |
             .sbt
             .ivy2
-          key: ${{ runner.os }}-sbt-deps
+          key: ${{ runner.os }}-sbt-deps-1.5
       - run: ./deploy/gitlab-db-setup.sh mysql db
-      - run: sbt ut:test
+      - run: sbt clean ut:test
