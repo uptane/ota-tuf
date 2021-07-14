@@ -51,9 +51,7 @@ lazy val serverDependencies = libraryDependencies ++= {
     "com.typesafe.slick" %% "slick-hikaricp" % slickV,
     "org.mariadb.jdbc" % "mariadb-java-client" % "2.7.3",
 
-    "org.typelevel" %% "cats-core" % catsV withSources(),
-    "org.typelevel" %% "cats-kernel" % catsV,
-    "org.typelevel" %% "cats-macros" % catsV
+    "org.typelevel" %% "cats-core" % catsV withSources()
   )
 }
 
