@@ -57,7 +57,7 @@ lazy val serverDependencies = libraryDependencies ++= {
 
 lazy val commonSettings = Seq(
   organization := "io.github.uptane",
-  scalaVersion := "2.12.14",
+  scalaVersion := "2.13.6",
   organizationName := "uptane",
   organizationHomepage := Some(url("https://uptane.github.io/")),
   scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8", "-Xexperimental", "-Ypartial-unification"),
