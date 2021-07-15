@@ -19,6 +19,7 @@ import com.advancedtelematic.tuf.cli.repo._
 import eu.timepit.refined._
 import io.circe.syntax._
 import org.slf4j.LoggerFactory
+import cats.implicits._
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}

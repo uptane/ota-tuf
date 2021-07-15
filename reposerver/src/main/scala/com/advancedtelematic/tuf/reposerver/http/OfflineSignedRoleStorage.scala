@@ -9,7 +9,7 @@ import com.advancedtelematic.libtuf_server.repo.server.DataType._
 import com.advancedtelematic.tuf.reposerver.data.RepositoryDataType._
 import com.advancedtelematic.tuf.reposerver.db.{SignedRoleRepositorySupport, TargetItemRepositorySupport}
 import io.circe.Encoder
-import cats.data.Validated._
+import cats.implicits._
 import cats.data.NonEmptyList
 import com.advancedtelematic.libats.data.DataType.Checksum
 import com.advancedtelematic.libats.http.Errors.MissingEntityId

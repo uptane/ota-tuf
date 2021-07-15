@@ -1,6 +1,6 @@
 package com.advancedtelematic.tuf.reposerver.http
 
-import cats.data.Validated.{Invalid, Valid}
+import cats.syntax.validated._
 import cats.data.{NonEmptyList, ValidatedNel}
 import com.advancedtelematic.libats.http.Errors.MissingEntityId
 import com.advancedtelematic.tuf.reposerver.http.Errors._

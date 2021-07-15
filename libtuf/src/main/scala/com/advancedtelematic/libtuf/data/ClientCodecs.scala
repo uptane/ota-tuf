@@ -37,6 +37,7 @@ object ClientCodecs {
 
   implicit val targetCustomDecoder: Decoder[TargetCustom] = Decoder.fromState {
     import Decoder.state.decodeField
+    import cats.implicits._
 
     for {
       name <- decodeField[TargetName]("name")

@@ -16,11 +16,13 @@ lazy val commonConfigs = Seq(ItTest, UnitTest)
 lazy val commonDeps = libraryDependencies ++= {
   val scalaTestV = "3.0.9"
   lazy val libatsV = libatsVersion.value
+  lazy val catsV = "2.6.1"
 
   Seq(
     "org.scala-lang.modules" %% "scala-async" % "0.9.6",
     "io.github.uptane" %% "libats" % libatsV,
-    "org.scalatest" %% "scalatest" % scalaTestV % "test"
+    "org.scalatest" %% "scalatest" % scalaTestV % "test",
+    "org.typelevel" %% "cats-core" % catsV,
   )
 }
 
@@ -28,8 +30,7 @@ lazy val serverDependencies = libraryDependencies ++= {
   lazy val akkaV = "2.6.5"
   lazy val akkaHttpV = "10.1.12"
   lazy val libatsV = libatsVersion.value
-  lazy val slickV = "3.2.3"
-  lazy val catsV = "2.6.1"
+  lazy val slickV = "3.2.0"
 
   Seq(
     "com.typesafe.akka" %% "akka-actor" % akkaV,
@@ -49,9 +50,7 @@ lazy val serverDependencies = libraryDependencies ++= {
     "io.github.uptane" %% "libats-logging" % libatsV,
     "com.typesafe.slick" %% "slick" % slickV,
     "com.typesafe.slick" %% "slick-hikaricp" % slickV,
-    "org.mariadb.jdbc" % "mariadb-java-client" % "2.7.3",
-
-    "org.typelevel" %% "cats-core" % catsV withSources()
+    "org.mariadb.jdbc" % "mariadb-java-client" % "2.7.3"
   )
 }
 
@@ -141,7 +140,7 @@ lazy val cli = (project in file("cli"))
     executableScriptName := "garage-sign",
     Universal / mappings += (file("cli/LICENSE") -> "docs/LICENSE"),
     s3Bucket := "ota-tuf-cli-releases",
-    libraryDependencies += "com.typesafe" % "config" % "1.3.4" % Test,
+    libraryDependencies += "com.typesafe" % "config" % "1.4.1" % Test,
     reinstallGarageSign := {
       val home = sys.env("HOME")
       val bin = sys.env("PATH")
@@ -169,7 +168,7 @@ lazy val cli = (project in file("cli"))
   .dependsOn(libtuf)
 
 lazy val ota_tuf = (project in file("."))
-  .settings(scalaVersion := "2.12.10")
+  .settings(scalaVersion := "2.12.14")
   .settings(Publish.disable)
   .settings(Release.settings(libtuf, libtuf_server, keyserver, reposerver))
   .aggregate(libtuf_server, libtuf, keyserver, reposerver, cli)

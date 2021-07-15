@@ -1,6 +1,6 @@
 package com.advancedtelematic.tuf.reposerver.delegations
 
-import akka.http.scaladsl.util.FastFuture
+import cats.implicits._
 import cats.data.Validated.{Invalid, Valid}
 import cats.data.ValidatedNel
 import com.advancedtelematic.libats.data.RefinedUtils._
