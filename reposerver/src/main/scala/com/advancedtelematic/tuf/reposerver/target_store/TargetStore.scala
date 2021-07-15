@@ -23,7 +23,7 @@ import com.advancedtelematic.libtuf_server.repo.server.DataType._
 import com.advancedtelematic.tuf.reposerver.data.RepositoryDataType._
 import com.advancedtelematic.tuf.reposerver.data.RepositoryDataType.TargetItem
 import com.advancedtelematic.tuf.reposerver.http.Errors
-
+import cats.implicits._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NoStackTrace
 
