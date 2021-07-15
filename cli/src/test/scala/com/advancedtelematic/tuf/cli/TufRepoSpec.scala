@@ -24,6 +24,7 @@ import io.circe.jawn._
 import io.circe.syntax._
 import org.scalactic.source.Position
 import org.scalatest.{EitherValues, TryValues}
+import cats.syntax.all._
 
 import scala.util.Success
 

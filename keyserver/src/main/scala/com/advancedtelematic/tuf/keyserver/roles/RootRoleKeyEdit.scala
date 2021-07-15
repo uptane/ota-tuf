@@ -8,7 +8,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import com.advancedtelematic.tuf.keyserver.db.KeyRepository.KeyNotFound
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 import slick.jdbc.MySQLProfile.api._
-import cats.instances.map
+import cats.implicits._
 import com.advancedtelematic.libtuf.data.RootManipulationOps._
 
 class RootRoleKeyEdit()

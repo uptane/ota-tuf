@@ -16,6 +16,7 @@ import com.advancedtelematic.tuf.cli.repo.TufRepo.{MissingCredentialsZipFile, Re
 import io.circe.syntax._
 import io.circe.{Decoder, Encoder}
 import org.slf4j.LoggerFactory
+import cats.implicits._
 
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext

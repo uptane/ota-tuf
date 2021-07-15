@@ -7,6 +7,7 @@ import java.nio.file.attribute.PosixFilePermissions
 import java.nio.file.{Files, Path}
 import java.time.Instant
 
+import cats.implicits._
 import cats.data.NonEmptyList
 import cats.data.Validated.{Invalid, Valid}
 import com.advancedtelematic.libats.data.DataType.ValidChecksum
