@@ -7,10 +7,7 @@ import java.security.interfaces.RSAPublicKey
 import java.security.spec.{PKCS8EncodedKeySpec, X509EncodedKeySpec}
 import java.security.{KeyFactory, MessageDigest, Signature => _, _}
 
-import cats.syntax.either._
 import cats.implicits._
-import cats.syntax.option._
-import cats.syntax.validated._
 import cats.data.Validated.{Invalid, Valid}
 import cats.data.ValidatedNel
 import com.advancedtelematic.libats.data.RefinedUtils.RefineTry

@@ -19,6 +19,7 @@ import com.advancedtelematic.libtuf.crypt.TufCrypto
 import com.advancedtelematic.libtuf.data.ClientDataType.TufRole._
 import com.advancedtelematic.libtuf_server.repo.server.Errors.SignedRoleNotFound
 
+import cats.implicits._
 import scala.async.Async.{async, await}
 import scala.concurrent.{ExecutionContext, Future}
 import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient

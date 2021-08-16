@@ -16,7 +16,7 @@ import java.nio.file.attribute.{PosixFilePermission, PosixFilePermissions}
 import java.nio.file.{FileAlreadyExistsException, Files, Path}
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
-
+import cats.implicits._
 
 object CliKeyStorage {
   def forUser(path: Path): CliKeyStorage = new CliKeyStorage(path)
