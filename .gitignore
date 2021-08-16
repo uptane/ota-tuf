@@ -17,3 +17,5 @@ README.html
 .idea/
 
 aws.env
+.bloop/
+.bsp/
