@@ -1,13 +1,13 @@
 package com.advancedtelematic.tuf.reposerver.http
 
 import java.time.Instant
-
 import com.advancedtelematic.libtuf.data.ClientDataType.TargetCustom
-import org.scalatest.{FunSuite, Matchers}
 import io.circe.parser._
 import cats.syntax.either._
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
-class TargetCustomDecoderSpec extends FunSuite with Matchers {
+class TargetCustomDecoderSpec extends AnyFunSuite with Matchers {
   import com.advancedtelematic.libtuf.data.ClientCodecs.targetCustomDecoder
 
   test("decoder can decode new json") {

@@ -9,10 +9,10 @@ import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 import com.advancedtelematic.libtuf.data.TufDataType.TargetFormat.TargetFormat
 import ClientDataType.TufRole._
 import io.circe.syntax._
-import cats.syntax.either._
 import cats.data.StateT
 import io.circe._
 import io.circe.{ ACursor, Decoder, Json }
+import cats.implicits._
 
 object ClientCodecs {
   import TufCodecs._

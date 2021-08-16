@@ -9,6 +9,7 @@ import com.advancedtelematic.libtuf.data.TufDataType.{KeyId, RoleType, JsonSigne
 import cats.implicits._
 import io.circe.syntax._
 import com.advancedtelematic.libtuf.crypt.CanonicalJson._
+import cats.implicits._
 
 
 object RootRoleValidation {
