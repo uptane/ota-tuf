@@ -53,7 +53,7 @@ jobs:
         with:
           java-version: adopt@1.8
       - uses: coursier/cache-action@v6
-      - run: cli/packageZipTarball
+      - run: sbt cli/packageZipTarball
       - name: Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
