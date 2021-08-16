@@ -1,8 +1,8 @@
 package com.advancedtelematic.tuf.reposerver.http
 
 import akka.http.scaladsl.server.{AuthorizationFailedRejection, Directive1, Directives}
-import com.advancedtelematic.libats.auth.NamespaceDirectives
 import com.advancedtelematic.libats.data.DataType.Namespace
+import com.advancedtelematic.libats.http.NamespaceDirectives
 import com.advancedtelematic.libtuf.data.TufDataType.RepoId
 import com.advancedtelematic.tuf.reposerver.db.RepoNamespaceRepositorySupport
 import org.slf4j.LoggerFactory
@@ -35,7 +35,7 @@ class DatabaseNamespaceValidation(extractor: Directive1[Namespace])
 }
 
 object NamespaceValidation {
-  private lazy val default: Directive1[Namespace] = NamespaceDirectives.defaultNamespaceExtractor.map(_.namespace)
+  private lazy val default: Directive1[Namespace] = NamespaceDirectives.defaultNamespaceExtractor
 
   def withDatabase(implicit ec: ExecutionContext, db: Database): NamespaceValidation =
     new DatabaseNamespaceValidation(default)

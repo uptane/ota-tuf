@@ -19,14 +19,14 @@ lazy val commonDeps = libraryDependencies ++= {
 
   Seq(
     "org.scala-lang.modules" %% "scala-async" % "0.9.6",
-    "com.advancedtelematic" %% "libats" % libatsV,
+    "io.github.uptane" %% "libats" % libatsV,
     "org.scalatest" %% "scalatest" % scalaTestV % "test"
   )
 }
 
 lazy val serverDependencies = libraryDependencies ++= {
-  lazy val akkaV = "2.5.26"
-  lazy val akkaHttpV = "10.1.11"
+  lazy val akkaV = "2.6.5"
+  lazy val akkaHttpV = "10.1.12"
   lazy val libatsV = libatsVersion.value
   lazy val slickV = "3.2.0"
   lazy val catsV = "2.0.0"
@@ -40,13 +40,13 @@ lazy val serverDependencies = libraryDependencies ++= {
     "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpV % "test",
     "com.softwaremill.sttp.client" %% "akka-http-backend" % "2.0.6" % "test",
 
-    "com.advancedtelematic" %% "libats-http" % libatsV,
-    "com.advancedtelematic" %% "libats-http-tracing" % libatsV,
-    "com.advancedtelematic" %% "libats-messaging" % libatsV,
-    "com.advancedtelematic" %% "libats-metrics-akka" % libatsV,
-    "com.advancedtelematic" %% "libats-metrics-prometheus" % libatsV,
-    "com.advancedtelematic" %% "libats-slick" % libatsV,
-    "com.advancedtelematic" %% "libats-logging" % libatsV,
+    "io.github.uptane" %% "libats-http" % libatsV,
+    "io.github.uptane" %% "libats-http-tracing" % libatsV,
+    "io.github.uptane" %% "libats-messaging" % libatsV,
+    "io.github.uptane" %% "libats-metrics-akka" % libatsV,
+    "io.github.uptane" %% "libats-metrics-prometheus" % libatsV,
+    "io.github.uptane" %% "libats-slick" % libatsV,
+    "io.github.uptane" %% "libats-logging" % libatsV,
     "com.typesafe.slick" %% "slick" % slickV,
     "com.typesafe.slick" %% "slick-hikaricp" % slickV,
     "org.mariadb.jdbc" % "mariadb-java-client" % "2.4.4",
@@ -58,14 +58,16 @@ lazy val serverDependencies = libraryDependencies ++= {
 }
 
 lazy val commonSettings = Seq(
-  organization := "com.advancedtelematic",
+  organization := "io.github.uptane",
   scalaVersion := "2.12.10",
+  organizationName := "uptane",
+  organizationHomepage := Some(url("https://uptane.github.io/")),
   scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8", "-Xexperimental", "-Ypartial-unification"),
   scalacOptions in (Compile, console) ~= (_.filterNot(_ == "-Ywarn-unused-import")),
-  resolvers += "ATS Releases" at "https://nexus.ota.here.com/content/repositories/releases",
-  resolvers += "ATS Snapshots" at "https://nexus.ota.here.com/content/repositories/snapshots",
-  libatsVersion := "0.3.0-109-ge12f057",
+  resolvers += Resolver.sonatypeRepo("releases"),
+  libatsVersion := "0.4.0-18-g8d4141f",
   licenses += ("MPL-2.0", url("http://mozilla.org/MPL/2.0/")),
+  description := "scala tuf implementation support",
   buildInfoOptions += BuildInfoOption.ToMap,
   buildInfoOptions += BuildInfoOption.BuildTime,
   dependencyCheckAssemblyAnalyzerEnabled := Some(false)) ++
