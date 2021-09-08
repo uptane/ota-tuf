@@ -60,9 +60,10 @@ object TufDataType {
   object RoleType extends Enumeration {
     type RoleType = Value
 
-    val ROOT, SNAPSHOT, TARGETS, TIMESTAMP = Value
+    val ROOT, SNAPSHOT, TARGETS, TIMESTAMP, OFFLINE_TARGETS = Value
 
-    val ALL = List(ROOT, SNAPSHOT, TARGETS, TIMESTAMP)
+    // TUF_ALL does not include OFFLINE_TARGETS which is only used in UPTANE, not TUF
+    val TUF_ALL = List(ROOT, SNAPSHOT, TARGETS, TIMESTAMP)
 
     implicit val show = Show.show[Value](_.toString.toLowerCase)
   }

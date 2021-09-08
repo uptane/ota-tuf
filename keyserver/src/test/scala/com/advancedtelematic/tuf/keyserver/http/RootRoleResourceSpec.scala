@@ -32,7 +32,7 @@ import com.advancedtelematic.tuf.keyserver.roles.SignedRootRoles
 
 import scala.async.Async.await
 import scala.concurrent.{ExecutionContext, Future}
-
+import org.scalatest.OptionValues._
 
 class RootRoleResourceSpec extends TufKeyserverSpec
   with ResourceSpec
@@ -99,7 +99,7 @@ class RootRoleResourceSpec extends TufKeyserverSpec
 
     val requests = keyGenRepo.findBy(repoId).futureValue
 
-    requests.size shouldBe RoleType.ALL.size
+    requests.size shouldBe RoleType.TUF_ALL.size
 
     requests.map(_.status) should contain only KeyGenRequestStatus.REQUESTED
   }
@@ -121,7 +121,7 @@ class RootRoleResourceSpec extends TufKeyserverSpec
 
       signedPayload.signatures should have size 1 // Signed with root only
 
-      rootRole.keys should have size RoleType.ALL.size
+      rootRole.keys should have size RoleType.TUF_ALL.size
 
       forAll(rootRole.keys.values) { key ⇒
         key.keytype shouldBe keyType
@@ -138,9 +138,9 @@ class RootRoleResourceSpec extends TufKeyserverSpec
 
     val requests = keyGenRepo.findBy(repoId).futureValue
 
-    requests.size shouldBe RoleType.ALL.size
+    requests.size shouldBe RoleType.TUF_ALL.size
 
-    requests.map(_.roleType) should contain allElementsOf RoleType.ALL
+    requests.map(_.roleType) should contain allElementsOf RoleType.TUF_ALL
   }
 
   keyTypeTest("PUT forces a retry on ERROR requests ") { keyType =>
@@ -220,10 +220,10 @@ class RootRoleResourceSpec extends TufKeyserverSpec
 
       signedPayload.signatures should have size 1 // Signed with root only
 
-      rootRole.keys should have size RoleType.ALL.size
+      rootRole.keys should have size RoleType.TUF_ALL.size
 
-      rootRole.roles should have size RoleType.ALL.size
-      rootRole.roles.keys should contain allElementsOf RoleType.ALL
+      rootRole.roles should have size RoleType.TUF_ALL.size
+      rootRole.roles.keys should contain allElementsOf RoleType.TUF_ALL
     }
   }
 
@@ -251,9 +251,9 @@ class RootRoleResourceSpec extends TufKeyserverSpec
 
       signedPayload.signatures should have size 4 // Signed with root only
 
-      rootRole.keys should have size RoleType.ALL.size * 4
+      rootRole.keys should have size RoleType.TUF_ALL.size * 4
 
-      forAll(RoleType.ALL) { t =>
+      forAll(RoleType.TUF_ALL) { t =>
         rootRole.roles(t).threshold shouldBe 4
         rootRole.roles(t).keyids should have size 4
       }
@@ -799,6 +799,53 @@ class RootRoleResourceSpec extends TufKeyserverSpec
     keyRepo.find(targetsKeyId).futureValue shouldBe a[Key]
 
     keyRepo.find(rootKeyId).futureValue shouldBe a[Key]
+  }
+
+  test("adds offline-targets role if does not exist") {
+    val repoId = RepoId.generate()
+    generateRootRole(repoId, Ed25519KeyType).futureValue
+
+    val oldRoot = fetchLatestRootOk(repoId).signed
+
+    Put(apiUri(s"root/${repoId.show}/roles/offline-targets")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+    }
+
+    val newRoot = fetchLatestRootOk(repoId).signed
+    newRoot.version shouldBe oldRoot.version + 1
+
+    val keys = newRoot.roles.get(RoleType.OFFLINE_TARGETS).value
+
+    keys.keyids shouldNot be(empty)
+    keys.threshold shouldBe 1
+  }
+
+  test("does not add offline-targets role if already exists") {
+    val repoId = RepoId.generate()
+    generateRootRole(repoId, Ed25519KeyType).futureValue
+
+    val oldRoot = fetchLatestRootOk(repoId).signed
+
+    Put(apiUri(s"root/${repoId.show}/roles/offline-targets")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+    }
+
+    val newRoot = fetchLatestRootOk(repoId).signed
+    newRoot.version shouldBe oldRoot.version + 1
+
+    Put(apiUri(s"root/${repoId.show}/roles/offline-targets")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+    }
+
+    val newRoot2 = fetchLatestRootOk(repoId).signed
+    newRoot2 shouldBe newRoot
+  }
+
+  def fetchLatestRootOk(repoId: RepoId): SignedPayload[RootRole] = {
+    Get(apiUri(s"root/${repoId.show}")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      responseAs[SignedPayload[RootRole]]
+    }
   }
 
   def signWithKeyPair(keyId: KeyId, priv: TufPrivateKey, role: RootRole): ClientSignature = {

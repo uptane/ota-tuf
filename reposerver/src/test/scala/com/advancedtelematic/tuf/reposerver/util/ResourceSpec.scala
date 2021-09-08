@@ -63,7 +63,7 @@ class FakeKeyserverClient extends KeyserverClient {
 
   private lazy val preGeneratedKeys: Map[KeyType, Map[RoleType, TufKeyPair]] =
     Seq(RsaKeyType, Ed25519KeyType).map { keyType =>
-      keyType -> RoleType.ALL.map { role =>
+      keyType -> RoleType.TUF_ALL.map { role =>
         role -> keyType.crypto.generateKeyPair()
       }.toMap
     }.toMap

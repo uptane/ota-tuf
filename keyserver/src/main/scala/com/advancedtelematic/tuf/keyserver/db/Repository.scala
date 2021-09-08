@@ -166,7 +166,7 @@ protected[db] class SignedRootRoleRepository()(implicit db: Database, ec: Execut
       .sortBy(_.version.desc)
       .map(_.version)
       .result
-      .headOption
+      .headOption // TODO: Just use max
       .map(_.getOrElse(0) + 1)
   }
 

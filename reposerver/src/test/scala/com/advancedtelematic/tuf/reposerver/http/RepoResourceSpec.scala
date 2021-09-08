@@ -141,7 +141,7 @@ class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
       status shouldBe StatusCodes.OK
     }
 
-    forAll(RoleType.ALL.reverse) { roleType =>
+    forAll(RoleType.TUF_ALL.reverse) { roleType =>
       Get(apiUri(s"repo/${repoId.show}/$roleType.json")) ~> routes ~> check {
         status shouldBe StatusCodes.OK
 
@@ -330,7 +330,7 @@ class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
       responseAs[SignedPayload[TargetsRole]].signed.targets should be(empty)
     }
 
-    forAll(RoleType.ALL) { roleType =>
+    forAll(RoleType.TUF_ALL) { roleType =>
       Get(apiUri(s"repo/${repoId.show}/$roleType.json")) ~> routes ~> check {
         status shouldBe StatusCodes.OK
       }
