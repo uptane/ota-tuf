@@ -163,10 +163,9 @@ protected[db] class SignedRootRoleRepository()(implicit db: Database, ec: Execut
   def nextVersion(repoId: RepoId): Future[Int] = db.run {
     signedRootRoles
       .filter(_.repoId === repoId)
-      .sortBy(_.version.desc)
       .map(_.version)
+      .max
       .result
-      .headOption // TODO: Just use max
       .map(_.getOrElse(0) + 1)
   }
 
@@ -185,7 +184,6 @@ protected[db] class SignedRootRoleRepository()(implicit db: Database, ec: Execut
       signedRootRoles
         .filter(_.repoId === repoId)
         .filter(_.version === version)
-        .sortBy(_.version.desc)
         .result
         .failIfNotSingle(MissingSignedRole)
     }
