@@ -1,15 +1,13 @@
 package com.advancedtelematic.tuf.reposerver.http
 
 import java.time.Instant
-
 import akka.http.scaladsl.util.FastFuture
-import com.advancedtelematic.libats.test.DatabaseSpec
 import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.libtuf.data.ClientDataType.{TimestampRole, _}
 import com.advancedtelematic.libtuf.data.TufDataType.{Ed25519KeyType, RepoId, RoleType}
 import com.advancedtelematic.libtuf_server.repo.server.RepoRoleRefresh
 import com.advancedtelematic.tuf.reposerver.db.SignedRoleRepositorySupport
-import com.advancedtelematic.tuf.reposerver.util.{FakeKeyserverClient, TufReposerverSpec}
+import com.advancedtelematic.tuf.reposerver.util.{DatabaseSpec, FakeKeyserverClient, TufReposerverSpec}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Seconds, Span}
 

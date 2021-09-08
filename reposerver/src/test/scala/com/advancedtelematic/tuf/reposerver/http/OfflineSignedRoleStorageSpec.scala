@@ -8,7 +8,6 @@ import akka.http.scaladsl.model.Uri
 import io.circe.syntax._
 import cats.data.Validated.Valid
 import cats.data.ValidatedNel
-import com.advancedtelematic.libats.test.DatabaseSpec
 import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, TargetCustom, TargetsRole}
 import com.advancedtelematic.libtuf.data.TufDataType.{RepoId, RoleType, SignedPayload, TargetFilename, TargetFormat, ValidTargetFilename}
 import com.advancedtelematic.tuf.reposerver.util._

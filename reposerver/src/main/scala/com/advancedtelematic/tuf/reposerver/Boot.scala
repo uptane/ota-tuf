@@ -117,5 +117,5 @@ object Boot extends BootApp
       }
     }
 
-  Http().bindAndHandle(routes, host, port)
+  Http().newServerAt(host, port).bindFlow(routes)
 }

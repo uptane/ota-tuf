@@ -1,12 +1,11 @@
 package com.advancedtelematic.tuf.keyserver.db
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
 import akka.testkit.TestKitBase
 import com.advancedtelematic.libats.data.RefinedUtils._
-import com.advancedtelematic.libats.test.{DatabaseSpec, LongTest}
+import com.advancedtelematic.libats.test.LongTest
 import com.advancedtelematic.libtuf.data.TufDataType.{RSATufKey, ValidKeyId}
-import com.advancedtelematic.tuf.util.TufKeyserverSpec
+import com.advancedtelematic.tuf.util.{DatabaseSpec, TufKeyserverSpec}
 import org.scalatest.concurrent.PatienceConfiguration
 import slick.jdbc.MySQLProfile.api._
 
@@ -16,8 +15,6 @@ class KeysToJsonEncodedMigrationSpec extends TufKeyserverSpec with TestKitBase w
   with KeyRepositorySupport {
 
   override implicit lazy val system: ActorSystem = ActorSystem(this.getClass.getSimpleName)
-
-  implicit val mat = ActorMaterializer()
 
   implicit val ec = ExecutionContext.Implicits.global
 

@@ -9,6 +9,12 @@ import com.advancedtelematic.libtuf.data.ClientDataType.TargetCustom
 import com.advancedtelematic.libtuf.data.TufCodecs._
 import com.advancedtelematic.libtuf.data.TufDataType.{EcPrime256KeyType, Ed25519KeyType, JsonSignedPayload, KeyType, RoleType, RsaKeyType, TufKey, TufPrivateKey}
 import slick.jdbc.MySQLProfile.api._
+import com.advancedtelematic.libats.slick.db.SlickCirceMapper
+import com.advancedtelematic.libtuf.data.ValidatedString
+import com.advancedtelematic.libtuf.data.ValidatedString.{ValidatedString, ValidatedStringValidation}
+import slick.jdbc.MySQLProfile.api._
+
+import scala.reflect.ClassTag
 
 object TufSlickMappings {
 
@@ -36,4 +42,10 @@ object TufSlickMappings {
   implicit val tufKeyMapper = SlickCirceMapper.circeMapper[TufKey]
 
   implicit val encryptedTufPrivateKeyMapper = SlickEncryptedColumn.encryptedColumnJsonMapper[TufPrivateKey]
+
+  implicit def validatedStringMapper[W <: ValidatedString : ClassTag](implicit validation: ValidatedStringValidation[W]) = {
+    implicit val decoder = ValidatedString.validatedStringDecoder[W]
+    implicit val encoder = ValidatedString.validatedStringEncoder[W]
+    SlickCirceMapper.circeMapper[W]
+  }
 }

@@ -3,8 +3,6 @@ package com.advancedtelematic.tuf.keyserver.http
 
 import java.time.temporal.ChronoUnit
 import java.time.{Duration, Instant}
-
-import com.advancedtelematic.libats.test.DatabaseSpec
 import com.advancedtelematic.libtuf.crypt.CanonicalJson._
 import com.advancedtelematic.libtuf.crypt.TufCrypto
 import com.advancedtelematic.libtuf.data.ClientCodecs._
@@ -15,7 +13,7 @@ import com.advancedtelematic.tuf.keyserver.daemon.DefaultKeyGenerationOp
 import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType.{KeyGenId, KeyGenRequest, KeyGenRequestStatus}
 import com.advancedtelematic.tuf.keyserver.db.{KeyGenRequestSupport, KeyRepositorySupport, SignedRootRoleSupport}
 import com.advancedtelematic.tuf.keyserver.roles.SignedRootRoles
-import com.advancedtelematic.tuf.util.{KeyTypeSpecSupport, TufKeyserverSpec}
+import com.advancedtelematic.tuf.util.{DatabaseSpec, KeyTypeSpecSupport, TufKeyserverSpec}
 import io.circe.syntax._
 import org.scalatest.Inspectors
 import org.scalatest.concurrent.PatienceConfiguration

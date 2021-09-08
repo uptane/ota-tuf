@@ -2,7 +2,6 @@ package com.advancedtelematic.libtuf.data
 
 import java.net.URI
 import java.time.Instant
-
 import com.advancedtelematic.libtuf.data.ClientDataType._
 import com.advancedtelematic.libtuf.data.TufDataType.{HardwareIdentifier, RoleType, TargetFormat, TargetName, TargetVersion}
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
@@ -11,7 +10,7 @@ import ClientDataType.TufRole._
 import io.circe.syntax._
 import cats.data.StateT
 import io.circe._
-import io.circe.{ ACursor, Decoder, Json }
+import io.circe.{ACursor, Decoder, Json}
 import cats.implicits._
 
 object ClientCodecs {
@@ -29,11 +28,11 @@ object ClientCodecs {
   implicit val roleKeyDecoder: Decoder[RoleKeys] = deriveDecoder
 
 
-  implicit val targetNameEncoder: Encoder[TargetName] = anyValStringEncoder
-  implicit val targetNameDecoder: Decoder[TargetName] = anyValStringDecoder
+  implicit val targetNameEncoder: Encoder[TargetName] = Encoder.encodeString.contramap(_.value)
+  implicit val targetNameDecoder: Decoder[TargetName] = Decoder.decodeString.map(TargetName)
 
-  implicit val targetVersionEncoder: Encoder[TargetVersion] = anyValStringEncoder
-  implicit val targetVersionDecoder: Decoder[TargetVersion] = anyValStringDecoder
+  implicit val targetVersionEncoder: Encoder[TargetVersion] = Encoder.encodeString.contramap(_.value)
+  implicit val targetVersionDecoder: Decoder[TargetVersion] = Decoder.decodeString.map(TargetVersion)
 
   implicit val targetCustomDecoder: Decoder[TargetCustom] = Decoder.fromState {
     import Decoder.state.decodeField

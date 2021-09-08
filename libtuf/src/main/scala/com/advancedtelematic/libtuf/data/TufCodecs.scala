@@ -6,6 +6,7 @@ import com.advancedtelematic.libtuf.crypt.TufCrypto
 import com.advancedtelematic.libtuf.data.TufDataType.{EcPrime256KeyType, _}
 import io.circe._
 import cats.syntax.functor._
+import com.advancedtelematic.libats.codecs.CirceAnyVal
 import com.advancedtelematic.libtuf.data.TufDataType.SignatureMethod.SignatureMethod
 
 import scala.util.Try
@@ -119,8 +120,8 @@ object TufCodecs {
     } yield pair
   }
 
-  implicit val multipartUploadIdCodec: Codec[MultipartUploadId] = Codec.from(anyValStringDecoder, anyValStringEncoder)
-  implicit val eTagCodec: Codec[ETag] = Codec.from(anyValStringDecoder, anyValStringEncoder)
+  implicit val multipartUploadIdCodec: Codec[MultipartUploadId] = Codec.from(CirceAnyVal.anyValStringDecoder, CirceAnyVal.anyValStringEncoder)
+  implicit val eTagCodec: Codec[ETag] = Codec.from(CirceAnyVal.anyValStringDecoder, CirceAnyVal.anyValStringEncoder)
 
   implicit val uploadPartETagCodec: Codec[UploadPartETag] = deriveCodec
   implicit val initMultipartUploadResultCodec: Codec[InitMultipartUploadResult] = deriveCodec

@@ -3,11 +3,10 @@ package com.advancedtelematic.tuf.keyserver.daemon
 import akka.actor.{ActorSystem, Props, Status}
 import akka.testkit.{ImplicitSender, TestKitBase, TestProbe}
 import com.advancedtelematic.libats.http.Errors.MissingEntity
-import com.advancedtelematic.libats.test.DatabaseSpec
 import com.advancedtelematic.libtuf.data.TufDataType.{Ed25519TufKey, KeyId, KeyType, RSATufKey, RepoId, RoleType}
 import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType.{KeyGenRequestStatus, _}
 import com.advancedtelematic.tuf.keyserver.db.{KeyGenRequestSupport, KeyRepositorySupport}
-import com.advancedtelematic.tuf.util.{KeyTypeSpecSupport, TufKeyserverSpec}
+import com.advancedtelematic.tuf.util.{DatabaseSpec, KeyTypeSpecSupport, TufKeyserverSpec}
 import org.scalatest.concurrent.PatienceConfiguration
 import org.scalatest.time.{Milliseconds, Seconds, Span}
 

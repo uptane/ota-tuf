@@ -3,10 +3,9 @@ package com.advancedtelematic.tuf.keyserver.roles
 import com.advancedtelematic.libtuf.crypt.CanonicalJson._
 import com.advancedtelematic.libtuf.data.TufDataType.{KeyType, RepoId, RoleType, Signature, TufKeyPair}
 import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType._
-import com.advancedtelematic.tuf.util.{KeyTypeSpecSupport, TufKeyserverSpec}
+import com.advancedtelematic.tuf.util.{DatabaseSpec, KeyTypeSpecSupport, TufKeyserverSpec}
 import io.circe.syntax._
 import com.advancedtelematic.libtuf.crypt.CanonicalJson._
-import com.advancedtelematic.libats.test.DatabaseSpec
 import com.advancedtelematic.libtuf.crypt.TufCrypto
 import com.advancedtelematic.tuf.keyserver.db.KeyRepositorySupport
 import org.bouncycastle.util.encoders.Base64

@@ -8,7 +8,6 @@ import akka.http.scaladsl.server.Route
 
 import scala.concurrent.duration._
 import akka.testkit.TestDuration
-import com.advancedtelematic.libats.test.DatabaseSpec
 import com.advancedtelematic.libtuf.data.TufDataType.{Ed25519KeyType, KeyType, RepoId, RsaKeyType}
 import com.advancedtelematic.tuf.keyserver.daemon.DefaultKeyGenerationOp
 import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType.Key

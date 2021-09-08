@@ -27,7 +27,7 @@ import com.advancedtelematic.tuf.reposerver.http.Errors._
 import com.advancedtelematic.libtuf_server.repo.server.Errors.SignedRoleNotFound
 import shapeless.ops.function.FnToProduct
 import shapeless.{Generic, HList, Succ}
-import SlickValidatedString._
+import com.advancedtelematic.libtuf_server.data.TufSlickMappings.validatedStringMapper
 import com.advancedtelematic.libtuf_server.repo.server.SignedRoleProvider
 import com.advancedtelematic.tuf.reposerver.data.RepositoryDataType.TargetItem
 
