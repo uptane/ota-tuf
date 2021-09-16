@@ -38,6 +38,8 @@ object TufCodecs {
     }.toTry
   }
 
+  implicit def signedPayloadCodec[T : Encoder : Decoder]: Codec[SignedPayload[T]] = io.circe.Codec.from(signedPayloadDecoder, signedPayloadEncoder)
+
   implicit val jsonSignedPayloadEncoder: Encoder[JsonSignedPayload] = deriveEncoder
   implicit val jsonSignedPayloadDecoder: Decoder[JsonSignedPayload] = deriveDecoder
 

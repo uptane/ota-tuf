@@ -107,15 +107,17 @@ object Boot extends BootApp
 
   implicit val tracing = Tracing.fromConfig(config, "reposerver")
 
-  val routes: Route =
-    (versionHeaders(version) & requestMetrics(metricRegistry) & logResponseMetrics(projectName) & logRequestResult(("reposerver", Logging.DebugLevel))) {
-      tracing.traceRequests { implicit requestTracing =>
-        new TufReposerverRoutes(keyStoreClient, NamespaceValidation.withDatabase, targetStore,
-          messageBusPublisher,
-          prometheusMetricsRoutes,
-          Seq(keyserverHealthCheck)).routes
+  def main(args: Array[String]): Unit = {
+    val routes: Route =
+      (versionHeaders(version) & requestMetrics(metricRegistry) & logResponseMetrics(projectName) & logRequestResult(("reposerver", Logging.DebugLevel))) {
+        tracing.traceRequests { implicit requestTracing =>
+          new TufReposerverRoutes(keyStoreClient, NamespaceValidation.withDatabase, targetStore,
+            messageBusPublisher,
+            prometheusMetricsRoutes,
+            Seq(keyserverHealthCheck)).routes
+        }
       }
-    }
 
-  Http().newServerAt(host, port).bindFlow(routes)
+    Http().newServerAt(host, port).bindFlow(routes)
+  }
 }

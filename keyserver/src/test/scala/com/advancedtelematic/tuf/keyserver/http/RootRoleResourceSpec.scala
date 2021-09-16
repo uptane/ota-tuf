@@ -801,39 +801,44 @@ class RootRoleResourceSpec extends TufKeyserverSpec
     keyRepo.find(rootKeyId).futureValue shouldBe a[Key]
   }
 
-  test("adds offline-targets role if does not exist") {
+  test("adds offline-updates and offline-snapshot roles if does not exist") {
     val repoId = RepoId.generate()
     generateRootRole(repoId, Ed25519KeyType).futureValue
 
     val oldRoot = fetchLatestRootOk(repoId).signed
 
-    Put(apiUri(s"root/${repoId.show}/roles/offline-targets")) ~> routes ~> check {
+    Put(apiUri(s"root/${repoId.show}/roles/offline-updates")) ~> routes ~> check {
       status shouldBe StatusCodes.OK
     }
 
     val newRoot = fetchLatestRootOk(repoId).signed
     newRoot.version shouldBe oldRoot.version + 1
 
-    val keys = newRoot.roles.get(RoleType.OFFLINE_TARGETS).value
+    val offlineTargetsKeys = newRoot.roles.get(RoleType.OFFLINE_UPDATES).value
 
-    keys.keyids shouldNot be(empty)
-    keys.threshold shouldBe 1
+    offlineTargetsKeys.keyids shouldNot be(empty)
+    offlineTargetsKeys.threshold shouldBe 1
+
+    val offlineSnapshotsKeys = newRoot.roles.get(RoleType.OFFLINE_SNAPSHOT).value
+
+    offlineSnapshotsKeys.keyids shouldNot be(empty)
+    offlineSnapshotsKeys.threshold shouldBe 1
   }
 
-  test("does not add offline-targets role if already exists") {
+  test("does not add offline-updates role if already exists") {
     val repoId = RepoId.generate()
     generateRootRole(repoId, Ed25519KeyType).futureValue
 
     val oldRoot = fetchLatestRootOk(repoId).signed
 
-    Put(apiUri(s"root/${repoId.show}/roles/offline-targets")) ~> routes ~> check {
+    Put(apiUri(s"root/${repoId.show}/roles/offline-updates")) ~> routes ~> check {
       status shouldBe StatusCodes.OK
     }
 
     val newRoot = fetchLatestRootOk(repoId).signed
     newRoot.version shouldBe oldRoot.version + 1
 
-    Put(apiUri(s"root/${repoId.show}/roles/offline-targets")) ~> routes ~> check {
+    Put(apiUri(s"root/${repoId.show}/roles/offline-updates")) ~> routes ~> check {
       status shouldBe StatusCodes.OK
     }
 

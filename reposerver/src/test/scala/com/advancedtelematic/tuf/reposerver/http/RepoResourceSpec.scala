@@ -265,7 +265,7 @@ class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
     val expiredInstant = Instant.now.minus(1, ChronoUnit.DAYS)
     val expiredJsonPayload = JsonSignedPayload(role.signatures, role.asJsonSignedPayload.signed.deepMerge(Json.obj("expires" -> expiredInstant.asJson)))
 
-    val newRole = SignedRole.withChecksum[TimestampRole](repoId, expiredJsonPayload, role.signed.version, expiredInstant)
+    val newRole = SignedRole.withChecksum[TimestampRole](expiredJsonPayload, role.signed.version, expiredInstant).futureValue
     signedRoleRepository.update(repoId, newRole).futureValue
 
     Get(apiUri(s"repo/${repoId.show}/timestamp.json")) ~> routes ~> check {
@@ -285,7 +285,7 @@ class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
     val expiredInstant = Instant.now.minus(1, ChronoUnit.DAYS)
     val expiredJsonPayload = JsonSignedPayload(role.signatures, role.asJsonSignedPayload.signed.deepMerge(Json.obj("expires" -> expiredInstant.asJson)))
 
-    val newRole = SignedRole.withChecksum[SnapshotRole](repoId, expiredJsonPayload, role.signed.version, expiredInstant)
+    val newRole = SignedRole.withChecksum[SnapshotRole](expiredJsonPayload, role.signed.version, expiredInstant).futureValue
     signedRoleRepository.update(repoId, newRole).futureValue
 
     Get(apiUri(s"repo/${repoId.show}/snapshot.json")) ~> routes ~> check {
@@ -306,7 +306,7 @@ class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
     val expiredInstant = Instant.now.minus(1, ChronoUnit.DAYS)
     val expiredJsonPayload = JsonSignedPayload(role.signatures, role.asJsonSignedPayload.signed.deepMerge(Json.obj("expires" -> expiredInstant.asJson)))
 
-    val newRole = SignedRole.withChecksum[TargetsRole](repoId, expiredJsonPayload, role.signed.version, expiredInstant)
+    val newRole = SignedRole.withChecksum[TargetsRole](expiredJsonPayload, role.signed.version, expiredInstant).futureValue
     signedRoleRepository.update(repoId, newRole).futureValue
 
     Get(apiUri(s"repo/${repoId.show}/targets.json")) ~> routes ~> check {
@@ -1070,13 +1070,13 @@ class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
 
     val targetsRole = TargetsRole(Instant.now().plus(1, ChronoUnit.DAYS), Map.empty, 2)
 
-    val invalidSignedPayload = fakeKeyserverClient.sign(repoId, RoleType.TARGETS, "something else signed".asJson).futureValue
+    val invalidSignedPayload = fakeKeyserverClient.sign(repoId, TimestampRole(Map.empty, Instant.now, 0)).futureValue
 
     val signedPayload = JsonSignedPayload(invalidSignedPayload.signatures, targetsRole.asJson)
 
     Put(apiUri(s"repo/${repoId.show}/targets"), signedPayload).withValidTargetsCheckSum ~> routes ~> check {
       status shouldBe StatusCodes.BadRequest
-      responseAs[ErrorRepresentation].firstErrorCause.get should include("Invalid signature for key")
+      responseAs[ErrorRepresentation].firstErrorCause.get should include("role validation not found in authoritative role")
     }
   }
 
@@ -1115,7 +1115,7 @@ class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
     implicit val repoId = addTargetToRepo()
 
     val expiredTargetsRole = TargetsRole(Instant.now().minus(1, ChronoUnit.DAYS), offlineTargets, 2)
-    val signedPayload = fakeKeyserverClient.sign(repoId, RoleType.TARGETS, expiredTargetsRole.asJson).futureValue
+    val signedPayload = fakeKeyserverClient.sign(repoId, expiredTargetsRole).futureValue
 
     Put(apiUri(s"repo/${repoId.show}/targets"), signedPayload).withValidTargetsCheckSum ~> routes ~> check {
       status shouldBe StatusCodes.NoContent
@@ -1180,11 +1180,11 @@ class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
                 |}
               """.stripMargin
 
-    val oldJson = circe_parser.parse(str).valueOr(throw _)
+    val oldJson = circe_parser.parse(str).flatMap(_.as[TargetsRole]).valueOr(throw _)
 
     implicit val repoId = addTargetToRepo()
 
-    val signedPayload = fakeKeyserverClient.sign(repoId, RoleType.TARGETS, oldJson).futureValue
+    val signedPayload = fakeKeyserverClient.sign(repoId, oldJson).futureValue
 
     Put(apiUri(s"repo/${repoId.show}/targets"), signedPayload).withValidTargetsCheckSum ~> routes ~> check {
       status shouldBe StatusCodes.NoContent
@@ -1202,7 +1202,7 @@ class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
 
     val targets = createOfflineTargets(proprietary = Json.obj("proprietary" -> Json.True))
     val targetsRole = TargetsRole(Instant.now().plus(1, ChronoUnit.DAYS), targets, 2)
-    val jsonSignedPayload = fakeKeyserverClient.sign(repoId, RoleType.TARGETS, targetsRole.asJson).futureValue
+    val jsonSignedPayload = fakeKeyserverClient.sign(repoId, targetsRole).futureValue
     val signedPayload = SignedPayload(jsonSignedPayload.signatures, targetsRole, targetsRole.asJson)
 
     Put(apiUri(s"repo/${repoId.show}/targets"), signedPayload).withValidTargetsCheckSum ~> routes ~> check {

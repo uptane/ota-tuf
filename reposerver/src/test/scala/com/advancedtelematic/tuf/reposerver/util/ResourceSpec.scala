@@ -12,9 +12,10 @@ import com.advancedtelematic.libats.data.DataType.{Checksum, Namespace}
 import com.advancedtelematic.libats.http.NamespaceDirectives
 import com.advancedtelematic.libats.http.tracing.NullServerRequestTracing
 import com.advancedtelematic.libats.messaging.MemoryMessageBus
+import com.advancedtelematic.libats.test.MysqlDatabaseSpec
 import com.advancedtelematic.libtuf.crypt.{Sha256FileDigest, TufCrypto}
 import com.advancedtelematic.libtuf.data.ClientCodecs._
-import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, RoleKeys, RootRole, TargetCustom, TargetsRole}
+import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, RoleKeys, RootRole, TargetCustom, TargetsRole, TufRole}
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 import com.advancedtelematic.libtuf.data.TufDataType._
 import com.advancedtelematic.libtuf.http.ReposerverHttpClient
@@ -22,7 +23,7 @@ import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient
 import com.advancedtelematic.tuf.reposerver.http.{NamespaceValidation, TufReposerverRoutes}
 import com.advancedtelematic.tuf.reposerver.target_store.{LocalTargetStoreEngine, TargetStore}
 import com.advancedtelematic.tuf.reposerver.util.ResourceSpec.TargetInfo
-import io.circe.Json
+import io.circe.{Codec, Json}
 import sttp.client.{NothingT, SttpBackend}
 
 import java.nio.charset.StandardCharsets
@@ -36,6 +37,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Future, Promise}
 import scala.concurrent.duration._
 import scala.util.Try
+import scala.async.Async._
 
 class FakeKeyserverClient extends KeyserverClient {
 
@@ -107,21 +109,20 @@ class FakeKeyserverClient extends KeyserverClient {
     } else {
       generateKeys(repoId, keyType)
       val rootRole = generateRoot(repoId, keyType)
-      sign(repoId, RoleType.ROOT, rootRole.asJson).map { jsonSignedPayload =>
-        val signedPayload = SignedPayload(jsonSignedPayload.signatures, rootRole, jsonSignedPayload.signed)
+      sign(repoId, rootRole).map { signedPayload =>
         rootRoles.put(repoId, signedPayload)
         rootRole.asJson
       }
     }
   }
 
-  override def sign(repoId: RepoId, roleType: RoleType, payload: Json): Future[JsonSignedPayload] = {
-    val okey = keys.asScala.get(repoId).flatMap(_.get(roleType))
+  override def sign[T : Codec](repoId: RepoId, payload: T)(implicit tufRole: TufRole[T]): Future[SignedPayload[T]] = {
+    val okey = keys.asScala.get(repoId).flatMap(_.get(tufRole.roleType))
     val fkey = okey.map(FastFuture.successful).getOrElse(FastFuture.failed(RoleKeyNotFound))
 
     fkey.map { tufKeyPair =>
-      val signature = TufCrypto.signPayload(tufKeyPair.privkey, payload).toClient(tufKeyPair.pubkey.id)
-      JsonSignedPayload(List(signature), payload)
+      val signature = TufCrypto.signPayload(tufKeyPair.privkey, payload.asJson).toClient(tufKeyPair.pubkey.id)
+      SignedPayload(List(signature), payload, payload.asJson)
     }
   }
 
@@ -165,6 +166,30 @@ class FakeKeyserverClient extends KeyserverClient {
   override def fetchKeyPair(repoId: RepoId, keyId: KeyId): Future[TufKeyPair] = Future.fromTry { Try {
     keys.asScala.get(repoId).flatMap(_.values.find(_.pubkey.id == keyId)).getOrElse(throw KeyPairNotFound)
   } }
+
+  override def addOfflineUpdatesRole(repoId: RepoId): Future[Unit] = async {
+    val rootRole = await(fetchUnsignedRoot(repoId))
+
+    val rootKeyType = for {
+      roleKeys <- rootRole.roles.get(RoleType.ROOT)
+      keyId <- roleKeys.keyids.headOption
+      tufKey <- rootRole.keys.get(keyId)
+    } yield tufKey.keytype
+
+    val keyType = rootKeyType.getOrElse(KeyType.default)
+
+    val keyPair = keyType.crypto.generateKeyPair()
+    updateRepoKeys(repoId, RoleType.OFFLINE_UPDATES, keyPair)
+    updateRepoKeys(repoId, RoleType.OFFLINE_SNAPSHOT, keyPair)
+    val roleKeys = RoleKeys(Seq(keyPair.pubkey.id), 1)
+
+    val newRoles = rootRole.roles + (RoleType.OFFLINE_UPDATES -> roleKeys, RoleType.OFFLINE_UPDATES -> roleKeys)
+    val newKeys = rootRole.keys + (keyPair.pubkey.id -> keyPair.pubkey)
+
+    val newRootRole = RootRole(roles = newRoles, keys = newKeys, version = rootRole.version + 1, expires = rootRole.expires.plus(1, ChronoUnit.DAYS))
+    val signed = await(sign(repoId, newRootRole))
+    rootRoles.put(repoId, signed)
+  }
 }
 
 trait LongHttpRequest {
@@ -216,7 +241,7 @@ object ResourceSpec {
 
 trait ResourceSpec extends TufReposerverSpec
   with ScalatestRouteTest
-  with DatabaseSpec
+  with MysqlDatabaseSpec
   with FakeHttpClientSpec
   with LongHttpRequest
   with Directives {

@@ -20,7 +20,6 @@ import org.slf4j.LoggerFactory
 import sttp.client._
 import sttp.model.{Header, HeaderNames, Headers, StatusCode, Uri}
 
-import scala.+:
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, _}
 import scala.util.control.NoStackTrace

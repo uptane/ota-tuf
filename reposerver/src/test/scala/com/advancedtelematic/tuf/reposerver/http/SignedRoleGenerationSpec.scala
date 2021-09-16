@@ -7,7 +7,8 @@ import com.advancedtelematic.libtuf.data.ClientDataType.{TimestampRole, _}
 import com.advancedtelematic.libtuf.data.TufDataType.{Ed25519KeyType, RepoId, RoleType}
 import com.advancedtelematic.libtuf_server.repo.server.RepoRoleRefresh
 import com.advancedtelematic.tuf.reposerver.db.SignedRoleRepositorySupport
-import com.advancedtelematic.tuf.reposerver.util.{DatabaseSpec, FakeKeyserverClient, TufReposerverSpec}
+import com.advancedtelematic.tuf.reposerver.util.{FakeKeyserverClient, TufReposerverSpec}
+import com.advancedtelematic.libats.test.MysqlDatabaseSpec
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Seconds, Span}
 
@@ -16,7 +17,7 @@ import scala.concurrent.ExecutionContext.Implicits
 
 
 // TODO: Should be moved to libtuf_server and tested without TufRepoProviders
-class SignedRoleGenerationSpec extends TufReposerverSpec with DatabaseSpec with SignedRoleRepositorySupport with ScalaFutures {
+class SignedRoleGenerationSpec extends TufReposerverSpec with MysqlDatabaseSpec with SignedRoleRepositorySupport with ScalaFutures {
   override implicit val ec: ExecutionContext = Implicits.global
 
   override implicit def patienceConfig = PatienceConfig().copy(timeout = Span(5, Seconds))

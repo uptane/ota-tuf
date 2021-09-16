@@ -5,7 +5,7 @@ import com.advancedtelematic.libats.data.DataType.Checksum
 import com.advancedtelematic.libats.slick.codecs.SlickEnumMapper
 import com.advancedtelematic.libats.slick.db.{SlickCirceMapper, SlickEncryptedColumn}
 import com.advancedtelematic.libtuf.data.ClientCodecs._
-import com.advancedtelematic.libtuf.data.ClientDataType.TargetCustom
+import com.advancedtelematic.libtuf.data.ClientDataType.{DelegatedRoleName, TargetCustom}
 import com.advancedtelematic.libtuf.data.TufCodecs._
 import com.advancedtelematic.libtuf.data.TufDataType.{EcPrime256KeyType, Ed25519KeyType, JsonSignedPayload, KeyType, RoleType, RsaKeyType, TufKey, TufPrivateKey}
 import slick.jdbc.MySQLProfile.api._
@@ -42,10 +42,4 @@ object TufSlickMappings {
   implicit val tufKeyMapper = SlickCirceMapper.circeMapper[TufKey]
 
   implicit val encryptedTufPrivateKeyMapper = SlickEncryptedColumn.encryptedColumnJsonMapper[TufPrivateKey]
-
-  implicit def validatedStringMapper[W <: ValidatedString : ClassTag](implicit validation: ValidatedStringValidation[W]) = {
-    implicit val decoder = ValidatedString.validatedStringDecoder[W]
-    implicit val encoder = ValidatedString.validatedStringEncoder[W]
-    SlickCirceMapper.circeMapper[W]
-  }
 }

@@ -60,9 +60,11 @@ object TufDataType {
   object RoleType extends Enumeration {
     type RoleType = Value
 
-    val ROOT, SNAPSHOT, TARGETS, TIMESTAMP, OFFLINE_TARGETS = Value
+    val ROOT, SNAPSHOT, TARGETS, TIMESTAMP = Value
+    val OFFLINE_UPDATES = Value("OFFLINE-UPDATES")
+    val OFFLINE_SNAPSHOT = Value("OFFLINE-SNAPSHOT")
 
-    // TUF_ALL does not include OFFLINE_TARGETS which is only used in UPTANE, not TUF
+    // TUF_ALL does not include OFFLINE_TARGETS and OFFLINE_SNAPSHOT which are only used in UPTANE, not TUF
     val TUF_ALL = List(ROOT, SNAPSHOT, TARGETS, TIMESTAMP)
 
     implicit val show = Show.show[Value](_.toString.toLowerCase)
@@ -89,6 +91,39 @@ object TufDataType {
     def toClient(keyId: KeyId): ClientSignature = ClientSignature(keyId, value.method, value.sig)
   }
 
+  /*
+  We use 3 different types to represent json signed tuf roles:
+
+  - SignedPayload[T] -  Type used to hold both a signed T, parsed, as well as the JSON that T was parsed from.
+
+                        This allows us to parse the JSON, and read values from a parsed T, but keep the original JSON value,
+                        so we can save it to the database, exactly how we received it. Otherwise we would have to
+                        save `encode(decode(json_http_request))` to the database, which could be a lossy operation if the
+                        codecs do not handle all values in `json_htttp_request`.
+
+                        This class is not a case class because we don't want to provide `copy` methods, since we want
+                        `signed` field to always contain the parsed version of `signed`, so we don't want to allow
+                        these two fields to be updated independently.
+
+                        We do not save this type to the database, but instead convert it to a `JsonSignedPayload` and
+                        save that to the database.
+
+  - JsonSignedPayload - Represents a _signed_ and _unparsed_ json value. This allows us to manipulate a raw Json value
+                        without actually parsing the json to SignedPayload[T] and delaying that parsing until after
+                        we verify the signatures.
+
+                        It also allows us to easily save a signed json value to the database since this type is not generic
+                        and therefore it can be saved to the database using a single column.
+
+                        Since this is the type used to save json signed roles to the database, when requested by API
+                        clients we return this value as is saved in the db, without parsing, since a parsing operation
+                        using the latest codecs could potentially be a lossy conversion.
+
+  - SignedRole[T] -     Type used by both API clients and server to represent a _signed_ and _parsed_ tuf/uptane metadata
+                        file. It cannot be saved to the database without a conversion to `JsonSignedPayload`. It is used
+                        as a common/transport type between clients and servers, but does not offer any guarantees regarding
+                        the parsed json or database access.
+   */
   object SignedPayload {
     def apply[T : Encoder](signatures: Seq[ClientSignature], signed: T, json: Json): SignedPayload[T] =
       new SignedPayload(signatures, signed, json)
@@ -99,7 +134,6 @@ object TufDataType {
 
     def updated(signatures: Seq[ClientSignature] = signatures, signed: T = signed): SignedPayload[T] =
       new SignedPayload[T](signatures, signed, signed.asJson)
-
 
     override def toString: String = s"SignedPayload($signatures, $signed, ${json.asJson.noSpaces})"
 
@@ -120,6 +154,9 @@ object TufDataType {
     }
   }
 
+  /**
+    * See {@link SignedPayload[T]}
+    */
   case class JsonSignedPayload(signatures: Seq[ClientSignature], signed: Json)
 
   object KeyType {

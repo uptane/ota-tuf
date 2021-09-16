@@ -67,10 +67,12 @@ extends KeyRepositorySupport with SignedRootRoleSupport {
     }
   }
 
-  def addRoleIfNotPresent(repoId: RepoId, roleType: RoleType): Future[SignedPayload[RootRole]] = async {
+  def addRolesIfNotPresent(repoId: RepoId, roles: RoleType*): Future[SignedPayload[RootRole]] = async {
     val rootRole = await(findForSign(repoId))
 
-    if (rootRole.roles.contains(roleType))
+    val missingRoles = roles.toSet -- rootRole.roles.keys.toSet
+
+    if (missingRoles.isEmpty)
       await(find(repoId)).content
     else {
       val rootKeyType = for {
@@ -81,12 +83,13 @@ extends KeyRepositorySupport with SignedRootRoleSupport {
 
       val keyType = rootKeyType.getOrElse(KeyType.default)
 
+      // Same key is used for all roles
       // ERROR is used so the daemon doesn't pick up this request
-      val keyGenRequest = await(keyGenerationRequests.createRoleGenRequest(repoId, threshold = 1, keyType, roleType, KeyGenRequestStatus.ERROR))
+      val keyGenRequest = await(keyGenerationRequests.createRoleGenRequest(repoId, threshold = 1, keyType, missingRoles.head, KeyGenRequestStatus.ERROR))
       val keys = await(DefaultKeyGenerationOp().apply(keyGenRequest))
-
+      val roleKeys = RoleKeys(keys.map(_.id), threshold = 1)
       val newKeys = rootRole.keys ++ keys.map { k => k.id -> k.publicKey }.toMap
-      val newRoles = rootRole.roles + (roleType -> RoleKeys(keys.map(_.id), threshold = 1))
+      val newRoles = rootRole.roles ++ missingRoles.map { _ -> roleKeys }.toMap
       val newRoot = rootRole.copy(roles = newRoles, keys = newKeys)
 
       val signedPayload = await(signRootRole(newRoot))
@@ -169,6 +172,9 @@ extends KeyRepositorySupport with SignedRootRoleSupport {
   }
 }
 
+// TODO: `Key` and `KeyGenRequest` should not have RoleType or threshold
+// Because one key can be used for multiple roles and is independent of threshold
+// Remove those attributes, drop the db columns, and move that logic to root generation
 class KeyGenerationRequests()
                            (implicit val db: Database, val ec: ExecutionContext)
   extends KeyGenRequestSupport with KeyRepositorySupport {

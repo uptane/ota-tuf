@@ -13,11 +13,12 @@ import com.advancedtelematic.libats.http.ServiceHttpClientSupport
 import com.advancedtelematic.libats.http.tracing.Tracing.ServerRequestTracing
 import com.advancedtelematic.libats.http.tracing.TracingHttpClient
 import com.advancedtelematic.libtuf.data.ClientCodecs._
-import com.advancedtelematic.libtuf.data.ClientDataType.RootRole
+import com.advancedtelematic.libtuf.data.ClientDataType.{RootRole, TufRole}
 import com.advancedtelematic.libtuf.data.TufCodecs._
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.{RoleType, _}
 import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, KeyId, KeyType, RepoId, SignedPayload, TufKeyPair}
-import io.circe.Json
+import com.advancedtelematic.libtuf_server.repo.server.DataType.SignedRole
+import io.circe.{Codec, Decoder, Json}
 
 import scala.concurrent.Future
 
@@ -33,7 +34,7 @@ object KeyserverClient {
 trait KeyserverClient {
   def createRoot(repoId: RepoId, keyType: KeyType = KeyType.default, forceSync: Boolean = false): Future[Json]
 
-  def sign(repoId: RepoId, roleType: RoleType, payload: Json): Future[JsonSignedPayload]
+  def sign[T : Codec : TufRole](repoId: RepoId, payload: T): Future[SignedPayload[T]]
 
   def fetchRootRole(repoId: RepoId): Future[SignedPayload[RootRole]]
 
@@ -48,6 +49,8 @@ trait KeyserverClient {
   def fetchKeyPair(repoId: RepoId, keyId: KeyId): Future[TufKeyPair]
 
   def fetchTargetKeyPairs(repoId: RepoId): Future[Seq[TufKeyPair]]
+
+  def addOfflineUpdatesRole(repoId: RepoId): Future[Unit]
 }
 
 object KeyserverHttpClient extends ServiceHttpClientSupport {
@@ -87,9 +90,9 @@ class KeyserverHttpClient(uri: Uri, httpClient: HttpRequest => Future[HttpRespon
     }
   }
 
-  override def sign(repoId: RepoId, roleType: RoleType, payload: Json): Future[JsonSignedPayload] = {
-    val req = HttpRequest(HttpMethods.POST, uri = apiUri(Path("root") / repoId.show / roleType.show))
-    execJsonHttp[JsonSignedPayload, Json](req, payload).handleErrors {
+  override def sign[T : Codec](repoId: RepoId, payload: T)(implicit tufRole: TufRole[T]): Future[SignedPayload[T]] = {
+    val req = HttpRequest(HttpMethods.POST, uri = apiUri(Path("root") / repoId.show / tufRole.roleType.show))
+    execJsonHttp[SignedPayload[T], Json](req, payload.asJson).handleErrors {
       case RemoteServiceError(_, StatusCodes.PreconditionFailed, _, _, _, _) =>
         Future.failed(RoleKeyNotFound)
     }
@@ -145,5 +148,10 @@ class KeyserverHttpClient(uri: Uri, httpClient: HttpRequest => Future[HttpRespon
       case RemoteServiceError(_, StatusCodes.NotFound, _, _, _, _) =>
         Future.failed(KeyPairNotFound)
     }
+  }
+
+  override def addOfflineUpdatesRole(repoId: RepoId): Future[Unit] = {
+    val req = HttpRequest(HttpMethods.PUT, uri = apiUri(Path("root") / repoId.show / "roles" / "offline-updates"))
+    execHttpUnmarshalled[Unit](req).ok
   }
 }

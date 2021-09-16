@@ -2,14 +2,13 @@ package com.advancedtelematic.libtuf_server.repo.server
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-
 import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.libtuf.data.ClientDataType.{MetaItem, MetaPath, SnapshotRole, TargetsRole, TimestampRole, TufRole, _}
 import com.advancedtelematic.libtuf.data.TufDataType.RepoId
 import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient
 import com.advancedtelematic.libtuf_server.repo.server.DataType.SignedRole
 import io.circe.syntax._
-import io.circe.{Decoder, Encoder}
+import io.circe.{Codec, Decoder, Encoder}
 import slick.jdbc.MySQLProfile.api._
 
 import scala.async.Async.{async, await}
@@ -19,7 +18,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class RepoRoleRefresh(keyserverClient: KeyserverClient,
                       signedRoleProvider: SignedRoleProvider,
                       targetItemProvider: TargetsItemsProvider[_])(implicit val db: Database, val ec: ExecutionContext) {
-  val roleRefresh: RepoId => RoleRefresh = repoId => new RoleRefresh(new RepoRoleSigner(repoId, keyserverClient))
+  private val roleRefresh: RepoId => RoleRefresh = repoId => new RoleRefresh(new RepoRoleSigner(repoId, keyserverClient))
 
   private def findExisting[T](repoId: RepoId)(implicit tufRole: TufRole[T]): Future[SignedRole[T]] = {
     signedRoleProvider.find[T](repoId)
@@ -101,9 +100,8 @@ protected class RoleRefresh(signFn: RepoRoleSigner)(implicit ec: ExecutionContex
 }
 
 protected class RepoRoleSigner(repoId: RepoId, keyserverClient: KeyserverClient)(implicit ec: ExecutionContext) {
-  def apply[T : Encoder](role: T)(implicit tufRole: TufRole[T]): Future[SignedRole[T]] = {
-    keyserverClient.sign(repoId, tufRole.roleType, role.asJson).map { signedRole =>
-      SignedRole.withChecksum[T](repoId, signedRole, role.version, role.expires)
+  def apply[T : Codec](role: T)(implicit tufRole: TufRole[T]): Future[SignedRole[T]] =
+    keyserverClient.sign[T](repoId, role).flatMap { signedRole =>
+      SignedRole.withChecksum[T](signedRole.asJsonSignedPayload, role.version, role.expires)
     }
-  }
 }

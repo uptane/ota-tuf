@@ -105,8 +105,11 @@ class RootRoleResource()
           complete(f)
         }
       } ~
-      (path("roles" / "offline-targets") & put) {
-        val f = signedRootRoles.addRoleIfNotPresent(repoId, RoleType.OFFLINE_TARGETS).map(_ => StatusCodes.OK)
+      (path("roles" / "offline-updates") & put) {
+        val f = for {
+          _ <- signedRootRoles.addRolesIfNotPresent(repoId, RoleType.OFFLINE_UPDATES, RoleType.OFFLINE_SNAPSHOT)
+        } yield StatusCodes.OK
+
         complete(f)
       } ~
       path("unsigned") {
