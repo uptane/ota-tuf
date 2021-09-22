@@ -2,14 +2,15 @@ package com.advancedtelematic.libtuf.data
 
 import cats.data.Validated.Invalid
 import cats.data.{ValidatedNel, _}
-import cats.implicits._
 import com.advancedtelematic.libtuf.crypt.TufCrypto
 import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.libtuf.data.ClientDataType.RootRole
 import com.advancedtelematic.libtuf.data.TufDataType.{KeyId, RoleType, JsonSignedPayload, SignedPayload, TufKey}
-import io.circe.Json
+import cats.implicits._
 import io.circe.syntax._
 import com.advancedtelematic.libtuf.crypt.CanonicalJson._
+import cats.implicits._
+
 
 object RootRoleValidation {
   private sealed trait RootRoleValidatedSig
@@ -40,7 +41,10 @@ object RootRoleValidation {
   def rootIsValid(signedRoot: SignedPayload[RootRole]): ValidatedNel[String, SignedPayload[RootRole]] =
     validateThresholdWithRole(signedRoot, signedRoot.signed).map(_ => signedRoot)
 
+
+
   private def validateThresholdWithRole(newSignedRoot: SignedPayload[RootRole], roleForValidation: RootRole): ValidatedNel[String, Int] = {
+
     val roleRootKeys = roleForValidation.roles.get(RoleType.ROOT)
       .toValidNel(s"root.json version ${roleForValidation.version} does not contain keys for ROOT")
 

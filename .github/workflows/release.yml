@@ -1,7 +1,6 @@
 name: Release
 on:
   push:
-    branches: [master]
     tags: ["*"]
 
 jobs:
@@ -43,3 +42,21 @@ jobs:
       - run: docker tag advancedtelematic/tuf-keyserver:$GITHUB_SHA uptane/tuf-keyserver:$GITHUB_SHA
       - run: docker push uptane/tuf-reposerver:$GITHUB_SHA
       - run: docker push uptane/tuf-keyserver:$GITHUB_SHA
+
+  release-garage-sign:
+    name: Release garage-sign
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - uses: olafurpg/setup-scala@v11
+        with:
+          java-version: adopt@1.8
+      - uses: coursier/cache-action@v6
+      - run: sbt cli/packageZipTarball
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            cli/target/universal/*.tgz

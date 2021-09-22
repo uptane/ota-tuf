@@ -11,15 +11,15 @@ import com.typesafe.sbt.packager.linux.LinuxPlugin.autoImport._
 object Packaging {
   def docker(distPackageName: String) = {
     Seq(
-      dockerRepository in Docker := Some("advancedtelematic"),
+      Docker / dockerRepository := Some("advancedtelematic"),
 
-      packageName in Docker := distPackageName,
+      Docker / packageName := distPackageName,
 
       dockerUpdateLatest := true,
 
       dockerAliases ++= Seq(dockerAlias.value.withTag(git.gitHeadCommit.value)),
 
-      defaultLinuxInstallLocation in Docker := s"/opt/${moduleName.value}",
+      Docker / defaultLinuxInstallLocation := s"/opt/${moduleName.value}",
 
       dockerCommands := Seq(
         Cmd("FROM", "advancedtelematic/alpine-jre:adoptopenjdk-jre8u262-b10"),

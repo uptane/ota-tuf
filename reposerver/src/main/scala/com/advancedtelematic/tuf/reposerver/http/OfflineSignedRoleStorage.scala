@@ -3,7 +3,6 @@ package com.advancedtelematic.tuf.reposerver.http
 import akka.http.scaladsl.util.FastFuture
 import cats.data.Validated.{Invalid, Valid}
 import cats.data.ValidatedNel
-import cats.instances.string._
 import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, Delegations, TargetCustom, TargetsRole, TufRole}
 import com.advancedtelematic.libtuf.data.TufDataType.{RepoId, SignedPayload, TargetFilename, TufKey}
 import com.advancedtelematic.libtuf_server.repo.server.DataType._
@@ -11,7 +10,6 @@ import com.advancedtelematic.tuf.reposerver.data.RepositoryDataType._
 import com.advancedtelematic.tuf.reposerver.db.{SignedRoleRepositorySupport, TargetItemRepositorySupport}
 import io.circe.Encoder
 import cats.implicits._
-import cats.data.Validated._
 import cats.data.NonEmptyList
 import com.advancedtelematic.libats.data.DataType.Checksum
 import com.advancedtelematic.libats.http.Errors.MissingEntityId
@@ -21,6 +19,7 @@ import com.advancedtelematic.libtuf.crypt.TufCrypto
 import com.advancedtelematic.libtuf.data.ClientDataType.TufRole._
 import com.advancedtelematic.libtuf_server.repo.server.Errors.SignedRoleNotFound
 
+import cats.implicits._
 import scala.async.Async.{async, await}
 import scala.concurrent.{ExecutionContext, Future}
 import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient

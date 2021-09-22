@@ -1,11 +1,12 @@
 package com.advancedtelematic.tuf.cli
 
 import java.time.{Instant, Period}
-
 import com.advancedtelematic.tuf.cli.Errors.PastDate
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
-class CommandHandlerExpirationDateSpec extends FunSuite with Matchers {
+
+class CommandHandlerExpirationDateSpec extends AnyFunSuite with Matchers {
   val now = Instant.EPOCH
   val oneDay = Period.ofDays(1)
   val inADay = now.plus(oneDay)

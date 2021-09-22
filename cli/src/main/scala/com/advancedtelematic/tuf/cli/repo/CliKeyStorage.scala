@@ -16,7 +16,7 @@ import java.nio.file.attribute.{PosixFilePermission, PosixFilePermissions}
 import java.nio.file.{FileAlreadyExistsException, Files, Path}
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
-
+import cats.implicits._
 
 object CliKeyStorage {
   def forUser(path: Path): CliKeyStorage = new CliKeyStorage(path)
@@ -101,8 +101,6 @@ class CliKeyStorage private (root: Path) {
   } yield (pub, priv)
 
   def importPublicKey(pemPath: Path, keyNames: List[KeyName]): Try[Unit] = {
-    import cats.instances.list._
-    import cats.instances.try_._
     import cats.syntax.traverse._
 
     for {

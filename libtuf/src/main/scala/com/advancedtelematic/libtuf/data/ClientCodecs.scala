@@ -9,11 +9,10 @@ import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 import com.advancedtelematic.libtuf.data.TufDataType.TargetFormat.TargetFormat
 import ClientDataType.TufRole._
 import io.circe.syntax._
-import cats.syntax.either._
 import cats.data.StateT
-import cats.instances.either._
 import io.circe._
 import io.circe.{ ACursor, Decoder, Json }
+import cats.implicits._
 
 object ClientCodecs {
   import TufCodecs._
@@ -38,6 +37,7 @@ object ClientCodecs {
 
   implicit val targetCustomDecoder: Decoder[TargetCustom] = Decoder.fromState {
     import Decoder.state.decodeField
+    import cats.implicits._
 
     for {
       name <- decodeField[TargetName]("name")

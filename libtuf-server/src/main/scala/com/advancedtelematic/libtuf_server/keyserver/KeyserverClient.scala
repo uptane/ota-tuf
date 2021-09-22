@@ -51,12 +51,12 @@ trait KeyserverClient {
 }
 
 object KeyserverHttpClient extends ServiceHttpClientSupport {
-  def apply(uri: Uri)(implicit system: ActorSystem, mat: ActorMaterializer, tracing: ServerRequestTracing): KeyserverHttpClient =
+  def apply(uri: Uri)(implicit system: ActorSystem, tracing: ServerRequestTracing): KeyserverHttpClient =
     new KeyserverHttpClient(uri, defaultHttpClient)
 }
 
 class KeyserverHttpClient(uri: Uri, httpClient: HttpRequest => Future[HttpResponse])
-                         (implicit system: ActorSystem, mat: ActorMaterializer, tracing: ServerRequestTracing)
+                         (implicit system: ActorSystem, tracing: ServerRequestTracing)
   extends TracingHttpClient(httpClient, "keyserver") with KeyserverClient {
 
   import KeyserverClient._

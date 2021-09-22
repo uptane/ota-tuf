@@ -5,8 +5,6 @@ import java.nio.file.Files
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.Base64
-
-import cats.implicits._
 import com.advancedtelematic.libats.data.DataType.{HashMethod, ValidChecksum}
 import com.advancedtelematic.libtuf.crypt.SignedPayloadSignatureOps._
 import com.advancedtelematic.libtuf.crypt.TufCrypto
@@ -26,7 +24,8 @@ import io.circe.jawn._
 import io.circe.syntax._
 import org.scalactic.source.Position
 import org.scalatest.{EitherValues, TryValues}
-
+import cats.implicits._
+import EitherValues._
 import scala.util.Success
 
 class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with EitherValues {

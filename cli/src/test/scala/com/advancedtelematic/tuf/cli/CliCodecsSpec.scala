@@ -1,11 +1,11 @@
 package com.advancedtelematic.tuf.cli
-import org.scalatest.FunSuite
 import CliCodecs._
 import com.advancedtelematic.tuf.cli.DataType.RepoServer
 import io.circe.Json
 import io.circe.literal._
+import org.scalatest.funsuite.AnyFunSuite
 
-class CliCodecsSpec extends FunSuite {
+class CliCodecsSpec extends AnyFunSuite {
 
   test("repo server type encoder") {
     assert(repoServerTypeCodec(RepoServer) == Json.fromString("RepoServer"))
