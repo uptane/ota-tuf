@@ -66,6 +66,10 @@ trait Settings {
 
   // not using Config.getDuration() here because that parses different formats than what Akka uses
   lazy val userRepoUploadRequestTimeout = Duration(_config.getString("reposerver.uploadRequestTimeout"))
+
+  lazy val akkaRequestTimeout = _config.getString("akka.http.server.request-timeout")
+
+  lazy val akkaIdleTimeout = _config.getString("akka.http.server.idle-timeout")
 }
 
 object Boot extends BootApp
