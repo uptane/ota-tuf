@@ -73,8 +73,11 @@ protected [db] class TargetItemRepository()(implicit db: Database, ec: Execution
       .transactionally
   }
 
-  protected [db] def resetAction(repoId: RepoId): DBIO[Unit] =
-    targetItems.filter(_.repoId === repoId).delete.map(_ => ())
+  protected [db] def resetAction(repoId: RepoId, ids: Set[TargetFilename]): DBIO[Unit] =
+    targetItems.filter(_.repoId === repoId).filter(_.filename.inSet(ids)).delete.map(_ => ())
+
+  protected [db] def createActionMany(items: Seq[TargetItem]): DBIO[Unit] =
+    (targetItems ++= items).map(_ => ())
 
   protected [db] def createAction(targetItem: TargetItem): DBIO[TargetItem] =
     (targetItems += targetItem).map(_ => targetItem)
@@ -152,8 +155,8 @@ protected [db] class SignedRoleRepository()(implicit val db: Database, val ec: E
   def find[T](repoId: RepoId)(implicit tufRole: TufRole[T]): Future[SignedRole[T]] =
     signedRoleRepository.find(repoId, tufRole.roleType).map(_.asSignedRole)
 
-  def storeAll(targetItemRepo: TargetItemRepository)(repoId: RepoId, signedRoles: List[SignedRole[_]], items: Seq[TargetItem]): Future[Unit] =
-    signedRoleRepository.storeAll(targetItemRepo)(repoId, signedRoles.map(_.asDbSignedRole(repoId)), items)
+  def storeAll(targetItemRepo: TargetItemRepository)(repoId: RepoId, signedRoles: List[SignedRole[_]], items: Seq[TargetItem], toDelete: Set[TargetFilename]): Future[Unit] =
+    signedRoleRepository.storeAll(targetItemRepo)(repoId, signedRoles.map(_.asDbSignedRole(repoId)), items, toDelete)
 }
 
 
@@ -177,6 +180,7 @@ protected[db] class DbSignedRoleRepository()(implicit val db: Database, val ec: 
     signedRoles
       .filter(_.repoId === signedRole.repoId)
       .filter(_.roleType === signedRole.roleType)
+      .forUpdate
       .result
       .headOption
       .flatMap { old =>
@@ -203,10 +207,10 @@ protected[db] class DbSignedRoleRepository()(implicit val db: Database, val ec: 
         .failIfNone(SignedRoleNotFound(repoId, roleType))
     }
 
-  def storeAll(targetItemRepo: TargetItemRepository)(repoId: RepoId, signedRoles: List[DbSignedRole], items: Seq[TargetItem]): Future[Unit] = db.run {
-    targetItemRepo.resetAction(repoId)
+  def storeAll(targetItemRepo: TargetItemRepository)(repoId: RepoId, signedRoles: List[DbSignedRole], items: Seq[TargetItem], toDelete: Set[TargetFilename]): Future[Unit] = db.run {
+    targetItemRepo.resetAction(repoId, toDelete.toSet)
       .andThen(DBIO.sequence(signedRoles.map(sr => persistAction(sr, forceVersion = false))))
-      .andThen(DBIO.sequence(items.map(targetItemRepo.createAction)))
+      .andThen(targetItemRepo.createActionMany(items))
       .map(_ => ())
       .transactionally
   }
