@@ -2,12 +2,11 @@ package com.advancedtelematic.tuf.keyserver.roles
 
 import akka.http.scaladsl.util.FastFuture
 import com.advancedtelematic.libtuf.crypt.TufCrypto
-import com.advancedtelematic.libtuf.data.ClientDataType.VersionedRole
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 import com.advancedtelematic.libtuf.data.TufDataType.{RepoId, _}
 import com.advancedtelematic.tuf.keyserver.db._
 import com.advancedtelematic.tuf.keyserver.http.Errors
-import io.circe.{Encoder, Json}
+import io.circe.Json
 import slick.jdbc.MySQLProfile.api._
 import io.circe.syntax._
 

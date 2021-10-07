@@ -34,9 +34,12 @@ object KeyGenerationDaemon extends BootApp
 
   system.actorOf(KeyGeneratorLeader.props(), "keygen-leader")
 
-  val routes: Route = (versionHeaders(version) & logResponseMetrics(projectName)) {
-    DbHealthResource(versionMap).route ~ prometheusMetricsRoutes
-  }
+  def main(args: Array[String]): Unit = {
 
-  Http().bindAndHandle(routes, host, port)
+    val routes: Route = (versionHeaders(version) & logResponseMetrics(projectName)) {
+      DbHealthResource(versionMap).route ~ prometheusMetricsRoutes
+    }
+
+    Http().newServerAt(host, port).bindFlow(routes)
+  }
 }

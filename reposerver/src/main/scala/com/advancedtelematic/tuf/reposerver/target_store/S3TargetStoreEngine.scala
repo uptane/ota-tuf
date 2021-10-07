@@ -10,7 +10,6 @@ import scala.collection.JavaConverters._
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.Uri
 import akka.http.scaladsl.util.FastFuture
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{FileIO, Source, StreamConverters}
 import akka.util.ByteString
 import com.advancedtelematic.libtuf.data.TufDataType.{GetSignedUrlResult, InitMultipartUploadResult, MultipartUploadId, RepoId, TargetFilename, UploadPartETag}
@@ -27,7 +26,7 @@ import scala.concurrent._
 import scala.concurrent.Future
 import scala.util.Try
 
-class S3TargetStoreEngine(credentials: S3Credentials)(implicit val system: ActorSystem, val mat: ActorMaterializer) extends TargetStoreEngine with Settings {
+class S3TargetStoreEngine(credentials: S3Credentials)(implicit val system: ActorSystem) extends TargetStoreEngine with Settings {
 
   import system.dispatcher
 

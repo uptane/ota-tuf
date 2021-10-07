@@ -38,7 +38,7 @@ class RootRoleResource()
 
     val keyGenerationOp = DefaultKeyGenerationOp()
 
-    val f = for {
+    val f = for { // ERROR is uses so the daemon doesn't pickup this request
       reqs <- keyGenerationRequests.createDefaultGenRequest(repoId, genRequest.threshold, genRequest.keyType, KeyGenRequestStatus.ERROR)
       _ <- Future.traverse(reqs)(keyGenerationOp)
     } yield StatusCodes.Created -> reqs.map(_.id)
@@ -93,7 +93,7 @@ class RootRoleResource()
             val f = signedRootRoles
               .findFreshAndPersist(repoId)
               .flatMap(_ => rootRoleKeyEdit.deletePrivateKey(repoId, keyId))
-              .map(_ ⇒ StatusCodes.NoContent)
+              .map(_ => StatusCodes.NoContent)
 
             complete(f)
           }
@@ -104,6 +104,13 @@ class RootRoleResource()
           val f = roleSigning.signWithRole(repoId, roleType, payload)
           complete(f)
         }
+      } ~
+      (path("roles" / "offline-updates") & put) {
+        val f = for {
+          _ <- signedRootRoles.addRolesIfNotPresent(repoId, RoleType.OFFLINE_UPDATES, RoleType.OFFLINE_SNAPSHOT)
+        } yield StatusCodes.OK
+
+        complete(f)
       } ~
       path("unsigned") {
         get {

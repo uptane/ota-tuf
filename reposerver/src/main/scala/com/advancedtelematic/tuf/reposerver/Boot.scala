@@ -66,6 +66,10 @@ trait Settings {
 
   // not using Config.getDuration() here because that parses different formats than what Akka uses
   lazy val userRepoUploadRequestTimeout = Duration(_config.getString("reposerver.uploadRequestTimeout"))
+
+  lazy val akkaRequestTimeout = _config.getString("akka.http.server.request-timeout")
+
+  lazy val akkaIdleTimeout = _config.getString("akka.http.server.idle-timeout")
 }
 
 object Boot extends BootApp
@@ -103,15 +107,17 @@ object Boot extends BootApp
 
   implicit val tracing = Tracing.fromConfig(config, "reposerver")
 
-  val routes: Route =
-    (versionHeaders(version) & requestMetrics(metricRegistry) & logResponseMetrics(projectName) & logRequestResult(("reposerver", Logging.DebugLevel))) {
-      tracing.traceRequests { implicit requestTracing =>
-        new TufReposerverRoutes(keyStoreClient, NamespaceValidation.withDatabase, targetStore,
-          messageBusPublisher,
-          prometheusMetricsRoutes,
-          Seq(keyserverHealthCheck)).routes
+  def main(args: Array[String]): Unit = {
+    val routes: Route =
+      (versionHeaders(version) & requestMetrics(metricRegistry) & logResponseMetrics(projectName) & logRequestResult(("reposerver", Logging.DebugLevel))) {
+        tracing.traceRequests { implicit requestTracing =>
+          new TufReposerverRoutes(keyStoreClient, NamespaceValidation.withDatabase, targetStore,
+            messageBusPublisher,
+            prometheusMetricsRoutes,
+            Seq(keyserverHealthCheck)).routes
+        }
       }
-    }
 
-  Http().bindAndHandle(routes, host, port)
+    Http().newServerAt(host, port).bindFlow(routes)
+  }
 }

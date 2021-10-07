@@ -27,8 +27,8 @@ lazy val commonDeps = libraryDependencies ++= {
 }
 
 lazy val serverDependencies = libraryDependencies ++= {
-  lazy val akkaV = "2.6.16"
-  lazy val akkaHttpV = "10.1.12"
+  lazy val akkaV = "2.6.15"
+  lazy val akkaHttpV = "10.2.6"
   lazy val libatsV = libatsVersion.value
   lazy val slickV = "3.2.0"
 
@@ -62,7 +62,7 @@ lazy val commonSettings = Seq(
   scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8", "-Xexperimental", "-Ypartial-unification"),
   Compile / console / scalacOptions ~= (_.filterNot(_ == "-Ywarn-unused-import")),
   resolvers += Resolver.sonatypeRepo("releases"),
-  libatsVersion := "0.4.0-18-g8d4141f",
+  libatsVersion := "1.0.2",
   licenses += ("MPL-2.0", url("http://mozilla.org/MPL/2.0/")),
   description := "scala tuf implementation support",
   buildInfoOptions += BuildInfoOption.ToMap,

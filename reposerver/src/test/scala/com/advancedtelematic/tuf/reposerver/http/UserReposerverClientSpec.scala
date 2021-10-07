@@ -75,7 +75,7 @@ class UserReposerverClientSpec extends TufReposerverSpec
 
   test("accepts a new targets role") {
     val targets = TargetsRole(Instant.now, Map.empty, 20)
-    val signedPayload = fakeKeyserverClient.sign(repoId, RoleType.TARGETS, targets.asJson).futureValue
+    val signedPayload = fakeKeyserverClient.sign(repoId, targets).futureValue
     client.pushTargets(SignedPayload(signedPayload.signatures, targets, targets.asJson), None).futureValue
   }
 
@@ -92,14 +92,14 @@ class UserReposerverClientSpec extends TufReposerverSpec
 
   test("returns specific exception when previous checksum is not valid") {
     val targets = TargetsRole(Instant.now, Map.empty, 20)
-    val signedTargets = fakeKeyserverClient.sign(repoId, RoleType.TARGETS, targets.asJson).futureValue
+    val signedTargets = fakeKeyserverClient.sign(repoId, targets).futureValue
     val invalidChecksum = "11c3599621d7edc417c795363767754b431404e8f9fd6fb85f78b2b45423b00b".refineTry[ValidChecksum].get
     client.pushTargets(SignedPayload(signedTargets.signatures, targets, targets.asJson), Option(invalidChecksum)).failed.futureValue shouldBe RoleChecksumNotValid
   }
 
   test("returns specific exception when no previous checksum is present at all") {
     val targets = TargetsRole(Instant.now, Map.empty, 20)
-    val signedTargets = fakeKeyserverClient.sign(repoId, RoleType.TARGETS, targets.asJson).futureValue
+    val signedTargets = fakeKeyserverClient.sign(repoId, targets).futureValue
     client.pushTargets(SignedPayload(signedTargets.signatures, targets, targets.asJson), None).failed.futureValue shouldBe RoleChecksumNotValid
   }
 
@@ -107,7 +107,7 @@ class UserReposerverClientSpec extends TufReposerverSpec
     val targetsResponse = client.targets().futureValue
 
     val targets = TargetsRole(Instant.now, Map.empty, targetsResponse.targets.signed.version + 1)
-    val signedTargets = fakeKeyserverClient.sign(repoId, RoleType.TARGETS, targets.asJson).futureValue
+    val signedTargets = fakeKeyserverClient.sign(repoId, targets).futureValue
 
     client.pushTargets(SignedPayload(signedTargets.signatures, targets, targets.asJson), targetsResponse.checksum).futureValue shouldBe (())
   }
@@ -126,7 +126,7 @@ class UserReposerverClientSpec extends TufReposerverSpec
     val delegation = Delegation(name, List(delegationKey.pubkey.id), List.empty)
     val targets = TargetsRole(Instant.now, Map.empty, existingTargets.targets.signed.version + 1,
       delegations = ClientDataType.Delegations(Map(delegationKey.pubkey.id -> delegationKey.pubkey), List(delegation)).some)
-    val signedTargets = fakeKeyserverClient.sign(repoId, RoleType.TARGETS, targets.asJson).futureValue
+    val signedTargets = fakeKeyserverClient.sign(repoId, targets).futureValue
 
     client.pushTargets(SignedPayload(signedTargets.signatures, targets, targets.asJson), existingTargets.checksum).futureValue
 

@@ -1,23 +1,21 @@
 package com.advancedtelematic.tuf.keyserver.db
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
 import akka.testkit.TestKitBase
 import com.advancedtelematic.libats.data.RefinedUtils._
-import com.advancedtelematic.libats.test.{DatabaseSpec, LongTest}
+import com.advancedtelematic.libats.test.LongTest
 import com.advancedtelematic.libtuf.data.TufDataType.{RSATufKey, ValidKeyId}
 import com.advancedtelematic.tuf.util.TufKeyserverSpec
 import org.scalatest.concurrent.PatienceConfiguration
 import slick.jdbc.MySQLProfile.api._
+import com.advancedtelematic.libats.test.MysqlDatabaseSpec
 
 import scala.concurrent.ExecutionContext
 
-class KeysToJsonEncodedMigrationSpec extends TufKeyserverSpec with TestKitBase with DatabaseSpec with PatienceConfiguration with LongTest
+class KeysToJsonEncodedMigrationSpec extends TufKeyserverSpec with TestKitBase with MysqlDatabaseSpec with PatienceConfiguration with LongTest
   with KeyRepositorySupport {
 
   override implicit lazy val system: ActorSystem = ActorSystem(this.getClass.getSimpleName)
-
-  implicit val mat = ActorMaterializer()
 
   implicit val ec = ExecutionContext.Implicits.global
 

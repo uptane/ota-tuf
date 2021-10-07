@@ -1,7 +1,8 @@
 package com.advancedtelematic.tuf.reposerver.http
 
+
 import akka.http.scaladsl.model.headers.{RawHeader, `Content-Length`}
-import akka.http.scaladsl.model.{EntityStreamException, HttpEntity, ParsingException, StatusCodes, Uri}
+import akka.http.scaladsl.model.{EntityStreamException, HttpEntity, HttpRequest, HttpResponse, ParsingException, StatusCodes, Uri}
 import akka.http.scaladsl.server._
 import akka.http.scaladsl.unmarshalling._
 import akka.stream.scaladsl.Source
@@ -57,6 +58,11 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
   private val targetRoleEdit = new TargetRoleEdit(signedRoleGeneration)
   private val delegations = new DelegationsManagement()
   private val trustedDelegations = new TrustedDelegations
+
+  private val timeoutResponseHandler: HttpRequest => HttpResponse = _ => {
+    log.warn(s"Request timed out from client. Returning ${StatusCodes.NetworkReadTimeout}. timeouts: akka-idle-timeout=$akkaIdleTimeout,akka-request-timeout=$akkaRequestTimeout,reposerver-request-timeout=$userRepoUploadRequestTimeout")
+    HttpResponse(StatusCodes.NetworkReadTimeout, entity = HttpEntity("Timed out receiving request from client"))
+  }
 
   /*
     extractRequestEntity is needed for tests only. We should get this value from the `Content-Length` header.
@@ -156,13 +162,13 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
     TargetCustomParameterExtractors.all { custom =>
       concat(
         withSizeLimit(userRepoSizeLimit) {
-          withRequestTimeout(userRepoUploadRequestTimeout) {
+          withRequestTimeout(userRepoUploadRequestTimeout, timeoutResponseHandler) {
             fileUpload("file") { case (_, file) =>
               complete(storeTarget(namespace, repoId, filename, custom, file, size = None))
             }
           }
         },
-        (withSizeLimit(userRepoSizeLimit) & withRequestTimeout(userRepoUploadRequestTimeout) & extractRequestEntity) { entity =>
+        (withSizeLimit(userRepoSizeLimit) & withRequestTimeout(userRepoUploadRequestTimeout, timeoutResponseHandler) & extractRequestEntity) { entity =>
           entity.contentLengthOption match {
             case Some(size) if size > 0 => complete(storeTarget(namespace, repoId, filename, custom, entity.dataBytes, Option(size)).map(_ => StatusCodes.NoContent))
             case _ => reject(MissingHeaderRejection("Content-Length"))
@@ -347,12 +353,14 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
             deleteTargetItem(repoId, filename)
           }
         } ~
-        (pathEnd & put & entity(as[SignedPayload[TargetsRole]])) { signedPayload =>
-          extractRoleChecksumHeader { checksum =>
+        withRequestTimeout(userRepoUploadRequestTimeout, timeoutResponseHandler) { // For when SignedPayload[TargetsRole] is too big and takes a long time to upload
+          (pathEnd & put & entity(as[SignedPayload[TargetsRole]])) { signedPayload =>
+            extractRoleChecksumHeader { checksum =>
             onSuccess(saveOfflineTargetsRole(repoId, namespace, signedPayload, checksum)) { newSignedRole =>
               respondWithCheckSum(newSignedRole.checksum.hash) {
                 complete(StatusCodes.NoContent)
               }
+            }
             }
           }
         }

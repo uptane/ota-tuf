@@ -44,14 +44,16 @@ object Boot extends BootApp
 
   log.info(s"Starting $version on http://$host:$port")
 
-  val tracing = Tracing.fromConfig(config, projectName)
+  def main(args: Array[String]): Unit = {
+    val tracing = Tracing.fromConfig(config, projectName)
 
-  val routes: Route =
-    (versionHeaders(version) & requestMetrics(metricRegistry) & logResponseMetrics(projectName) & logRequestResult(("tuf-keyserver", Logging.DebugLevel))) {
-      tracing.traceRequests { _ =>
-        new TufKeyserverRoutes(metricsRoutes = prometheusMetricsRoutes).routes
+    val routes: Route =
+      (versionHeaders(version) & requestMetrics(metricRegistry) & logResponseMetrics(projectName) & logRequestResult(("tuf-keyserver", Logging.DebugLevel))) {
+        tracing.traceRequests { _ =>
+          new TufKeyserverRoutes(metricsRoutes = prometheusMetricsRoutes).routes
+        }
       }
-    }
 
-  Http().bindAndHandle(withConnectionMetrics(routes, metricRegistry), host, port)
+    Http().newServerAt(host, port).bindFlow(withConnectionMetrics(routes, metricRegistry))
+  }
 }

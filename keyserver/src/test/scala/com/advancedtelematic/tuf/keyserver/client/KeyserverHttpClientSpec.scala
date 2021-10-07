@@ -1,12 +1,11 @@
 package com.advancedtelematic.tuf.keyserver.client
 
 import java.security.interfaces.RSAPublicKey
-
 import com.advancedtelematic.libats.http.Errors.RemoteServiceError
 import com.advancedtelematic.libats.http.tracing.NullServerRequestTracing
 import com.advancedtelematic.libats.http.tracing.Tracing.ServerRequestTracing
 import com.advancedtelematic.libtuf.data.ClientCodecs._
-import com.advancedtelematic.libtuf.data.ClientDataType.RootRole
+import com.advancedtelematic.libtuf.data.ClientDataType.{RootRole, TargetsRole}
 import com.advancedtelematic.libtuf.data.TufDataType.{EcPrime256TufKey, Ed25519KeyType, Ed25519TufKey, JsonSignedPayload, KeyId, KeyType, RepoId, RoleType, RsaKeyType, SignedPayload, ValidKeyId}
 import com.advancedtelematic.libtuf_server.keyserver.{KeyserverClient, KeyserverHttpClient}
 import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType.{Key, KeyGenId, KeyGenRequest, KeyGenRequestStatus}
@@ -18,6 +17,7 @@ import io.circe.syntax._
 import org.scalatest.concurrent.PatienceConfiguration
 import org.scalatest.time.{Millis, Seconds, Span}
 
+import java.time.Instant
 import scala.async.Async.{async, await}
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -96,9 +96,8 @@ class KeyserverHttpClientSpec extends TufKeyserverSpec
       _ <- createAndProcessRoot(repoId, keyType)
       _ <- client.fetchRootRole(repoId)
       unsigned <- client.fetchUnsignedRoot(repoId)
-      signedJsonPayload ← client.sign(repoId, RoleType.ROOT, unsigned.asJson)
-      root = SignedPayload(signedJsonPayload.signatures, unsigned, signedJsonPayload.signed)
-      updated <- client.updateRoot(repoId, root)
+      signedJsonPayload <- client.sign(repoId, unsigned)
+      updated <- client.updateRoot(repoId, signedJsonPayload)
     } yield updated
 
     f.futureValue shouldBe (())
@@ -146,17 +145,6 @@ class KeyserverHttpClientSpec extends TufKeyserverSpec
     f.futureValue shouldBe (())
   }
 
-  keyTypeTest("can sign json ") { keyType =>
-    val repoId = RepoId.generate()
-
-    val f = for {
-      _ <- createAndProcessRoot(repoId, keyType)
-      sig <- client.sign(repoId, RoleType.TARGETS, Json.Null)
-    } yield sig
-
-    f.futureValue shouldBe a[JsonSignedPayload]
-  }
-
   keyTypeTest("signing with removed key produces RoleKeyNotFound error ") { keyType =>
     val repoId = RepoId.generate()
 
@@ -164,7 +152,7 @@ class KeyserverHttpClientSpec extends TufKeyserverSpec
       _ <- createAndProcessRoot(repoId, keyType)
       signed <- client.fetchRootRole(repoId)
       _ <- client.deletePrivateKey(repoId, signed.signed.roles(RoleType.TARGETS).keyids.head)
-      sig <- client.sign(repoId, RoleType.TARGETS, Json.Null)
+      sig <- client.sign(repoId, TargetsRole(Instant.now, Map.empty, 0))
     } yield sig
 
     f.failed.futureValue shouldBe KeyserverClient.RoleKeyNotFound
@@ -183,7 +171,7 @@ class KeyserverHttpClientSpec extends TufKeyserverSpec
     f.futureValue.signed shouldBe a[RootRole]
   }
 
-  keyTypeTest("returns KeysNotReady when keys are not yet ready ") { keyType =>
+  keyTypeTest("returns KeysNotReady when keys are not yet ready") { keyType =>
     val repoId = RepoId.generate()
     val keyGenRequest = KeyGenRequest(KeyGenId.generate(),
       repoId, KeyGenRequestStatus.REQUESTED, RoleType.TARGETS, keyType.crypto.defaultKeySize, keyType)
@@ -214,5 +202,18 @@ class KeyserverHttpClientSpec extends TufKeyserverSpec
     } yield r.signed
 
     rootF.futureValue shouldBe a[RootRole]
+  }
+
+  test("adds offline targets role keys") {
+    val repoId = RepoId.generate()
+
+    val rootF = for {
+      _ <- client.createRoot(repoId, Ed25519KeyType, forceSync = true)
+      _ <- client.fetchRootRole(repoId)
+      _ <- client.addOfflineUpdatesRole(repoId)
+      r <- client.fetchRootRole(repoId)
+    } yield r.signed
+
+    rootF.futureValue.roles(RoleType.OFFLINE_UPDATES).keyids shouldNot be(empty)
   }
 }

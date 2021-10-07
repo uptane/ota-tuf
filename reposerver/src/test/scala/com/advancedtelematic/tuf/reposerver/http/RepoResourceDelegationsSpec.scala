@@ -63,7 +63,7 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     val oldTargets = buildSignedTargetsRole(repoId, Map.empty)
     val newTargets = oldTargets.signed.copy(delegations = _delegations.some)
 
-    fakeKeyserverClient.sign(repoId, RoleType.TARGETS, newTargets.asJson)
+    fakeKeyserverClient.sign(repoId, newTargets).map(_.asJsonSignedPayload)
   }
 
   private def buildSignedDelegatedTargets(delegatedKeyPair: TufKeyPair = keyPair)
