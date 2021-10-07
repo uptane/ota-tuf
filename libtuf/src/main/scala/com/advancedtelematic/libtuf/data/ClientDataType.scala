@@ -51,6 +51,8 @@ object ClientDataType {
     def version: Int = tufRole.version(value)
 
     def expires: Instant = tufRole.expires(value)
+
+    def roleType: RoleType = tufRole.roleType
   }
 
   implicit class RoleTypeOps(value: RoleType) {
@@ -60,7 +62,7 @@ object ClientDataType {
   trait TufRole[T] {
     def roleType: RoleType
 
-    def typeStr: String = roleType.show.capitalize
+    def decoderDiscriminator: String = roleType.show.split("-").map(_.capitalize).mkString("-")
 
     def metaPath: MetaPath = roleType.metaPath
 
@@ -76,7 +78,6 @@ object ClientDataType {
   sealed trait VersionedRole {
     val version: Int
     val expires: Instant
-    val _type: String
   }
 
   object TufRole {
@@ -97,15 +98,37 @@ object ClientDataType {
     implicit val snapshotTufRole = apply[SnapshotRole](RoleType.SNAPSHOT)((r, v, e) => r.copy(version = v, expires = e))
     implicit val timestampTufRole = apply[TimestampRole](RoleType.TIMESTAMP)((r, v, e) => r.copy(version = v, expires = e))
     implicit val rootTufRole = apply[RootRole](RoleType.ROOT)((r, v, e) => r.copy(version = v, expires = e))
+    implicit val offlineUpdatesRole = apply[OfflineUpdatesRole](RoleType.OFFLINE_UPDATES)((r, v, e) => r.copy(version = v, expires = e))
+    implicit val offlineSnapshotRole = apply[OfflineSnapshotRole](RoleType.OFFLINE_SNAPSHOT)((r, v, e) => r.copy(version = v, expires = e))
   }
 
   case class RootRole(keys: Map[KeyId, TufKey],
                       roles: Map[RoleType, RoleKeys],
                       version: Int,
                       expires: Instant,
-                      consistent_snapshot: Boolean = false) extends VersionedRole {
-    override val _type: String = "Root"
-  }
+                      consistent_snapshot: Boolean = false) extends VersionedRole
+
+  case class TargetsRole(expires: Instant,
+                         targets: Map[TargetFilename, ClientTargetItem],
+                         version: Int,
+                         delegations: Option[Delegations] = None,
+                         custom: Option[Json] = None) extends VersionedRole
+
+  case class SnapshotRole(meta: Map[MetaPath, MetaItem],
+                          expires: Instant,
+                          version: Int) extends VersionedRole
+
+  case class TimestampRole(meta: Map[MetaPath, MetaItem],
+                           expires: Instant,
+                           version: Int) extends VersionedRole
+
+  case class OfflineUpdatesRole(targets: Map[TargetFilename, ClientTargetItem],
+                                expires: Instant,
+                                version: Int) extends VersionedRole
+
+  case class OfflineSnapshotRole(meta: Map[MetaPath, MetaItem],
+                                 expires: Instant,
+                                 version: Int) extends VersionedRole
 
   final class DelegatedPathPattern private (val value: String) extends ValidatedString
 
@@ -117,7 +140,7 @@ object ClientDataType {
         "DelegatedPathPattern cannot be empty or bigger than 254 chars or contain `..`"
       )
     }
-    implicit val delegatedPatternCode = deriveCodec[DelegatedPathPattern]
+    implicit val delegatedPatternCodec = deriveCodec[DelegatedPathPattern]
   }
 
   final class DelegatedRoleName private (val value: String) extends ValidatedString
@@ -137,24 +160,4 @@ object ClientDataType {
                         terminating: Boolean = true)
 
   case class Delegations(keys: Map[KeyId, TufKey], roles: List[Delegation])
-
-  case class TargetsRole(expires: Instant,
-                         targets: Map[TargetFilename, ClientTargetItem],
-                         version: Int,
-                         delegations: Option[Delegations] = None,
-                         custom: Option[Json] = None) extends VersionedRole {
-    override val _type: String = "Targets"
-  }
-
-  case class SnapshotRole(meta: Map[MetaPath, MetaItem],
-                          expires: Instant,
-                          version: Int) extends VersionedRole {
-    override val _type: String = "Snapshot"
-  }
-
-  case class TimestampRole(meta: Map[MetaPath, MetaItem],
-                           expires: Instant,
-                           version: Int) extends VersionedRole {
-    override val _type: String = "Timestamp"
-  }
 }

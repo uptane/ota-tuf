@@ -8,7 +8,7 @@ import akka.http.scaladsl.server.Route
 
 import scala.concurrent.duration._
 import akka.testkit.TestDuration
-import com.advancedtelematic.libats.test.DatabaseSpec
+import com.advancedtelematic.libats.test.MysqlDatabaseSpec
 import com.advancedtelematic.libtuf.data.TufDataType.{Ed25519KeyType, KeyType, RepoId, RsaKeyType}
 import com.advancedtelematic.tuf.keyserver.daemon.DefaultKeyGenerationOp
 import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType.Key
@@ -62,7 +62,7 @@ trait KeyTypeSpecSupport {
 
 trait ResourceSpec extends TufKeyserverSpec
   with ScalatestRouteTest
-  with DatabaseSpec
+  with MysqlDatabaseSpec
   with LongHttpRequest {
   def apiUri(path: String): String = "/api/v1/" + path
 

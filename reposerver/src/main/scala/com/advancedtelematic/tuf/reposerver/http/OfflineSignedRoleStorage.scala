@@ -3,29 +3,26 @@ package com.advancedtelematic.tuf.reposerver.http
 import akka.http.scaladsl.util.FastFuture
 import cats.data.Validated.{Invalid, Valid}
 import cats.data.ValidatedNel
-import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, Delegations, TargetCustom, TargetsRole, TufRole}
-import com.advancedtelematic.libtuf.data.TufDataType.{RepoId, SignedPayload, TargetFilename, TufKey}
+import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, TargetCustom, TargetsRole, TufRole}
+import com.advancedtelematic.libtuf.data.TufDataType.{RepoId, SignedPayload, TargetFilename}
 import com.advancedtelematic.libtuf_server.repo.server.DataType._
 import com.advancedtelematic.tuf.reposerver.data.RepositoryDataType._
 import com.advancedtelematic.tuf.reposerver.db.{SignedRoleRepositorySupport, TargetItemRepositorySupport}
 import io.circe.Encoder
 import cats.implicits._
-import cats.data.NonEmptyList
 import com.advancedtelematic.libats.data.DataType.Checksum
 import com.advancedtelematic.libats.http.Errors.MissingEntityId
 import com.advancedtelematic.libtuf.data.ClientCodecs._
 import slick.jdbc.MySQLProfile.api._
 import com.advancedtelematic.libtuf.crypt.TufCrypto
 import com.advancedtelematic.libtuf.data.ClientDataType.TufRole._
-import com.advancedtelematic.libtuf_server.repo.server.Errors.SignedRoleNotFound
-
 import cats.implicits._
+
 import scala.async.Async.{async, await}
 import scala.concurrent.{ExecutionContext, Future}
 import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient
 import com.advancedtelematic.libtuf_server.repo.server.DataType.SignedRole
 import com.advancedtelematic.tuf.reposerver.data.RepositoryDataType.TargetItem
-import com.advancedtelematic.tuf.reposerver.delegations.DelegationsManagement
 import com.advancedtelematic.tuf.reposerver.http.RoleChecksumHeader.RoleChecksum
 import com.advancedtelematic.tuf.reposerver.target_store.TargetStore
 import org.slf4j.LoggerFactory
@@ -40,23 +37,40 @@ class OfflineSignedRoleStorage(keyserverClient: KeyserverClient)
   private val trustedDelegations = new TrustedDelegations
 
   def store(repoId: RepoId, signedPayload: SignedPayload[TargetsRole]): Future[ValidatedNel[String, (Seq[TargetItem], SignedRole[TargetsRole])]] = async {
-      val validatedPayloadSig = await(payloadSignatureIsValid(repoId, signedPayload))
+    val validatedPayloadSig = await(payloadSignatureIsValid(repoId, signedPayload))
       val existingTargets = await(targetItemRepo.findFor(repoId))
       val delegationsValidated = trustedDelegations.validate(repoId, signedPayload.signed.delegations)
       val targetItemsValidated = validatedPayloadTargets(repoId, signedPayload, existingTargets)
       val signedRoleValidated = (validatedPayloadSig, delegationsValidated, targetItemsValidated).mapN {
         case (_, _, targetItems) =>
-          val signedTargetRole = SignedRole.withChecksum[TargetsRole](repoId, signedPayload.asJsonSignedPayload, signedPayload.signed.version, signedPayload.signed.expires)
-
           async {
+            val signedTargetRole = await(SignedRole.withChecksum[TargetsRole](signedPayload.asJsonSignedPayload, signedPayload.signed.version, signedPayload.signed.expires))
             val (targets, timestamps) = await(signedRoleGeneration.freshSignedDependent(repoId, signedTargetRole, signedPayload.signed.expires))
-            await(signedRoleRepository.storeAll(targetItemRepo)(repoId: RepoId, List(signedTargetRole, targets, timestamps), targetItems))
+            val (toDelete, toInsert) = groupTargetsByOperation(existingTargets, targetItems)
+            await(signedRoleRepository.storeAll(targetItemRepo)(repoId: RepoId, List(signedTargetRole, targets, timestamps), toInsert, toDelete))
             (existingTargets, signedTargetRole).validNel[String]
           }
       }.fold(err => FastFuture.successful(err.invalid), identity)
     await(signedRoleValidated)
   }
 
+  // group `newTargets` into (deleted, newOrUpdated)
+  private def groupTargetsByOperation(existing: Seq[TargetItem], newTargets: Seq[TargetItem]): (Set[TargetFilename], Seq[TargetItem]) = {
+    val existingFilenames = existing.map(_.filename).toSet
+    val newTargetMap = newTargets.map { i => i.filename -> i }.toMap
+
+    val deleted = existingFilenames -- newTargetMap.keySet
+    val updated = existing.filter { i => newTargetMap.get(i.filename).exists(_ != i) }.map(_.filename)
+
+    val toDelete = deleted ++ updated // updated items need to be deleted and then inserted again
+    val toInsert = newTargets.filter { i => updated.contains(i.filename) || ! existingFilenames.contains(i.filename) } // Updated or newly inserted
+
+    _log.debug(s"deleted = $deleted, updated = $updated, insert = $toInsert")
+
+    _log.info(s"storing offline signed: delete=${deleted.size}, updated = ${updated.size}, insert = ${toInsert.size}")
+
+    toDelete -> toInsert
+  }
 
   private def validatedPayloadTargets(repoId: RepoId, payload: SignedPayload[TargetsRole], existingTargets: Seq[TargetItem]): ValidatedNel[String, List[TargetItem]] = {
     def errorMsg(filename: TargetFilename, msg: Any): String = s"target item error ${filename.value}: $msg"
@@ -68,6 +82,7 @@ class OfflineSignedRoleStorage(keyserverClient: KeyserverClient)
         .toRight(errorMsg(filename, "Invalid/Missing Checksum"))
     }
 
+    // This is needed to convert from ClientTargetItem to TargetItem
     def validateExistingTarget(filename: TargetFilename, oldItem: TargetItem, newItem: ClientTargetItem): Either[String, TargetItem] =
       for {
         newTargetCustom <- newItem.custom match {
@@ -99,7 +114,6 @@ class OfflineSignedRoleStorage(keyserverClient: KeyserverClient)
 
   private def payloadSignatureIsValid[T : TufRole : Encoder](repoId: RepoId, signedPayload: SignedPayload[T]): Future[ValidatedNel[String, SignedPayload[T]]] = async {
     val rootRole = await(keyserverClient.fetchRootRole(repoId)).signed
-
     TufCrypto.payloadSignatureIsValid(rootRole, signedPayload)
   }
 
@@ -107,15 +121,13 @@ class OfflineSignedRoleStorage(keyserverClient: KeyserverClient)
                     (repoId: RepoId, signedTargetPayload: SignedPayload[TargetsRole],
                     checksum: Option[RoleChecksum]): Future[(Seq[TargetItem], SignedRole[TargetsRole])] = async {
     await(ensureChecksumIsValidForSave(repoId: RepoId, checksum))
-
-    // get the items before they get removed from the DB
-    val previousTargetItems = await(targetItemRepo.findFor(repoId))
     val saveResult = await(store(repoId, signedTargetPayload))
 
     saveResult match {
-      case Valid((items, signedPayload)) =>
-        await(deleteOutdatedTargets(targetStore)(previousTargetItems, signedTargetPayload.signed.targets.keys))
-        items -> signedPayload
+      case Valid((oldItems, signedPayload)) =>
+        // Delete from the target store (s3, local)
+        await(deleteOutdatedTargets(targetStore)(oldItems, signedTargetPayload.signed.targets.keys))
+        oldItems -> signedPayload
       case Invalid(errors) =>
         throw Errors.InvalidOfflineTargets(errors)
     }

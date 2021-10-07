@@ -2,12 +2,12 @@ package com.advancedtelematic.libtuf_server.repo.server
 
 import java.net.URI
 import java.time.Instant
-
 import akka.http.scaladsl.model.Uri
+import akka.http.scaladsl.util.FastFuture
 import com.advancedtelematic.libats.data.DataType.Checksum
 import com.advancedtelematic.libtuf.data.ClientDataType
 import com.advancedtelematic.libtuf.data.ClientDataType.{MetaItem, MetaPath, TufRole}
-import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RepoId}
+import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RepoId, SignedPayload, TargetFilename}
 import com.advancedtelematic.libtuf_server.crypto.Sha256Digest
 import com.advancedtelematic.libtuf_server.crypto.Sha256Digest
 import com.advancedtelematic.libtuf_server.repo.server.DataType.SignedRole
@@ -17,10 +17,12 @@ import com.advancedtelematic.libtuf.crypt.CanonicalJson._
 import com.advancedtelematic.libtuf.crypt.CanonicalJson._
 import com.advancedtelematic.libtuf.data.ClientDataType.{MetaItem, MetaPath, _}
 import com.advancedtelematic.libtuf.data.TufCodecs._
-import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RepoId, TargetFilename}
 import com.advancedtelematic.libtuf_server.crypto.Sha256Digest
 import io.circe.Decoder
 import io.circe.syntax._
+
+import scala.concurrent.Future
+import scala.util.Try
 
 object DataType {
   import com.advancedtelematic.libtuf.data.ClientCodecs._
@@ -38,7 +40,7 @@ object DataType {
     def role(implicit dec: Decoder[T]): T =
       content.signed.as[T] match {
         case Left(err) =>
-          throw new IllegalArgumentException(s"Could not decode a role saved in database as ${implicitly[TufRole[T]]} but not parseable as such a type: $err")
+          throw new IllegalArgumentException(s"Could not decode a role persisted as ${implicitly[TufRole[T]]} but not parseable as such a type: $err")
         case Right(p) => p
       }
 
@@ -51,10 +53,15 @@ object DataType {
   }
 
   object SignedRole {
-    def withChecksum[T : TufRole](repoId: RepoId, content: JsonSignedPayload, version: Int, expireAt: Instant): SignedRole[T] = {
-      val canonicalJson = content.asJson.canonical
-      val checksum = Sha256Digest.digest(canonicalJson.getBytes)
-      SignedRole[T](content, checksum, canonicalJson.length, version, expireAt)
+
+    def withChecksum[T : TufRole : Decoder](content: JsonSignedPayload, version: Int, expireAt: Instant): Future[SignedRole[T]] = FastFuture {
+      Try {
+        val canonicalJson = content.asJson.canonical
+        val checksum = Sha256Digest.digest(canonicalJson.getBytes)
+        val signedRole = SignedRole[T](content, checksum, canonicalJson.length, version, expireAt)
+        signedRole.role // Decode the role to make sure it's valid
+        signedRole
+      }
     }
   }
 }
