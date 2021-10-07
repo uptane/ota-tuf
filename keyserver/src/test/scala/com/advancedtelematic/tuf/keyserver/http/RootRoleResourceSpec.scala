@@ -85,7 +85,7 @@ class RootRoleResourceSpec extends TufKeyserverSpec
   }
 
   keyTypeTest("POST returns Accepted") { keyType =>
-    Post(apiUri(s"root/${RepoId.generate().show}"), ClientRootGenRequest(keyType = keyType)) ~> routes ~> check {
+    Post(apiUri(s"root/${RepoId.generate().show}"), ClientRootGenRequest(keyType = keyType, forceSync = Some(false))) ~> routes ~> check {
       status shouldBe StatusCodes.Accepted
     }
   }
@@ -93,7 +93,7 @@ class RootRoleResourceSpec extends TufKeyserverSpec
   keyTypeTest("POST creates key gen request for all types of roles") { keyType =>
     val repoId = RepoId.generate()
 
-    Post(apiUri(s"root/${repoId.show}"), ClientRootGenRequest(keyType = keyType)) ~> routes ~> check {
+    Post(apiUri(s"root/${repoId.show}"), ClientRootGenRequest(keyType = keyType, forceSync = Some(false))) ~> routes ~> check {
       status shouldBe StatusCodes.Accepted
     }
 
@@ -108,10 +108,8 @@ class RootRoleResourceSpec extends TufKeyserverSpec
     val repoId = RepoId.generate()
 
     Post(apiUri(s"root/${repoId.show}"), ClientRootGenRequest(keyType = keyType)) ~> routes ~> check {
-      status shouldBe StatusCodes.Accepted
+      status shouldBe StatusCodes.Created
     }
-
-    processKeyGenerationRequest(repoId).futureValue
 
     Get(apiUri(s"root/${repoId.show}")) ~> routes ~> check {
       status shouldBe StatusCodes.OK
@@ -133,7 +131,7 @@ class RootRoleResourceSpec extends TufKeyserverSpec
     val repoId = RepoId.generate()
 
     Post(apiUri(s"root/${repoId.show}"), ClientRootGenRequest(keyType = keyType)) ~> routes ~> check {
-      status shouldBe StatusCodes.Accepted
+      status shouldBe StatusCodes.Created
     }
 
     val requests = keyGenRepo.findBy(repoId).futureValue
@@ -146,7 +144,7 @@ class RootRoleResourceSpec extends TufKeyserverSpec
   keyTypeTest("PUT forces a retry on ERROR requests ") { keyType =>
     val repoId = RepoId.generate()
 
-    Post(apiUri(s"root/${repoId.show}"), ClientRootGenRequest(keyType = keyType)) ~> routes ~> check {
+    Post(apiUri(s"root/${repoId.show}"), ClientRootGenRequest(keyType = keyType, forceSync = Some(false))) ~> routes ~> check {
       status shouldBe StatusCodes.Accepted
     }
 
@@ -166,7 +164,7 @@ class RootRoleResourceSpec extends TufKeyserverSpec
     val repoId = RepoId.generate()
 
     Post(apiUri(s"root/${repoId.show}"), ClientRootGenRequest(keyType = keyType)) ~> routes ~> check {
-      status shouldBe StatusCodes.Accepted
+      status shouldBe StatusCodes.Created
     }
 
     Post(apiUri(s"root/${repoId.show}"), ClientRootGenRequest(keyType = keyType)) ~> routes ~> check {
@@ -177,7 +175,7 @@ class RootRoleResourceSpec extends TufKeyserverSpec
   keyTypeTest("GET returns Locked if keys are not ready ") { keyType =>
     val repoId = RepoId.generate()
 
-    Post(apiUri(s"root/${repoId.show}"), ClientRootGenRequest(keyType = keyType)) ~> routes ~> check {
+    Post(apiUri(s"root/${repoId.show}"), ClientRootGenRequest(keyType = keyType, forceSync = Some(false))) ~> routes ~> check {
       status shouldBe StatusCodes.Accepted
     }
 
@@ -189,7 +187,7 @@ class RootRoleResourceSpec extends TufKeyserverSpec
   keyTypeTest("GET returns 502 if key generation failed ") { keyType =>
     val repoId = RepoId.generate()
 
-    Post(apiUri(s"root/${repoId.show}"), ClientRootGenRequest(keyType = keyType)) ~> routes ~> check {
+    Post(apiUri(s"root/${repoId.show}"), ClientRootGenRequest(keyType = keyType, forceSync = Some(false))) ~> routes ~> check {
       status shouldBe StatusCodes.Accepted
     }
 
@@ -731,9 +729,8 @@ class RootRoleResourceSpec extends TufKeyserverSpec
   keyTypeTest("GET returns renewed root if old one expired ") { keyType =>
     val repoId = RepoId.generate()
 
-    Post(apiUri(s"root/${repoId.show}"), ClientRootGenRequest(1, keyType)) ~> routes ~> check {
-      status shouldBe StatusCodes.Accepted
-      processKeyGenerationRequest(repoId).futureValue
+    Post(apiUri(s"root/${repoId.show}"), ClientRootGenRequest(1, keyType, forceSync = Some(true))) ~> routes ~> check {
+      status shouldBe StatusCodes.Created
     }
 
     val signedRootRoles = new SignedRootRoles(defaultRoleExpire = Duration.ofMillis(1))
@@ -752,8 +749,7 @@ class RootRoleResourceSpec extends TufKeyserverSpec
     val repoId = RepoId.generate()
 
     Post(apiUri(s"root/${repoId.show}"), ClientRootGenRequest(1, keyType)) ~> routes ~> check {
-      status shouldBe StatusCodes.Accepted
-      processKeyGenerationRequest(repoId).futureValue
+      status shouldBe StatusCodes.Created
     }
 
     val signedRootRoles = new SignedRootRoles(defaultRoleExpire = Duration.ofMillis(1))
@@ -870,11 +866,9 @@ class RootRoleResourceSpec extends TufKeyserverSpec
   }
 
   def generateRepoKeys(repoId: RepoId, keyType: KeyType, threshold: Int = 1): Future[Seq[Key]] = {
-    Post(apiUri(s"root/${repoId.show}"), ClientRootGenRequest(threshold, keyType)) ~> routes ~> check {
+    Post(apiUri(s"root/${repoId.show}"), ClientRootGenRequest(threshold, keyType, forceSync = Some(false))) ~> routes ~> check {
       status shouldBe StatusCodes.Accepted
-
       responseAs[Seq[KeyGenId]] shouldNot be(empty)
-
       processKeyGenerationRequest(repoId)
     }
   }
