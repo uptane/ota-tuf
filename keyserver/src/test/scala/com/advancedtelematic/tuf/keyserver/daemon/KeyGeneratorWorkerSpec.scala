@@ -3,19 +3,19 @@ package com.advancedtelematic.tuf.keyserver.daemon
 import akka.actor.{ActorSystem, Props, Status}
 import akka.testkit.{ImplicitSender, TestKitBase, TestProbe}
 import com.advancedtelematic.libats.http.Errors.MissingEntity
-import com.advancedtelematic.libats.test.DatabaseSpec
 import com.advancedtelematic.libtuf.data.TufDataType.{Ed25519TufKey, KeyId, KeyType, RSATufKey, RepoId, RoleType}
 import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType.{KeyGenRequestStatus, _}
 import com.advancedtelematic.tuf.keyserver.db.{KeyGenRequestSupport, KeyRepositorySupport}
 import com.advancedtelematic.tuf.util.{KeyTypeSpecSupport, TufKeyserverSpec}
 import org.scalatest.concurrent.PatienceConfiguration
 import org.scalatest.time.{Milliseconds, Seconds, Span}
+import com.advancedtelematic.libats.test.MysqlDatabaseSpec
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
 
-class KeyGeneratorWorkerSpec extends TufKeyserverSpec with TestKitBase with DatabaseSpec with ImplicitSender
+class KeyGeneratorWorkerSpec extends TufKeyserverSpec with TestKitBase with MysqlDatabaseSpec with ImplicitSender
   with KeyRepositorySupport
   with KeyGenRequestSupport
   with KeyTypeSpecSupport

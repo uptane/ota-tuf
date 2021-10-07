@@ -1,13 +1,12 @@
 package com.advancedtelematic.tuf.reposerver.db
 
 import java.time.Instant
-
 import akka.http.scaladsl.model.StatusCodes
 import com.advancedtelematic.libats.data.DataType.{Checksum, HashMethod, ValidChecksum}
 import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RepoId, RoleType}
 import io.circe.Json
 import com.advancedtelematic.libats.http.Errors.RawError
-import com.advancedtelematic.libats.test.DatabaseSpec
+import com.advancedtelematic.libats.test.MysqlDatabaseSpec
 import com.advancedtelematic.tuf.reposerver.db.DBDataType.DbSignedRole
 import com.advancedtelematic.tuf.reposerver.util.TufReposerverSpec
 import eu.timepit.refined.refineV
@@ -17,7 +16,7 @@ import org.scalatest.time.{Seconds, Span}
 import scala.async.Async._
 import scala.concurrent.ExecutionContext
 
-class DbSignedRoleRepositorySpec extends TufReposerverSpec with DatabaseSpec with PatienceConfiguration {
+class DbSignedRoleRepositorySpec extends TufReposerverSpec with MysqlDatabaseSpec with PatienceConfiguration {
 
   implicit val ec = ExecutionContext.global
 

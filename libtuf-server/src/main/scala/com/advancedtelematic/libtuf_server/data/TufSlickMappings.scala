@@ -5,10 +5,16 @@ import com.advancedtelematic.libats.data.DataType.Checksum
 import com.advancedtelematic.libats.slick.codecs.SlickEnumMapper
 import com.advancedtelematic.libats.slick.db.{SlickCirceMapper, SlickEncryptedColumn}
 import com.advancedtelematic.libtuf.data.ClientCodecs._
-import com.advancedtelematic.libtuf.data.ClientDataType.TargetCustom
+import com.advancedtelematic.libtuf.data.ClientDataType.{DelegatedRoleName, TargetCustom}
 import com.advancedtelematic.libtuf.data.TufCodecs._
 import com.advancedtelematic.libtuf.data.TufDataType.{EcPrime256KeyType, Ed25519KeyType, JsonSignedPayload, KeyType, RoleType, RsaKeyType, TufKey, TufPrivateKey}
 import slick.jdbc.MySQLProfile.api._
+import com.advancedtelematic.libats.slick.db.SlickCirceMapper
+import com.advancedtelematic.libtuf.data.ValidatedString
+import com.advancedtelematic.libtuf.data.ValidatedString.{ValidatedString, ValidatedStringValidation}
+import slick.jdbc.MySQLProfile.api._
+
+import scala.reflect.ClassTag
 
 object TufSlickMappings {
 

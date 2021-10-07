@@ -6,12 +6,12 @@ import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType._
 import com.advancedtelematic.tuf.util.{KeyTypeSpecSupport, TufKeyserverSpec}
 import io.circe.syntax._
 import com.advancedtelematic.libtuf.crypt.CanonicalJson._
-import com.advancedtelematic.libats.test.DatabaseSpec
 import com.advancedtelematic.libtuf.crypt.TufCrypto
 import com.advancedtelematic.tuf.keyserver.db.KeyRepositorySupport
 import org.bouncycastle.util.encoders.Base64
 import org.scalatest.concurrent.PatienceConfiguration
 import org.scalatest.time.{Seconds, Span}
+import com.advancedtelematic.libats.test.MysqlDatabaseSpec
 
 import scala.concurrent.ExecutionContext
 
@@ -19,7 +19,7 @@ case class TestPayload(propertyB: String = "some B", propertyA: String = "some A
                        arrayMapProp: List[Map[String, Int]] = List(Map("bbb" -> 1, "aaa" -> 0)),
                        mapProp: Map[String, Int] = Map("bb" -> 1, "aa" -> 0))
 
-class RoleSigningSpec extends TufKeyserverSpec with DatabaseSpec with PatienceConfiguration with KeyTypeSpecSupport with KeyRepositorySupport {
+class RoleSigningSpec extends TufKeyserverSpec with MysqlDatabaseSpec with PatienceConfiguration with KeyTypeSpecSupport with KeyRepositorySupport {
 
   implicit val ec = ExecutionContext.global
 

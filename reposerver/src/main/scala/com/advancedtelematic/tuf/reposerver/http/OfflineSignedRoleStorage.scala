@@ -38,23 +38,19 @@ class OfflineSignedRoleStorage(keyserverClient: KeyserverClient)
 
   def store(repoId: RepoId, signedPayload: SignedPayload[TargetsRole]): Future[ValidatedNel[String, (Seq[TargetItem], SignedRole[TargetsRole])]] = async {
     val validatedPayloadSig = await(payloadSignatureIsValid(repoId, signedPayload))
-    val existingTargets = await(targetItemRepo.findFor(repoId))
-    val delegationsValidated = trustedDelegations.validate(repoId, signedPayload.signed.delegations)
-    val targetItemsValidated = validatedPayloadTargets(repoId, signedPayload, existingTargets)
-
-    val signedRoleValidated = (validatedPayloadSig, delegationsValidated, targetItemsValidated).mapN {
-      case (_, _, targetItems) =>
-        val signedTargetRole = SignedRole.withChecksum[TargetsRole](repoId, signedPayload.asJsonSignedPayload, signedPayload.signed.version, signedPayload.signed.expires)
-
-        async {
-          val (targets, timestamps) = await(signedRoleGeneration.freshSignedDependent(repoId, signedTargetRole, signedPayload.signed.expires))
-          val (toDelete, toInsert) = groupTargetsByOperation(existingTargets, targetItems)
-          await(signedRoleRepository.storeAll(targetItemRepo)(repoId: RepoId, List(signedTargetRole, targets, timestamps), toInsert, toDelete))
-          (existingTargets, signedTargetRole).validNel[String]
-        }
-
-
-    }.fold(err => FastFuture.successful(err.invalid), identity)
+      val existingTargets = await(targetItemRepo.findFor(repoId))
+      val delegationsValidated = trustedDelegations.validate(repoId, signedPayload.signed.delegations)
+      val targetItemsValidated = validatedPayloadTargets(repoId, signedPayload, existingTargets)
+      val signedRoleValidated = (validatedPayloadSig, delegationsValidated, targetItemsValidated).mapN {
+        case (_, _, targetItems) =>
+          async {
+            val signedTargetRole = await(SignedRole.withChecksum[TargetsRole](signedPayload.asJsonSignedPayload, signedPayload.signed.version, signedPayload.signed.expires))
+            val (targets, timestamps) = await(signedRoleGeneration.freshSignedDependent(repoId, signedTargetRole, signedPayload.signed.expires))
+            val (toDelete, toInsert) = groupTargetsByOperation(existingTargets, targetItems)
+            await(signedRoleRepository.storeAll(targetItemRepo)(repoId: RepoId, List(signedTargetRole, targets, timestamps), toInsert, toDelete))
+            (existingTargets, signedTargetRole).validNel[String]
+          }
+      }.fold(err => FastFuture.successful(err.invalid), identity)
     await(signedRoleValidated)
   }
 

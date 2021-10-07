@@ -11,7 +11,7 @@ import slick.jdbc.MySQLProfile.api._
 import SlickMappings._
 import com.advancedtelematic.libtuf_server.data.Requests.TargetComment
 import com.advancedtelematic.tuf.reposerver.db.DBDataType.{DbDelegation, DbSignedRole}
-import SlickValidatedString._
+import SlickMappings.delegatedRoleNameMapper
 import com.advancedtelematic.tuf.reposerver.data.RepositoryDataType.StorageMethod.StorageMethod
 import com.advancedtelematic.tuf.reposerver.data.RepositoryDataType.TargetItem
 

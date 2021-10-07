@@ -3,8 +3,6 @@ package com.advancedtelematic.tuf.keyserver.http
 
 import java.time.temporal.ChronoUnit
 import java.time.{Duration, Instant}
-
-import com.advancedtelematic.libats.test.DatabaseSpec
 import com.advancedtelematic.libtuf.crypt.CanonicalJson._
 import com.advancedtelematic.libtuf.crypt.TufCrypto
 import com.advancedtelematic.libtuf.data.ClientCodecs._
@@ -20,11 +18,11 @@ import io.circe.syntax._
 import org.scalatest.Inspectors
 import org.scalatest.concurrent.PatienceConfiguration
 import org.scalatest.time.{Seconds, Span}
-
 import scala.async.Async._
 import scala.concurrent.{ExecutionContext, Future}
+import com.advancedtelematic.libats.test.MysqlDatabaseSpec
 
-class SignedRootRolesSpec extends TufKeyserverSpec with DatabaseSpec
+class SignedRootRolesSpec extends TufKeyserverSpec with MysqlDatabaseSpec
   with Inspectors with PatienceConfiguration
   with KeyGenRequestSupport
   with KeyTypeSpecSupport

@@ -6,16 +6,16 @@ import com.advancedtelematic.libtuf.data.TufDataType.{KeyType, RepoId, RoleType,
 import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType.{Key, KeyGenId, KeyGenRequest, KeyGenRequestStatus}
 import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType.KeyGenRequestStatus.KeyGenRequestStatus
 import com.advancedtelematic.tuf.util.{KeyTypeSpecSupport, TufKeyserverSpec}
-import com.advancedtelematic.libats.test.DatabaseSpec
 import com.advancedtelematic.tuf.keyserver.db.{KeyGenRequestSupport, KeyRepositorySupport}
 import org.scalatest.{Assertion, BeforeAndAfterAll, Inspectors}
 import org.scalatest.concurrent.PatienceConfiguration.{Interval, Timeout}
 import org.scalatest.concurrent.Eventually
 import org.scalatest.time.{Millis, Milliseconds, Seconds, Span}
+import com.advancedtelematic.libats.test.MysqlDatabaseSpec
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class KeyGeneratorLeaderSpec extends TufKeyserverSpec with TestKitBase with DatabaseSpec with ImplicitSender
+class KeyGeneratorLeaderSpec extends TufKeyserverSpec with TestKitBase with MysqlDatabaseSpec with ImplicitSender
   with KeyRepositorySupport
   with KeyGenRequestSupport
   with Eventually
