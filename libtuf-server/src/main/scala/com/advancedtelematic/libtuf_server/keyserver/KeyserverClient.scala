@@ -32,7 +32,7 @@ object KeyserverClient {
 }
 
 trait KeyserverClient {
-  def createRoot(repoId: RepoId, keyType: KeyType = KeyType.default, forceSync: Boolean = false): Future[Json]
+  def createRoot(repoId: RepoId, keyType: KeyType = KeyType.default, forceSync: Boolean = true): Future[Json]
 
   def sign[T : Codec : TufRole](repoId: RepoId, payload: T): Future[SignedPayload[T]]
 
@@ -72,17 +72,11 @@ class KeyserverHttpClient(uri: Uri, httpClient: HttpRequest => Future[HttpRespon
     uri.withPath(Empty / "api" / "v1" ++ Slash(path))
 
   override def createRoot(repoId: RepoId, keyType: KeyType, forceSync: Boolean): Future[Json] = {
-    val entity = Json.obj("threshold" -> 1.asJson, "keyType" -> keyType.asJson)
+    val entity = Json.obj("threshold" -> 1.asJson, "keyType" -> keyType.asJson, "forceSync" -> forceSync.asJson)
 
     val req = HttpRequest(HttpMethods.POST, uri = apiUri(Path("root") / repoId.show))
 
-    val finalReq =
-      if(forceSync)
-        req.addHeader(RawHeader("x-ats-tuf-force-sync", "keys"))
-      else
-        req
-
-    execJsonHttp[Json, Json](finalReq, entity).handleErrors {
+    execJsonHttp[Json, Json](req, entity).handleErrors {
       case RemoteServiceError(_, StatusCodes.Conflict, _, _, _, _)  =>
         Future.failed(RootRoleConflict)
       case RemoteServiceError(_, StatusCodes.Locked, _, _, _, _) =>
