@@ -108,7 +108,6 @@ build docker image tuf-server:
   variables:
     ARTIFACTORY_REPO: ota-docker-dev-horw
     SERVICE_NAME: tuf-server
-    IMAGE_REPO: uptane
     SBT_NAME: tuf_server/
 
 .deploy-image:
