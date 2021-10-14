@@ -1,7 +1,4 @@
 import CustomSettings._
-import java.nio.file.Files.{copy => fileCopy}
-import java.nio.file.Paths.{get => createPath}
-import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 
 def itFilter(name: String): Boolean = name endsWith "IntegrationSpec"
 
@@ -123,7 +120,7 @@ lazy val tuf_server = (project in file("tuf-server"))
   .dependsOn(reposerver)
 
 lazy val cli = (project in file("cli"))
-  .enablePlugins(BuildInfoPlugin, Versioning.Plugin, JavaAppPackaging, S3ReleasePlugin)
+  .enablePlugins(BuildInfoPlugin, Versioning.Plugin, JavaAppPackaging)
   .configs(commonConfigs:_*)
   .settings(commonSettings)
   .settings(Publish.disable)
@@ -132,32 +129,7 @@ lazy val cli = (project in file("cli"))
     topLevelDirectory := Some("garage-sign"),
     executableScriptName := "garage-sign",
     Universal / mappings += (file("cli/LICENSE") -> "docs/LICENSE"),
-    s3Bucket := "ota-tuf-cli-releases",
-    libraryDependencies += "com.typesafe" % "config" % "1.4.1" % Test,
-    reinstallGarageSign := {
-      val home = sys.env("HOME")
-      val bin = sys.env("PATH")
-                  .split(":")
-                  .filter { p =>
-                    val f = new File(p + "/garage-sign")
-                    p.startsWith(home) && f.isFile && f.isOwnerExecutable
-                  }
-                  .head
-      val targetDir = (new File(bin)).getParent
-
-      stage.value
-      val stagingDir = (Universal / stagingDirectory).value
-      val files = (stagingDir ** "*").get
-      files.foreach { file =>
-        val p = file.getAbsolutePath
-        if (file.isFile && p.length > stagingDir.absolutePath.length) {
-          val relPath = p.substring(stagingDir.getAbsolutePath.length + 1)
-          fileCopy(file.toPath, createPath(s"$targetDir/$relPath"), REPLACE_EXISTING)
-        }
-      }
-      println(s"Done installing to $targetDir.")
-    }
-  )
+    libraryDependencies += "com.typesafe" % "config" % "1.4.1" % Test)
   .dependsOn(libtuf)
 
 lazy val ota_tuf = (project in file("."))
@@ -165,7 +137,5 @@ lazy val ota_tuf = (project in file("."))
   .settings(Publish.disable)
   .settings(Release.settings(libtuf, libtuf_server, keyserver, reposerver))
   .aggregate(libtuf_server, libtuf, keyserver, reposerver, cli)
-
-lazy val reinstallGarageSign = taskKey[Unit]("Reinstall garage-sign in a dir in the home directory")
 
 
