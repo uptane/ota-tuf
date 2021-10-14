@@ -29,7 +29,7 @@ trait Settings {
   val daemonPort = if(_config.hasPath("http.server.daemon-port")) _config.getInt("http.server.daemon-port") else port
 }
 
-class KeyserverBoot(override val appConfig: Config,
+class KeyserverBoot(override val globalConfig: Config,
                     override val dbConfig: Config,
                     override val metricRegistry: MetricRegistry)
                    (implicit override val system: ActorSystem) extends BootApp
@@ -52,7 +52,7 @@ class KeyserverBoot(override val appConfig: Config,
   def bind(): Future[ServerBinding] = {
     log.info(s"Starting ${nameVersion} on http://$host:$port")
 
-    val tracing = Tracing.fromConfig(appConfig, projectName)
+    val tracing = Tracing.fromConfig(globalConfig, projectName)
 
     val routes: Route =
       (versionHeaders(nameVersion) & requestMetrics(metricRegistry) & logResponseMetrics(projectName)) {
@@ -69,6 +69,6 @@ object Boot extends BootAppDefaultConfig with BootAppDatabaseConfig with Version
   Security.addProvider(new BouncyCastleProvider)
 
   def main(args: Array[String]): Unit = {
-    new KeyserverBoot(appConfig, dbConfig, MetricsSupport.metricRegistry).bind()
+    new KeyserverBoot(globalConfig, dbConfig, MetricsSupport.metricRegistry).bind()
   }
 }

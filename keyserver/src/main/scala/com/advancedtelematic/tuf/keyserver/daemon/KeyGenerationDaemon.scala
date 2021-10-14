@@ -19,7 +19,7 @@ import org.mariadb.jdbc.internal.logging.LoggerFactory
 
 import scala.concurrent.Future
 
-class KeyserverDaemon(override val appConfig: Config, override val dbConfig: Config,
+class KeyserverDaemon(override val globalConfig: Config, override val dbConfig: Config,
                       override val metricRegistry: MetricRegistry)
                      (implicit override val system: ActorSystem) extends BootApp
   with Settings
@@ -56,6 +56,6 @@ object DaemonBoot extends BootAppDefaultConfig with BootAppDatabaseConfig with V
   Security.addProvider(new BouncyCastleProvider())
 
   def main(args: Array[String]): Unit = {
-    new KeyserverDaemon(appConfig, dbConfig, MetricsSupport.metricRegistry).bind()
+    new KeyserverDaemon(globalConfig, dbConfig, MetricsSupport.metricRegistry).bind()
   }
 }

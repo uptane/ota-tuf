@@ -20,12 +20,12 @@ object TufServerBoot extends BootAppDefaultConfig with VersionInfo {
   def main(args: Array[String]): Unit = {
     Security.addProvider(new BouncyCastleProvider)
 
-    val keyserverDbConfig = appConfig.getConfig("ats.keyserver.database")
+    val keyserverDbConfig = globalConfig.getConfig("ats.keyserver.database")
     val keyserverActorSystem = ActorSystem("keyserver-actor-system")
-    val keyserverBind = new KeyserverBoot(appConfig, keyserverDbConfig, new MetricRegistry)(keyserverActorSystem).bind()
+    val keyserverBind = new KeyserverBoot(globalConfig, keyserverDbConfig, new MetricRegistry)(keyserverActorSystem).bind()
 
-    val reposerverDbConfig = appConfig.getConfig("ats.reposerver.database")
-    val reposerverBind = new ReposerverBoot(appConfig, reposerverDbConfig, new MetricRegistry)(ActorSystem("reposerver-actor-system")).bind()
+    val reposerverDbConfig = globalConfig.getConfig("ats.reposerver.database")
+    val reposerverBind = new ReposerverBoot(globalConfig, reposerverDbConfig, new MetricRegistry)(ActorSystem("reposerver-actor-system")).bind()
 
     val bind = Future.sequence(List(keyserverBind, reposerverBind))
 

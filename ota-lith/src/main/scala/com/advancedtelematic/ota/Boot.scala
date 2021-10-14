@@ -15,18 +15,18 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider
 
 object OtaLithBoot extends App {
 
-  private lazy val appConfig = ConfigFactory.load()
+  private lazy val globalConfig = ConfigFactory.load()
 
   Security.addProvider(new BouncyCastleProvider)
 
-  val keyserverDbConfig = appConfig.getConfig("ats.keyserver.database")
-  val keyserverBind = new KeyserverBoot(appConfig, keyserverDbConfig, new MetricRegistry)(ActorSystem("keyserver-actor-system")).bind()
+  val keyserverDbConfig = globalConfig.getConfig("ats.keyserver.database")
+  val keyserverBind = new KeyserverBoot(globalConfig, keyserverDbConfig, new MetricRegistry)(ActorSystem("keyserver-actor-system")).bind()
 
-  val reposerverDbConfig = appConfig.getConfig("ats.reposerver.database")
-  val reposerverBind = new ReposerverBoot(appConfig, reposerverDbConfig, new MetricRegistry)(ActorSystem("reposerver-actor-system")).bind()
+  val reposerverDbConfig = globalConfig.getConfig("ats.reposerver.database")
+  val reposerverBind = new ReposerverBoot(globalConfig, reposerverDbConfig, new MetricRegistry)(ActorSystem("reposerver-actor-system")).bind()
 
-  val directorDbConfig = appConfig.getConfig("ats.director.database")
-  val directorBind = new DirectorBoot(appConfig, reposerverDbConfig, new MetricRegistry)(ActorSystem("director-actor-system")).bind()
+  val directorDbConfig = globalConfig.getConfig("ats.director.database")
+  val directorBind = new DirectorBoot(globalConfig, reposerverDbConfig, new MetricRegistry)(ActorSystem("director-actor-system")).bind()
 }
 
 object OtaLithDaemonBoot extends BootApp3 {
@@ -34,9 +34,9 @@ object OtaLithDaemonBoot extends BootApp3 {
 
   Security.addProvider(new BouncyCastleProvider)
 
-  val keyserverDbConfig = appConfig.getConfig("ats.keyserver.database")
-  val keyserverDaemonBind = new KeyserverDaemon(appConfig, keyserverDbConfig, new MetricRegistry)
+  val keyserverDbConfig = globalConfig.getConfig("ats.keyserver.database")
+  val keyserverDaemonBind = new KeyserverDaemon(globalConfig, keyserverDbConfig, new MetricRegistry)
 
-  val directorDbConfig = appConfig.getConfig("ats.director.database")
-  val directorDaemonBind = new DirectorDaemon(appConfig, directorDbConfig, new MetricRegistry)
+  val directorDbConfig = globalConfig.getConfig("ats.director.database")
+  val directorDaemonBind = new DirectorDaemon(globalConfig, directorDbConfig, new MetricRegistry)
 }

@@ -79,7 +79,7 @@ trait Settings {
 }
 
 
-class ReposerverBoot(override val appConfig: Config,
+class ReposerverBoot(override val globalConfig: Config,
                      override val dbConfig: Config,
                      override val metricRegistry: MetricRegistry)
                     (implicit override val system: ActorSystem) extends BootApp
@@ -102,7 +102,7 @@ class ReposerverBoot(override val appConfig: Config,
 
     def keyStoreClient(implicit requestTracing: ServerRequestTracing) = KeyserverHttpClient(keyServerUri)
 
-    val messageBusPublisher = MessageBus.publisher(system, appConfig)
+    val messageBusPublisher = MessageBus.publisher(system, globalConfig)
 
     val targetStoreEngine = if (useS3) {
       new S3TargetStoreEngine(s3Credentials)
@@ -116,7 +116,7 @@ class ReposerverBoot(override val appConfig: Config,
 
     val keyserverHealthCheck = new ServiceHealthCheck(keyServerUri)
 
-    implicit val tracing = Tracing.fromConfig(appConfig, "reposerver")
+    implicit val tracing = Tracing.fromConfig(globalConfig, "reposerver")
 
     val routes: Route =
       (versionHeaders(nameVersion) & requestMetrics(metricRegistry) & logResponseMetrics(projectName) & logRequestResult(("reposerver", Logging.DebugLevel))) {
@@ -137,6 +137,6 @@ object Boot extends BootAppDefaultConfig with VersionInfo with BootAppDatabaseCo
   Security.addProvider(new BouncyCastleProvider)
 
   def main(args: Array[String]): Unit = {
-    new ReposerverBoot(appConfig, dbConfig, MetricsSupport.metricRegistry).bind()
+    new ReposerverBoot(globalConfig, dbConfig, MetricsSupport.metricRegistry).bind()
   }
 }

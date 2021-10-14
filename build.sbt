@@ -62,40 +62,19 @@ lazy val commonSettings = Seq(
   organizationHomepage := Some(url("https://uptane.github.io/")),
   scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8", "-Xexperimental", "-Ypartial-unification"),
   Compile / console / scalacOptions ~= (_.filterNot(_ == "-Ywarn-unused-import")),
-  resolvers += Resolver.sonatypeRepo("releases"),
-  libatsVersion := "2.0.1",
+  resolvers += "sonatype-snapshots" at "https://s01.oss.sonatype.org/content/repositories/snapshots",
+  resolvers += "sonatype-releases" at "https://s01.oss.sonatype.org/content/repositories/releases",
+  libatsVersion := "2.0.2",
   licenses += ("MPL-2.0", url("http://mozilla.org/MPL/2.0/")),
   description := "scala tuf implementation support",
   buildInfoOptions += BuildInfoOption.ToMap,
-  buildInfoOptions += BuildInfoOption.BuildTime,
-  dependencyCheckAssemblyAnalyzerEnabled := Some(false)) ++
+  buildInfoOptions += BuildInfoOption.BuildTime) ++
   Seq(inConfig(ItTest)(Defaults.testTasks): _*) ++
   Seq(inConfig(UnitTest)(Defaults.testTasks): _*) ++
   (UnitTest / testOptions := Seq(Tests.Filter(unitFilter))) ++
   (IntegrationTest / testOptions := Seq(Tests.Filter(itFilter))) ++
   Versioning.settings ++
   commonDeps
-
-lazy val sonarSettings = Seq(
-  sonarProperties ++= Map(
-    "sonar.projectName" -> "OTA Connect TUF",
-    "sonar.projectKey" -> "ota-connect-tuf",
-    "sonar.sources" -> "src/main/scala",
-    "sonar.tests" -> "src/test/scala",
-    "sonar.host.url" -> "http://sonar.in.here.com",
-    "sonar.links.issue" -> "https://saeljira.it.here.com/projects/OTA/issues",
-    "sonar.links.scm" -> "https://main.gitlab.in.here.com/olp/edge/ota/connect/back-end/ota-tuf",
-    "sonar.links.ci" -> "https://main.gitlab.in.here.com/olp/edge/ota/connect/back-end/ota-tuf/pipelines",
-    "sonar.language" -> "scala",
-    "sonar.projectVersion" -> version.value,
-    "sonar.modules" -> "libtuf,libtuf-server,keyserver,reposerver,cli",
-    "libtuf.sonar.projectName" -> "OTA Connect Libtuf",
-    "libtuf-server.sonar.projectName" -> "OTA Connect Libtuf Server",
-    "keyserver.sonar.projectName" -> "OTA Connect TUF Keyserver",
-    "reposerver.sonar.projectName" -> "OTA Connect TUF Repository Server",
-    "cli.sonar.projectName" -> "OTA Connect TUF CLI (garage-sign)",
-  )
-)
 
 lazy val libtuf = (project in file("libtuf"))
   .enablePlugins(Versioning.Plugin, BuildInfoPlugin)
@@ -186,8 +165,7 @@ lazy val ota_tuf = (project in file("."))
   .settings(Publish.disable)
   .settings(Release.settings(libtuf, libtuf_server, keyserver, reposerver))
   .aggregate(libtuf_server, libtuf, keyserver, reposerver, cli)
-  .settings(sonarSettings)
-  .settings(sonarScan / aggregate := false)
 
 lazy val reinstallGarageSign = taskKey[Unit]("Reinstall garage-sign in a dir in the home directory")
+
 
