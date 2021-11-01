@@ -20,7 +20,6 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class KeysToJsonEncodedMigration(implicit
                                  val db: Database,
-                                 val mat: Materializer,
                                  val system: ActorSystem,
                                  val ec: ExecutionContext) {
 

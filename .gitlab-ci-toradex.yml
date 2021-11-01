@@ -100,6 +100,16 @@ build docker image keyserver:
     SERVICE_NAME: tuf-keyserver
     SBT_NAME: keyserver/
 
+build docker image tuf-server:
+  stage: build image
+  extends:
+    - .jfrog-sbt-docker-publish
+    - .master-or-mr-rule
+  variables:
+    ARTIFACTORY_REPO: ota-docker-dev-horw
+    SERVICE_NAME: tuf-server
+    SBT_NAME: tuf_server/
+
 .deploy-image:
   stage: deploy
   # need to disable "Auto-cancel redundant pipelines" and "Skip outdated deployment jobs"

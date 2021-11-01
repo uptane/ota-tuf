@@ -21,14 +21,12 @@ object Release {
       releaseStepCommand("reposerver/docker:publish")
     )
 
-    val cliS3Release: Seq[ReleaseStep] = Seq(
+    val cliRelease: Seq[ReleaseStep] = Seq(
       releaseStepCommand("cli/updateClassifiers"),
-      releaseStepCommand("cli/universal:packageZipTarball"),
-      releaseStepCommand("cli/s3release"),
-      releaseStepCommand("cli/s3depsRelease")
+      releaseStepCommand("cli/universal:packageZipTarball")
     )
 
-    val allSteps = prepareSteps ++ dockerPublishSteps ++ cliS3Release ++ publishSteps
+    val allSteps = prepareSteps ++ dockerPublishSteps ++ cliRelease ++ publishSteps
 
     Seq(
       releaseIgnoreUntrackedFiles := true,

@@ -5,7 +5,6 @@ import akka.http.scaladsl.model.Uri.Path
 import akka.http.scaladsl.model.Uri.Path.{Empty, Slash}
 import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.model.{StatusCodes, _}
-import akka.stream.ActorMaterializer
 import cats.syntax.show._
 import com.advancedtelematic.libats.data.ErrorCode
 import com.advancedtelematic.libats.http.Errors.{RawError, RemoteServiceError}
