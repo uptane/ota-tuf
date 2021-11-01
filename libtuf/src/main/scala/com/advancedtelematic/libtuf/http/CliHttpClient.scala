@@ -8,8 +8,10 @@ import io.circe.{Decoder, Encoder, Json}
 import org.slf4j.LoggerFactory
 import sttp.client.SttpClientException.{ConnectException, ReadException}
 import sttp.client.{Request, Response, SttpBackend}
-import sttp.model.StatusCode
+import sttp.model.{MediaType, StatusCode}
 
+import java.io.{BufferedInputStream, BufferedOutputStream, BufferedWriter, ByteArrayInputStream, ByteArrayOutputStream, OutputStreamWriter, PipedInputStream, PipedOutputStream}
+import java.util.zip.{GZIPInputStream, GZIPOutputStream}
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
@@ -51,13 +53,30 @@ abstract class CliHttpClient(httpBackend: CliHttpBackend)(implicit ec: Execution
 
   protected val defaultHttpClient: HttpClient = (request: CliRequest) => httpBackend.send[Array[Byte]](request)
 
+  private lazy val gzipMinSizeBytes = sys.env.get("CLI_GZIP_MIN_BYTES").map(_.toLong).getOrElse(500000L) // 0.5 mb
+
   protected def execJsonHttp[Res: ClassTag : Decoder, Req: Encoder]
   (request: CliRequest, entity: Req, httpClient: HttpClient = defaultHttpClient)
   (errorHandler: PartialFunction[(Int, ErrorRepresentation), Future[Res]] = defaultErrorHandler()): Future[Res] = {
 
-    val req = request
-      .body(entity.asJson.noSpaces.getBytes)
-      .contentType("application/json")
+    val bodyBytes = entity.asJson.noSpaces.getBytes
+
+    val req = if(bodyBytes.length >= gzipMinSizeBytes) {
+      val baos = new ByteArrayOutputStream()
+      val gzip = new GZIPOutputStream(baos)
+      gzip.write(bodyBytes)
+      gzip.close()
+
+      val body = ByteArrayBody(baos.toByteArray, Option(MediaType.ApplicationGzip))
+
+      request
+        .body(body)
+        .header("Content-Encoding", "gzip")
+        .contentType(MediaType.ApplicationJson)
+    } else
+      request
+        .body(bodyBytes)
+        .contentType(MediaType.ApplicationJson)
 
     execHttp(req, httpClient)(errorHandler).map(_.body)
   }
