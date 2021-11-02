@@ -52,7 +52,7 @@ class KeyserverDaemon(override val globalConfig: Config, override val dbConfig: 
   }
 }
 
-class DaemonBoot extends BootAppDefaultConfig with BootAppDatabaseConfig with VersionInfo {
+class DaemonBootMain extends BootAppDefaultConfig with BootAppDatabaseConfig with VersionInfo {
   Security.addProvider(new BouncyCastleProvider())
 
   def main(args: Array[String]): Unit = {
@@ -61,5 +61,5 @@ class DaemonBoot extends BootAppDefaultConfig with BootAppDatabaseConfig with Ve
 }
 
 // Compatibility with old charts
-object DaemonBoot extends DaemonBoot
-object KeyGenerationDaemon extends DaemonBoot
+object DaemonBoot extends DaemonBootMain
+object KeyGenerationDaemon extends DaemonBootMain
