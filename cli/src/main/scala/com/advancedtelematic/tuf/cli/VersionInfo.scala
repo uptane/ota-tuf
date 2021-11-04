@@ -1,9 +1,7 @@
 package com.advancedtelematic.tuf.cli
 
-trait VersionInfo {
-  lazy val projectName: String = buildinfo.BuildInfo.name
+import com.advancedtelematic.libats.boot.VersionInfoProvider
 
-  lazy val projectVersion: String = buildinfo.BuildInfo.version
-
-  lazy val versionMap: Map[String, Any] = buildinfo.BuildInfo.toMap
+trait VersionInfo extends com.advancedtelematic.libats.boot.VersionInfo {
+  override protected lazy val provider: VersionInfoProvider = AppBuildInfo
 }

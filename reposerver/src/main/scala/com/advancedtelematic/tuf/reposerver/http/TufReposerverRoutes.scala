@@ -7,8 +7,10 @@ import com.advancedtelematic.libats.http.{ErrorHandler, HealthCheck}
 import com.advancedtelematic.libats.slick.monitoring.DbHealthResource
 import com.advancedtelematic.libats.messaging.MessageBusPublisher
 import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient
+import com.advancedtelematic.metrics.MetricsSupport
 import com.advancedtelematic.tuf.reposerver.VersionInfo
 import com.advancedtelematic.tuf.reposerver.target_store.TargetStore
+import com.codahale.metrics.MetricRegistry
 import slick.jdbc.MySQLProfile.api._
 
 import scala.concurrent.ExecutionContext
@@ -19,7 +21,8 @@ class TufReposerverRoutes(keyserverClient: KeyserverClient,
                           targetStore: TargetStore,
                           messageBusPublisher: MessageBusPublisher,
                           metricsRoutes: Route = Directives.reject,
-                          dependencyChecks: Seq[HealthCheck] = Seq.empty)
+                          dependencyChecks: Seq[HealthCheck] = Seq.empty,
+                          metricRegistry: MetricRegistry = MetricsSupport.metricRegistry)
                          (implicit val db: Database, val ec: ExecutionContext, mat: Materializer) extends VersionInfo {
 
   import Directives._
@@ -29,7 +32,7 @@ class TufReposerverRoutes(keyserverClient: KeyserverClient,
       ErrorHandler.handleErrors {
         pathPrefix("api" / "v1") {
           new RepoResource(keyserverClient, namespaceValidation, targetStore, new TufTargetsPublisher(messageBusPublisher)).route
-        } ~ DbHealthResource(versionMap, dependencies = dependencyChecks).route ~ metricsRoutes
+        } ~ DbHealthResource(versionMap, dependencies = dependencyChecks, metricRegistry = metricRegistry).route ~ metricsRoutes
       }
     }
 }

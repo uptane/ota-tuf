@@ -42,14 +42,15 @@ object AuthenticatedHttpBackend {
   lazy val keyManagerFactory = KeyManagerFactory.getInstance("SunX509")
   lazy val trustFactory = TrustManagerFactory.getInstance("SunX509")
 
-  def none: CliHttpBackend = {
-    AsyncHttpClientFutureBackend()
-  }
+  def none: CliHttpBackend = defaultSttpBackend
 
   def authPlusHttpBackend(token: OAuth2Token): CliHttpBackend = {
+    new AuthPlusCliHttpBackend[Future, Nothing, Nothing](token, defaultSttpBackend)
+  }
+
+  private def defaultSttpBackend = {
     val sttpBackend = AsyncHttpClientFutureBackend()
-    val backend = Slf4jLoggingBackend[Future, Nothing, Nothing](Slf4jCurlBackend[Future, Nothing, Nothing](sttpBackend))
-    new AuthPlusCliHttpBackend[Future, Nothing, Nothing](token, backend)
+    Slf4jLoggingBackend[Future, Nothing, Nothing](Slf4jCurlBackend[Future, Nothing, Nothing](sttpBackend))
   }
 
   def mutualTls(tlsCertPath: Path, serverCertPath: Option[Path]): CliHttpBackend = {
