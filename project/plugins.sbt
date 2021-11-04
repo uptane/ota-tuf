@@ -10,7 +10,7 @@ addSbtPlugin("com.github.sbt" % "sbt-release" % "1.1.0")
 
 addSbtPlugin("net.virtual-void" % "sbt-dependency-graph" % "0.9.2")
 
-addSbtPlugin("net.vonbuchholtz" % "sbt-dependency-check" % "3.1.3")
+addSbtPlugin("net.vonbuchholtz" % "sbt-dependency-check" % "3.2.0")
 
 addSbtPlugin("com.typesafe.sbt" % "sbt-license-report" % "1.2.0")
 
