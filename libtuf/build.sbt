@@ -10,6 +10,6 @@ libraryDependencies ++= {
     "com.softwaremill.sttp.client" %% "async-http-client-backend-future" % "2.2.10",
     "org.slf4j" % "slf4j-api" % "1.7.16" % "provided",
     "com.azure" % "azure-storage-blob" % "12.13.0",
-    "com.azure" % "azure-identity" % "1.3.7"
+    "com.azure" % "azure-identity" % "1.4.0"
   )
 }
