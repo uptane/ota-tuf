@@ -192,9 +192,11 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
   }
 
   private def findRole(repoId: RepoId, roleType: RoleType): Route = {
-    onSuccess(signedRoleGeneration.findRole(repoId, roleType, roleRefresher)) { signedRole =>
-      respondWithCheckSum(signedRole.checksum.hash) {
-        complete(signedRole.content)
+    encodeResponse {
+      onSuccess(signedRoleGeneration.findRole(repoId, roleType, roleRefresher)) { signedRole =>
+        respondWithCheckSum(signedRole.checksum.hash) {
+          complete(signedRole.content)
+        }
       }
     }
   }
@@ -354,13 +356,15 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
           }
         } ~
         withRequestTimeout(userRepoUploadRequestTimeout, timeoutResponseHandler) { // For when SignedPayload[TargetsRole] is too big and takes a long time to upload
-          (pathEnd & put & entity(as[SignedPayload[TargetsRole]])) { signedPayload =>
-            extractRoleChecksumHeader { checksum =>
-            onSuccess(saveOfflineTargetsRole(repoId, namespace, signedPayload, checksum)) { newSignedRole =>
-              respondWithCheckSum(newSignedRole.checksum.hash) {
-                complete(StatusCodes.NoContent)
+          decodeRequest {
+            (pathEnd & put & entity(as[SignedPayload[TargetsRole]])) { signedPayload =>
+              extractRoleChecksumHeader { checksum =>
+                onSuccess(saveOfflineTargetsRole(repoId, namespace, signedPayload, checksum)) { newSignedRole =>
+                  respondWithCheckSum(newSignedRole.checksum.hash) {
+                    complete(StatusCodes.NoContent)
+                  }
+                }
               }
-            }
             }
           }
         }
