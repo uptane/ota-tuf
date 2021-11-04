@@ -1,11 +1,3 @@
-libraryDependencies ++= {
-  Seq(
-    "org.flywaydb" % "flyway-core" % "6.0.8"
-  )
-}
-
-mainClass in Compile := Some("com.advancedtelematic.tuf.keyserver.Boot")
-
-Revolver.settings
+Compile / mainClass := Some("com.advancedtelematic.tuf.keyserver.Boot")
 
 fork := true

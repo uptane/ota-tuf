@@ -8,7 +8,6 @@ import akka.http.scaladsl.model.Uri
 import io.circe.syntax._
 import cats.data.Validated.Valid
 import cats.data.ValidatedNel
-import com.advancedtelematic.libats.test.DatabaseSpec
 import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, TargetCustom, TargetsRole}
 import com.advancedtelematic.libtuf.data.TufDataType.{RepoId, RoleType, SignedPayload, TargetFilename, TargetFormat, ValidTargetFilename}
 import com.advancedtelematic.tuf.reposerver.util._
@@ -21,12 +20,13 @@ import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient
 import com.advancedtelematic.libtuf_server.repo.server.DataType.SignedRole
 import com.advancedtelematic.tuf.reposerver.data.RepositoryDataType.{StorageMethod, TargetItem}
 import io.circe.Json
+import com.advancedtelematic.libats.test.MysqlDatabaseSpec
 
 import scala.concurrent.Future
 import org.scalatest.concurrent.PatienceConfiguration
 import org.scalatest.time.{Seconds, Span}
 
-class OfflineSignedRoleStorageSpec extends TufReposerverSpec with DatabaseSpec with PatienceConfiguration
+class OfflineSignedRoleStorageSpec extends TufReposerverSpec with MysqlDatabaseSpec with PatienceConfiguration
   with TargetItemRepositorySupport {
 
   implicit val ec = scala.concurrent.ExecutionContext.global
@@ -63,7 +63,7 @@ class OfflineSignedRoleStorageSpec extends TufReposerverSpec with DatabaseSpec w
 
   def storeOffline(repoId: RepoId, targets: Map[TargetFilename, ClientTargetItem], version: Int): Future[ValidatedNel[String, (Seq[TargetItem], SignedRole[TargetsRole])]] = {
     val targetsRole = TargetsRole(Instant.now.plusSeconds(3600), targets, version)
-    val payload = keyserver.sign(repoId, RoleType.TARGETS, targetsRole.asJson).futureValue
+    val payload = keyserver.sign(repoId, targetsRole).futureValue
     subject.store(repoId, SignedPayload(payload.signatures, targetsRole, targetsRole.asJson))
   }
 
@@ -79,7 +79,7 @@ class OfflineSignedRoleStorageSpec extends TufReposerverSpec with DatabaseSpec w
     storeOffline(repoId, newTargetItems, version = 2).futureValue shouldBe a[Valid[_]]
   }
 
-  keyTypeTest("allows changing of custom data for existing items ") { keyType =>
+  keyTypeTest("allows changing of custom data for existing items ") { _ =>
     val repoId = RepoId.generate()
 
     keyserver.createRoot(repoId).futureValue
@@ -131,5 +131,4 @@ class OfflineSignedRoleStorageSpec extends TufReposerverSpec with DatabaseSpec w
     storeOffline(repoId, Map.empty, version = 2).futureValue shouldBe a[Valid[_]]
     targetItemRepo.findFor(repoId).futureValue shouldBe empty
   }
-
 }

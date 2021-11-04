@@ -1,14 +1,7 @@
 package com.advancedtelematic.tuf.keyserver
 
-trait VersionInfo {
-  lazy val projectName: String = buildinfo.BuildInfo.name
+import com.advancedtelematic.libats.boot.VersionInfoProvider
 
-  lazy val version: String = {
-    val bi = buildinfo.BuildInfo
-    s"${bi.name}/${bi.version}"
-  }
-
-  lazy val builtAtMillis: Long = buildinfo.BuildInfo.builtAtMillis
-
-  lazy val versionMap: Map[String, Any] = buildinfo.BuildInfo.toMap
+trait VersionInfo extends com.advancedtelematic.libats.boot.VersionInfo {
+  override protected lazy val provider: VersionInfoProvider = AppBuildInfo
 }

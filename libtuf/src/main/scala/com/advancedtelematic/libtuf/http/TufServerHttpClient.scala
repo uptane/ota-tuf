@@ -1,11 +1,10 @@
 package com.advancedtelematic.libtuf.http
 
 import java.io.{File, FileInputStream}
-import java.net.URI
-import java.nio.file.Path
+import java.net.{URI, URL}
+import java.nio.file.{Path, Paths}
 import java.security.MessageDigest
 import java.util.Base64
-
 import com.advancedtelematic.libats.data.DataType.ValidChecksum
 import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.libtuf.data.ClientDataType.{DelegatedRoleName, RootRole, TargetsRole}
@@ -21,7 +20,6 @@ import org.slf4j.LoggerFactory
 import sttp.client._
 import sttp.model.{Header, HeaderNames, Headers, StatusCode, Uri}
 
-import scala.+:
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, _}
 import scala.util.control.NoStackTrace
@@ -66,8 +64,11 @@ abstract class TufServerHttpClient(uri: URI, httpBackend: CliHttpBackend)
 
   protected def uriPath: String
 
-  protected def apiUri(path: String): Uri =
-    Uri.apply(URI.create(uri.toString + uriPath + path))
+  protected def apiUri(path: String): Uri = {
+    val completePath = Paths.get(uri.getPath, uriPath, path)
+    val url = new URL(uri.toURL, completePath.toString)
+    Uri.apply(url.toURI)
+  }
 
   def root(version: Option[Int] = None): Future[SignedPayload[RootRole]] = {
     val filename = version match {

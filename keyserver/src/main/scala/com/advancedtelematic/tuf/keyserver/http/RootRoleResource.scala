@@ -11,6 +11,7 @@ import com.advancedtelematic.libtuf.data.ErrorCodes
 import com.advancedtelematic.libtuf.data.TufCodecs._
 import com.advancedtelematic.libtuf.data.TufDataType.{RepoId, RoleType, _}
 import com.advancedtelematic.libtuf_server.data.Marshalling._
+import com.advancedtelematic.tuf.keyserver.Settings
 import com.advancedtelematic.tuf.keyserver.daemon.DefaultKeyGenerationOp
 import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType.KeyGenRequestStatus
 import com.advancedtelematic.tuf.keyserver.db.{KeyGenRequestSupport, SignedRootRoleRepository}
@@ -24,7 +25,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class RootRoleResource()
                       (implicit val db: Database, val ec: ExecutionContext, mat: Materializer)
-  extends KeyGenRequestSupport {
+  extends KeyGenRequestSupport with Settings {
   import ClientRootGenRequest._
   import akka.http.scaladsl.server.Directives._
 
@@ -38,7 +39,7 @@ class RootRoleResource()
 
     val keyGenerationOp = DefaultKeyGenerationOp()
 
-    val f = for {
+    val f = for { // ERROR is uses so the daemon doesn't pickup this request
       reqs <- keyGenerationRequests.createDefaultGenRequest(repoId, genRequest.threshold, genRequest.keyType, KeyGenRequestStatus.ERROR)
       _ <- Future.traverse(reqs)(keyGenerationOp)
     } yield StatusCodes.Created -> reqs.map(_.id)
@@ -63,10 +64,10 @@ class RootRoleResource()
           val f = keyGenerationRequests.forceRetry(repoId).map(_ => StatusCodes.OK)
           complete(f)
         } ~
-        (post & entity(as[ClientRootGenRequest]) & optionalHeaderValueByName("x-ats-tuf-force-sync")) {
-          case (genRequest, Some(_)) =>
+        (post & entity(as[ClientRootGenRequest])) {
+          case genRequest if genRequest.forceSync.contains(true) || genRequest.forceSync.isEmpty   =>
             createRootNow(repoId, genRequest)
-          case (genRequest, None) =>
+          case genRequest =>
             createRootLater(repoId, genRequest)
         } ~
         get {
@@ -93,7 +94,7 @@ class RootRoleResource()
             val f = signedRootRoles
               .findFreshAndPersist(repoId)
               .flatMap(_ => rootRoleKeyEdit.deletePrivateKey(repoId, keyId))
-              .map(_ ⇒ StatusCodes.NoContent)
+              .map(_ => StatusCodes.NoContent)
 
             complete(f)
           }
@@ -104,6 +105,13 @@ class RootRoleResource()
           val f = roleSigning.signWithRole(repoId, roleType, payload)
           complete(f)
         }
+      } ~
+      (path("roles" / "offline-updates") & put) {
+        val f = for {
+          _ <- signedRootRoles.addRolesIfNotPresent(repoId, RoleType.OFFLINE_UPDATES, RoleType.OFFLINE_SNAPSHOT)
+        } yield StatusCodes.OK
+
+        complete(f)
       } ~
       path("unsigned") {
         get {
@@ -145,4 +153,4 @@ object ClientRootGenRequest {
   implicit val decoder: Decoder[ClientRootGenRequest] = io.circe.generic.semiauto.deriveDecoder
 }
 
-case class ClientRootGenRequest(threshold: Int = 1, keyType: KeyType = KeyType.default)
+case class ClientRootGenRequest(threshold: Int = 1, keyType: KeyType = KeyType.default, forceSync: Option[Boolean] = Some(true))

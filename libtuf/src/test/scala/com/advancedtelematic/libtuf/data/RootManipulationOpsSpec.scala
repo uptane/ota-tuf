@@ -1,16 +1,17 @@
 package com.advancedtelematic.libtuf.data
 
-import java.security.Security
-import java.time.Instant
-
 import com.advancedtelematic.libtuf.crypt.TufCrypto
 import com.advancedtelematic.libtuf.data.ClientDataType.{RoleKeys, RootRole}
 import com.advancedtelematic.libtuf.data.RootManipulationOps._
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.{ROOT, TARGETS}
 import org.bouncycastle.jce.provider.BouncyCastleProvider
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
-class RootManipulationOpsSpec extends FunSuite with Matchers {
+import java.security.Security
+import java.time.Instant
+
+class RootManipulationOpsSpec extends AnyFunSuite with Matchers {
 
   Security.addProvider(new BouncyCastleProvider)
 

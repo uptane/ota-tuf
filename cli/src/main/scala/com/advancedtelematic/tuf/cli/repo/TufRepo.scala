@@ -7,9 +7,9 @@ import java.nio.file.attribute.PosixFilePermissions
 import java.nio.file.{Files, Path}
 import java.time.Instant
 
+import cats.implicits._
 import cats.data.NonEmptyList
 import cats.data.Validated.{Invalid, Valid}
-import cats.implicits._
 import com.advancedtelematic.libats.data.DataType.ValidChecksum
 import com.advancedtelematic.libtuf.crypt.CanonicalJson._
 import com.advancedtelematic.libtuf.crypt.KeyListToKeyMapOps._
@@ -228,8 +228,6 @@ abstract class TufRepo[S <: TufServerClient](val repoPath: Path)(implicit ec: Ex
       signedRole <- fn(unsignedRole)
       path <- writeSignedRole(signedRole)
     } yield path
-
-  import cats.implicits._
 
   protected def signRole[T : Decoder : Encoder](version: Option[Int], keys: Seq[KeyName], validExpiration: Instant => Instant)
                                                (implicit tufRole: TufRole[T]): Try[Path] = transformRole[T] { unsigned =>

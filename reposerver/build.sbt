@@ -5,9 +5,6 @@ libraryDependencies ++= {
   )
 }
 
-mainClass in Compile := Some("com.advancedtelematic.tuf.reposerver.Boot")
-
-Revolver.settings
+Compile / mainClass := Some("com.advancedtelematic.tuf.reposerver.Boot")
 
 fork := true
-

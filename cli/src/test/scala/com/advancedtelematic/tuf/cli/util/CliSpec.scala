@@ -5,7 +5,6 @@ import java.security.Security
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.concurrent.ConcurrentHashMap
-
 import com.advancedtelematic.libats.data.DataType.ValidChecksum
 import com.advancedtelematic.libtuf.crypt.SignedPayloadSignatureOps._
 import com.advancedtelematic.libtuf.crypt.TufCrypto
@@ -20,9 +19,9 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.scalactic.source.Position
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Seconds, Span}
-import org.scalatest.{FunSuite, Matchers}
 import com.advancedtelematic.tuf.cli.TryToFuture._
-import com.advancedtelematic.tuf.cli.repo.TufRepo
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
@@ -31,7 +30,7 @@ import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success, Try}
 
 trait KeyTypeSpecSupport {
-  self: FunSuite =>
+  self: AnyFunSuite =>
 
   def keyTypeTest(name: String)(fn: KeyType => Any)(implicit pos: Position): Unit = {
     test(name + " Ed25519")(fn(Ed25519KeyType))
@@ -39,7 +38,7 @@ trait KeyTypeSpecSupport {
   }
 }
 
-abstract class CliSpec extends FunSuite with Matchers with ScalaFutures {
+abstract class CliSpec extends AnyFunSuite with Matchers with ScalaFutures {
   Security.addProvider(new BouncyCastleProvider)
 
   override implicit def patienceConfig = PatienceConfig().copy(timeout = Span(10, Seconds))

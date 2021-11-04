@@ -9,7 +9,6 @@ import com.advancedtelematic.tuf.keyserver.db.KeyRepository.KeyNotFound
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 import slick.jdbc.MySQLProfile.api._
 import cats.implicits._
-import cats.instances.map
 import com.advancedtelematic.libtuf.data.RootManipulationOps._
 
 class RootRoleKeyEdit()

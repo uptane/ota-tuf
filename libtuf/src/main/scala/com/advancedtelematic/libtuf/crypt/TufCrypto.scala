@@ -7,9 +7,9 @@ import java.security.interfaces.RSAPublicKey
 import java.security.spec.{PKCS8EncodedKeySpec, X509EncodedKeySpec}
 import java.security.{KeyFactory, MessageDigest, Signature => _, _}
 
+import cats.implicits._
 import cats.data.Validated.{Invalid, Valid}
 import cats.data.ValidatedNel
-import cats.implicits._
 import com.advancedtelematic.libats.data.RefinedUtils.RefineTry
 import com.advancedtelematic.libtuf.crypt.CanonicalJson._
 import com.advancedtelematic.libtuf.data.ClientDataType.{RootRole, TufRole}
@@ -163,6 +163,8 @@ object TufCrypto {
                                            threshold: Int,
                                            signedPayload: SignedPayload[T]): ValidatedNel[String, SignedPayload[T]] = {
     val sigsByKeyId = signedPayload.signatures.map(s => s.keyid -> s).toMap
+
+    import cats.syntax.either._
 
     val validSignatures: List[ValidatedNel[String, KeyId]] =
       sigsByKeyId.par.map { case (keyId, sig) =>

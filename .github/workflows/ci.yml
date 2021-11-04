@@ -1,5 +1,5 @@
 name: Test & Build
-on: [push]
+on: [push, pull_request]
 env:
   SBT_OPTS: "-sbt-launch-dir .sbt/launchers -sbt-dir .sbt -ivy .ivy2 -Dsbt.color=true -Dscala.color=true"
 jobs:
@@ -35,6 +35,6 @@ jobs:
           path: |
             .sbt
             .ivy2
-          key: ${{ runner.os }}-sbt-deps
+          key: ${{ runner.os }}-sbt-deps-1.5
       - run: ./deploy/gitlab-db-setup.sh mysql db
-      - run: sbt ut:test
+      - run: sbt clean ut:test

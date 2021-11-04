@@ -16,8 +16,8 @@ object Requests {
 
   case class TargetComment(value: String) extends AnyVal
 
-  implicit val targetCommentEncoder: Encoder[TargetComment] = anyValStringEncoder
-  implicit val targetCommentDecoder: Decoder[TargetComment] = anyValStringDecoder
+  implicit val targetCommentEncoder: Encoder[TargetComment] = Encoder.encodeString.contramap(_.value)
+  implicit val targetCommentDecoder: Decoder[TargetComment] = Decoder.decodeString.map(TargetComment)
 
   case class CommentRequest(comment: TargetComment)
 

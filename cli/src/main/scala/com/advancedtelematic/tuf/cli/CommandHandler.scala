@@ -3,8 +3,6 @@ package com.advancedtelematic.tuf.cli
 import java.net.URI
 import java.time.{Instant, Period, ZoneOffset}
 import java.util.concurrent.TimeUnit
-
-import cats.implicits._
 import com.advancedtelematic.libats.data.DataType.Checksum
 import com.advancedtelematic.libtuf.crypt.Sha256FileDigest
 import com.advancedtelematic.libtuf.data.ClientCodecs._
@@ -21,6 +19,7 @@ import com.advancedtelematic.tuf.cli.repo._
 import eu.timepit.refined._
 import io.circe.syntax._
 import org.slf4j.LoggerFactory
+import cats.implicits._
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}

@@ -51,8 +51,7 @@ trait RepoResourceSpecUtil extends ResourceSpec with SignedRoleRepositorySupport
 
   def buildSignedTargetsRole(repoId: RepoId, targets: Map[TargetFilename, ClientTargetItem], version: Int = 2): SignedPayload[TargetsRole] = {
     val targetsRole = TargetsRole(Instant.now().plus(1, ChronoUnit.DAYS), targets, version)
-    val signedPayload = fakeKeyserverClient.sign(repoId, RoleType.TARGETS, targetsRole.asJson).futureValue
-    SignedPayload(signedPayload.signatures, targetsRole, targetsRole.asJson)
+    fakeKeyserverClient.sign(repoId, targetsRole).futureValue
   }
 
   def createOfflineTargets(filename: TargetFilename = offlineTargetFilename, proprietary: Json = Json.obj()) = {

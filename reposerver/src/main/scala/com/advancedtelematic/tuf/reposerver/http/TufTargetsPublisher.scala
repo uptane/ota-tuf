@@ -6,7 +6,6 @@ import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, Targe
 import com.advancedtelematic.libtuf.data.TufDataType.TargetFilename
 import com.advancedtelematic.libtuf_server.data.Messages.TufTargetAdded
 import cats.implicits._
-
 import scala.concurrent.{ExecutionContext, Future}
 import com.advancedtelematic.libats.codecs.CirceCodecs._
 import com.advancedtelematic.libtuf.data.ClientCodecs._

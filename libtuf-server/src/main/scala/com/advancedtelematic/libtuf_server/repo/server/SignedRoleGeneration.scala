@@ -2,7 +2,6 @@ package com.advancedtelematic.libtuf_server.repo.server
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-
 import akka.http.scaladsl.util.FastFuture
 import com.advancedtelematic.libats.http.Errors.MissingEntityId
 import com.advancedtelematic.libtuf.data.ClientCodecs._
@@ -11,7 +10,7 @@ import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RepoId, RoleType}
 import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient
 import com.advancedtelematic.libtuf_server.repo.server.DataType.SignedRole
-import io.circe.Encoder
+import io.circe.{Codec, Decoder, Encoder}
 import io.circe.syntax._
 import org.slf4j.LoggerFactory
 
@@ -74,15 +73,15 @@ class SignedRoleGeneration(keyserverClient: KeyserverClient,
     (signedSnapshot, signedTimestamp)
   }
 
-  private def signRole[T : Encoder](repoId: RepoId, role: T)(implicit tufRole: TufRole[T]): Future[SignedRole[T]] = {
-    keyserverClient.sign(repoId, tufRole.roleType, role.asJson).map { signedRole =>
-      SignedRole.withChecksum[T](repoId, signedRole, role.version, role.expires)
+  private def signRole[T : Codec](repoId: RepoId, role: T)(implicit tufRole: TufRole[T]): Future[SignedRole[T]] = {
+    keyserverClient.sign[T](repoId, role).flatMap { signedRole =>
+      SignedRole.withChecksum[T](signedRole.asJsonSignedPayload, role.version, role.expires)
     }
   }
 
   private def fetchRootRole(repoId: RepoId): Future[SignedRole[RootRole]] =
-    keyserverClient.fetchRootRole(repoId).map { rootRole =>
-      SignedRole.withChecksum[RootRole](repoId, rootRole.asJsonSignedPayload, rootRole.signed.version, rootRole.signed.expires)
+    keyserverClient.fetchRootRole(repoId).flatMap { rootRole =>
+      SignedRole.withChecksum[RootRole](rootRole.asJsonSignedPayload, rootRole.signed.version, rootRole.signed.expires)
     }
 
   private def findFreshRole[T](repoId: RepoId)(refreshFn: => Future[SignedRole[T]])(implicit tufRole: TufRole[T]): Future[SignedRole[T]] = {

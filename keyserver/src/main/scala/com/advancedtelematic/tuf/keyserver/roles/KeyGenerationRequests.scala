@@ -2,15 +2,18 @@ package com.advancedtelematic.tuf.keyserver.roles
 
 import java.time.temporal.ChronoUnit
 import java.time.{Duration, Instant}
-
 import akka.http.scaladsl.util.FastFuture
 import cats.data.Validated.{Invalid, Valid}
 import cats.data.ValidatedNel
+import com.advancedtelematic.libtuf.crypt.TufCrypto
 import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.libtuf.data.ClientDataType.{RoleKeys, RootRole}
 import com.advancedtelematic.libtuf.data.RootManipulationOps._
 import com.advancedtelematic.libtuf.data.RootRoleValidation
+import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 import com.advancedtelematic.libtuf.data.TufDataType._
+import com.advancedtelematic.tuf.keyserver.daemon.DefaultKeyGenerationOp
+import com.advancedtelematic.tuf.keyserver.daemon.KeyGenerationOp.KeyGenerationOp
 import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType.KeyGenRequestStatus.KeyGenRequestStatus
 import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType._
 import com.advancedtelematic.tuf.keyserver.db._
@@ -27,7 +30,7 @@ class SignedRootRoles(defaultRoleExpire: Duration = Duration.ofDays(365))
                      (implicit val db: Database, val ec: ExecutionContext)
 extends KeyRepositorySupport with SignedRootRoleSupport {
 
-  private val rootRoleGeneration = new KeyGenerationRequests()
+  private val keyGenerationRequests = new KeyGenerationRequests()
   private val roleSigning = new RoleSigning()
 
   private val _log = LoggerFactory.getLogger(this.getClass)
@@ -61,6 +64,37 @@ extends KeyRepositorySupport with SignedRootRoleSupport {
       await(f)
     } else {
       signedRole.content
+    }
+  }
+
+  def addRolesIfNotPresent(repoId: RepoId, roles: RoleType*): Future[SignedPayload[RootRole]] = async {
+    val rootRole = await(findForSign(repoId))
+
+    val missingRoles = roles.toSet -- rootRole.roles.keys.toSet
+
+    if (missingRoles.isEmpty)
+      await(find(repoId)).content
+    else {
+      val rootKeyType = for {
+        k <- rootRole.roles.get(RoleType.ROOT)
+        kid <- k.keyids.headOption
+        key <- rootRole.keys.get(kid)
+      } yield key.keytype
+
+      val keyType = rootKeyType.getOrElse(KeyType.default)
+
+      // Same key is used for all roles
+      // ERROR is used so the daemon doesn't pick up this request
+      val keyGenRequest = await(keyGenerationRequests.createRoleGenRequest(repoId, threshold = 1, keyType, missingRoles.head, KeyGenRequestStatus.ERROR))
+      val keys = await(DefaultKeyGenerationOp().apply(keyGenRequest))
+      val roleKeys = RoleKeys(keys.map(_.id), threshold = 1)
+      val newKeys = rootRole.keys ++ keys.map { k => k.id -> k.publicKey }.toMap
+      val newRoles = rootRole.roles ++ missingRoles.map { _ -> roleKeys }.toMap
+      val newRoot = rootRole.copy(roles = newRoles, keys = newKeys)
+
+      val signedPayload = await(signRootRole(newRoot))
+      await(persistSignedPayload(repoId)(signedPayload))
+      signedPayload
     }
   }
 
@@ -118,7 +152,7 @@ extends KeyRepositorySupport with SignedRootRoleSupport {
     }
 
   private def createDefault(repoId: RepoId): Future[RootRole] = async {
-    val keyGenRequests = await(rootRoleGeneration.readyKeyGenRequests(repoId))
+    val keyGenRequests = await(keyGenerationRequests.readyKeyGenRequests(repoId))
     await(ensureReadyForGenerate(repoId))
 
     val repoKeys = await(keyRepo.repoKeys(repoId)).toSet
@@ -138,11 +172,14 @@ extends KeyRepositorySupport with SignedRootRoleSupport {
   }
 }
 
+// TODO: `Key` and `KeyGenRequest` should not have RoleType or threshold
+// Because one key can be used for multiple roles and is independent of threshold
+// Remove those attributes, drop the db columns, and move that logic to root generation
 class KeyGenerationRequests()
                            (implicit val db: Database, val ec: ExecutionContext)
   extends KeyGenRequestSupport with KeyRepositorySupport {
 
-  private val DEFAULT_ROLES = RoleType.ALL
+  private val DEFAULT_ROLES = RoleType.TUF_ALL
 
   def createDefaultGenRequest(repoId: RepoId, threshold: Int, keyType: KeyType, initStatus: KeyGenRequestStatus): Future[Seq[KeyGenRequest]] = {
     val reqs = DEFAULT_ROLES.map { roleType =>
@@ -150,6 +187,11 @@ class KeyGenerationRequests()
     }
 
     keyGenRepo.persistAll(reqs)
+  }
+
+  def createRoleGenRequest(repoId: RepoId, threshold: Int, keyType: KeyType, roleType: RoleType, initStatus: KeyGenRequestStatus): Future[KeyGenRequest] = {
+    val kgr = KeyGenRequest(KeyGenId.generate(), repoId, initStatus, roleType, keyType.crypto.defaultKeySize, keyType, threshold)
+    keyGenRepo.persist(kgr)
   }
 
   def forceRetry(repoId: RepoId): Future[Seq[KeyGenId]] = {
