@@ -39,7 +39,7 @@ class KeyserverHttpClientSpec extends TufKeyserverSpec
 
   def createAndProcessRoot(repoId: RepoId, keyType: KeyType): Future[(Seq[Key], SignedPayload[RootRole])] = {
     for {
-      _ <- client.createRoot(repoId, keyType)
+      _ <- client.createRoot(repoId, keyType, forceSync = false)
       keys <- processKeyGenerationRequest(repoId)
       rootRole ← client.fetchRootRole(repoId)
     } yield (keys, rootRole)
@@ -50,7 +50,7 @@ class KeyserverHttpClientSpec extends TufKeyserverSpec
     val repoId = RepoId.generate()
 
     val f = for {
-      _ <- client.createRoot(repoId, RsaKeyType)
+      _ <- client.createRoot(repoId, RsaKeyType, forceSync = false)
       _ <- processKeyGenerationRequest(repoId)
       rootRole <- client.fetchRootRole(repoId)
     } yield rootRole.signed.keys.values
@@ -75,7 +75,7 @@ class KeyserverHttpClientSpec extends TufKeyserverSpec
 
   keyTypeTest("creates a root") { keyType =>
     val repoId = RepoId.generate()
-    client.createRoot(repoId, keyType).futureValue shouldBe a[Json]
+    client.createRoot(repoId, keyType, forceSync = false).futureValue shouldBe a[Json]
   }
 
   keyTypeTest("fetches unsigned root ") { keyType =>
@@ -197,7 +197,7 @@ class KeyserverHttpClientSpec extends TufKeyserverSpec
     val repoId = RepoId.generate()
 
     val rootF = for {
-      _ <- client.createRoot(repoId, Ed25519KeyType, forceSync = true)
+      _ <- client.createRoot(repoId, Ed25519KeyType)
       r <- client.fetchRootRole(repoId)
     } yield r.signed
 
@@ -208,7 +208,7 @@ class KeyserverHttpClientSpec extends TufKeyserverSpec
     val repoId = RepoId.generate()
 
     val rootF = for {
-      _ <- client.createRoot(repoId, Ed25519KeyType, forceSync = true)
+      _ <- client.createRoot(repoId, Ed25519KeyType)
       _ <- client.fetchRootRole(repoId)
       _ <- client.addOfflineUpdatesRole(repoId)
       r <- client.fetchRootRole(repoId)

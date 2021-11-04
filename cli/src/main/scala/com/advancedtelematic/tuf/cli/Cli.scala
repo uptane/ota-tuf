@@ -149,7 +149,7 @@ object Cli extends App with VersionInfo {
   }
 
   lazy val parser = new scopt.OptionParser[Config](PROGRAM_NAME) {
-    head(projectName, projectVersion)
+    head(projectName, Cli.version)
 
     help("help").text("Prints all available `garage-sign` commands and options.")
 

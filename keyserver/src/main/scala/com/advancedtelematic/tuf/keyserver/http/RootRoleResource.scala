@@ -11,6 +11,7 @@ import com.advancedtelematic.libtuf.data.ErrorCodes
 import com.advancedtelematic.libtuf.data.TufCodecs._
 import com.advancedtelematic.libtuf.data.TufDataType.{RepoId, RoleType, _}
 import com.advancedtelematic.libtuf_server.data.Marshalling._
+import com.advancedtelematic.tuf.keyserver.Settings
 import com.advancedtelematic.tuf.keyserver.daemon.DefaultKeyGenerationOp
 import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType.KeyGenRequestStatus
 import com.advancedtelematic.tuf.keyserver.db.{KeyGenRequestSupport, SignedRootRoleRepository}
@@ -24,7 +25,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class RootRoleResource()
                       (implicit val db: Database, val ec: ExecutionContext, mat: Materializer)
-  extends KeyGenRequestSupport {
+  extends KeyGenRequestSupport with Settings {
   import ClientRootGenRequest._
   import akka.http.scaladsl.server.Directives._
 
@@ -63,10 +64,10 @@ class RootRoleResource()
           val f = keyGenerationRequests.forceRetry(repoId).map(_ => StatusCodes.OK)
           complete(f)
         } ~
-        (post & entity(as[ClientRootGenRequest]) & optionalHeaderValueByName("x-ats-tuf-force-sync")) {
-          case (genRequest, Some(_)) =>
+        (post & entity(as[ClientRootGenRequest])) {
+          case genRequest if genRequest.forceSync.contains(true) || genRequest.forceSync.isEmpty   =>
             createRootNow(repoId, genRequest)
-          case (genRequest, None) =>
+          case genRequest =>
             createRootLater(repoId, genRequest)
         } ~
         get {
@@ -152,4 +153,4 @@ object ClientRootGenRequest {
   implicit val decoder: Decoder[ClientRootGenRequest] = io.circe.generic.semiauto.deriveDecoder
 }
 
-case class ClientRootGenRequest(threshold: Int = 1, keyType: KeyType = KeyType.default)
+case class ClientRootGenRequest(threshold: Int = 1, keyType: KeyType = KeyType.default, forceSync: Option[Boolean] = Some(true))
