@@ -36,7 +36,7 @@ lazy val serverDependencies = libraryDependencies ++= {
     "com.typesafe.akka" %% "akka-http" % akkaHttpV,
     "com.typesafe.akka" %% "akka-slf4j" % akkaV,
     "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpV % "test",
-    "com.softwaremill.sttp.client" %% "akka-http-backend" % "2.2.9" % "test",
+    "com.softwaremill.sttp.client" %% "akka-http-backend" % "2.2.10" % "test",
 
     "io.github.uptane" %% "libats-http" % libatsV,
     "io.github.uptane" %% "libats-http-tracing" % libatsV,
@@ -54,7 +54,7 @@ lazy val serverDependencies = libraryDependencies ++= {
 
 lazy val commonSettings = Seq(
   organization := "io.github.uptane",
-  scalaVersion := "2.12.14",
+  scalaVersion := "2.12.15",
   organizationName := "uptane",
   organizationHomepage := Some(url("https://uptane.github.io/")),
   scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8", "-Xexperimental", "-Ypartial-unification"),
@@ -135,7 +135,7 @@ lazy val cli = (project in file("cli"))
   .dependsOn(libtuf)
 
 lazy val ota_tuf = (project in file("."))
-  .settings(scalaVersion := "2.12.14")
+  .settings(scalaVersion := "2.12.15")
   .settings(Publish.disable)
   .settings(Release.settings(libtuf, libtuf_server, keyserver, reposerver))
   .aggregate(libtuf_server, libtuf, keyserver, reposerver, cli)
