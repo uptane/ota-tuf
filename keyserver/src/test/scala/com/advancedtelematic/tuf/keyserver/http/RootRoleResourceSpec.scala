@@ -236,6 +236,18 @@ class RootRoleResourceSpec extends TufKeyserverSpec
     }
   }
 
+  test("generating keys also generates a root.json") {
+    val repoId = RepoId.generate()
+
+    Post(apiUri(s"root/${repoId.show}"), ClientRootGenRequest()) ~> routes ~> check {
+      status shouldBe StatusCodes.Created
+    }
+
+    val role = signedRootRoleRepo.findLatest(repoId).futureValue
+
+    role.content.signed shouldBe a[RootRole]
+  }
+
   keyTypeTest("GET returns 200 with all keys if threshold > 1 ") { keyType =>
     val repoId = RepoId.generate()
 
@@ -445,7 +457,6 @@ class RootRoleResourceSpec extends TufKeyserverSpec
       TufCrypto.isValid(jsonPayload.signatures.head, lastRootKey.publicKey, jsonPayload.signed) shouldBe true
     }
   }
-
 
   keyTypeTest("supports multiple offline signed root.json updates") { keyType =>
     val repoId = RepoId.generate()
@@ -726,12 +737,14 @@ class RootRoleResourceSpec extends TufKeyserverSpec
     }
   }
 
-  keyTypeTest("GET returns renewed root if old one expired ") { keyType =>
+  keyTypeTest("GET returns renewed root if old one expired") { keyType =>
     val repoId = RepoId.generate()
 
-    Post(apiUri(s"root/${repoId.show}"), ClientRootGenRequest(1, keyType, forceSync = Some(true))) ~> routes ~> check {
-      status shouldBe StatusCodes.Created
+    Post(apiUri(s"root/${repoId.show}"), ClientRootGenRequest(1, keyType, forceSync = Some(false))) ~> routes ~> check {
+      status shouldBe StatusCodes.Accepted
     }
+
+    processKeyGenerationRequest(repoId).futureValue
 
     val signedRootRoles = new SignedRootRoles(defaultRoleExpire = Duration.ofMillis(1))
 
@@ -748,9 +761,11 @@ class RootRoleResourceSpec extends TufKeyserverSpec
   keyTypeTest("GET returns OK with expired root if root is expired and keys are offline") { keyType =>
     val repoId = RepoId.generate()
 
-    Post(apiUri(s"root/${repoId.show}"), ClientRootGenRequest(1, keyType)) ~> routes ~> check {
-      status shouldBe StatusCodes.Created
+    Post(apiUri(s"root/${repoId.show}"), ClientRootGenRequest(1, keyType, forceSync = Option(false))) ~> routes ~> check {
+      status shouldBe StatusCodes.Accepted
     }
+
+    processKeyGenerationRequest(repoId).futureValue
 
     val signedRootRoles = new SignedRootRoles(defaultRoleExpire = Duration.ofMillis(1))
 

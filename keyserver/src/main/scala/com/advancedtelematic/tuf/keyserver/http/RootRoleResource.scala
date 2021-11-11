@@ -39,9 +39,10 @@ class RootRoleResource()
 
     val keyGenerationOp = DefaultKeyGenerationOp()
 
-    val f = for { // ERROR is uses so the daemon doesn't pickup this request
+    val f = for { // use ERROR so the daemon doesn't pickup this request
       reqs <- keyGenerationRequests.createDefaultGenRequest(repoId, genRequest.threshold, genRequest.keyType, KeyGenRequestStatus.ERROR)
       _ <- Future.traverse(reqs)(keyGenerationOp)
+      _ <- signedRootRoles.findFreshAndPersist(repoId) // Force generation of root.json role now
     } yield StatusCodes.Created -> reqs.map(_.id)
 
     complete(f)
