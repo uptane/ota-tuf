@@ -119,16 +119,9 @@ build docker image tuf-server:
     include:
       - local: gitlab/deploy-image.yml
 
-deploy tuf-reposerver:
+deploy tuf-server:
   extends:
     - .deploy-image
     - .master-or-mr-rule
   variables:
-    SERVICE: tuf-reposerver
-
-deploy tuf-keyserver:
-  extends:
-    - .deploy-image
-    - .master-or-mr-rule
-  variables:
-    SERVICE: tuf-keyserver
+    SERVICE: tuf-server
