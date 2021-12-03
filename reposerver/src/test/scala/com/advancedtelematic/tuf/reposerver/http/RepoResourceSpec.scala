@@ -196,6 +196,14 @@ class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
     }
   }
 
+  test("GET on 1.root.json fails if not available on keyserver") {
+    val newRepoId = RepoId.generate()
+
+    Get(apiUri(s"repo/${newRepoId.show}/1.root.json")) ~> routes ~> check {
+      status shouldBe StatusCodes.NotFound
+    }
+  }
+
   test("GET on root.json gets json from keyserver") {
     val newRepoId = RepoId.generate()
 
