@@ -1,6 +1,7 @@
 package com.advancedtelematic.tuf.reposerver.http
 
-
+import io.circe.syntax._
+import com.advancedtelematic.libats.data.ErrorRepresentation._
 import akka.http.scaladsl.model.headers.{RawHeader, `Content-Length`}
 import akka.http.scaladsl.model.{EntityStreamException, HttpEntity, HttpRequest, HttpResponse, ParsingException, StatusCodes, Uri}
 import akka.http.scaladsl.server._
@@ -19,10 +20,12 @@ import com.advancedtelematic.libats.http.AnyvalMarshallingSupport._
 import com.advancedtelematic.libtuf.data.TufCodecs._
 import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.libats.data.DataType.Namespace
+import com.advancedtelematic.libats.data.ErrorRepresentation
 import com.advancedtelematic.libtuf.data.TufDataType._
 import com.advancedtelematic.libtuf_server.data.Marshalling._
 import com.advancedtelematic.libtuf_server.data.Requests.{CommentRequest, CreateRepositoryRequest, _}
 import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient
+import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient.RootRoleNotFound
 import com.advancedtelematic.libtuf_server.repo.client.ReposerverClient.RequestTargetItem
 import com.advancedtelematic.libtuf_server.repo.server.DataType.SignedRole
 import com.advancedtelematic.tuf.reposerver.Settings
@@ -187,9 +190,16 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
 
   private def withRepoIdHeader(repoId: RepoId) = respondWithHeader(RawHeader("x-ats-tuf-repo-id", repoId.uuid.toString))
 
-  private def findRootByVersion(repoId: RepoId, version: Int): Route = {
-    complete(keyserverClient.fetchRootRole(repoId, version))
-  }
+  private def findRootByVersion(repoId: RepoId, version: Int): Route =
+    onComplete(keyserverClient.fetchRootRole(repoId, version)) {
+      case Success(root) => complete(root)
+      case Failure(ex @ RootRoleNotFound)  =>
+        // Devices always request current version + 1 to see if it exists, so this is a normal response, do not log an error and instead just log a debug message
+        log.debug(s"Root role not found in keyserver for $repoId, version=$version")
+        val err = ErrorRepresentation(ex.code, ex.desc, None, Option(ex.errorId))
+        complete(StatusCodes.NotFound -> err.asJson)
+      case Failure(err) => failWith(err)
+    }
 
   private def findRole(repoId: RepoId, roleType: RoleType): Route = {
     encodeResponse {
