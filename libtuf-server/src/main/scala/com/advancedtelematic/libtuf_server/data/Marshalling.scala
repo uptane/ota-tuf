@@ -21,6 +21,10 @@ object Marshalling {
     Try(RoleType.withName(roleTypeStr.toUpperCase)).toOption
   }
 
+  val DelegatedRoleNamePath = PathMatchers.Segment.flatMap { str =>
+    DelegatedRoleName.delegatedRoleNameValidation(str).toOption
+  }
+
   val DelegatedRoleUriPath = PathMatchers.Segment.flatMap { str =>
     val (roleName, _) = str.splitAt(str.indexOf(".json"))
     DelegatedRoleName.delegatedRoleNameValidation(roleName).toOption

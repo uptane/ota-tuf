@@ -1,7 +1,6 @@
 package com.advancedtelematic.tuf.reposerver
 
 import java.security.Security
-
 import akka.actor.ActorSystem
 import akka.event.Logging
 import akka.http.scaladsl.Http
@@ -13,8 +12,7 @@ import com.advancedtelematic.libats.http.LogDirectives._
 import com.advancedtelematic.libats.http.VersionDirectives._
 import com.advancedtelematic.libats.http.monitoring.ServiceHealthCheck
 import com.advancedtelematic.libats.http.tracing.Tracing
-import com.advancedtelematic.libats
-.http.tracing.Tracing.ServerRequestTracing
+import com.advancedtelematic.libats.http.tracing.Tracing.ServerRequestTracing
 import com.advancedtelematic.libats.messaging.MessageBus
 import com.advancedtelematic.libats.slick.db.{BootMigrations, DatabaseSupport}
 import com.advancedtelematic.libats.slick.monitoring.DatabaseMetrics
@@ -22,6 +20,7 @@ import com.advancedtelematic.libtuf_server.keyserver.KeyserverHttpClient
 import com.advancedtelematic.metrics.prometheus.PrometheusMetricsSupport
 import com.advancedtelematic.metrics.{AkkaHttpRequestMetrics, MetricsSupport}
 import com.advancedtelematic.tuf.reposerver
+import com.advancedtelematic.tuf.reposerver.delegations.HttpRemoteDelegationClient
 import com.advancedtelematic.tuf.reposerver.http.{NamespaceValidation, TufReposerverRoutes}
 import com.advancedtelematic.tuf.reposerver.target_store._
 import com.amazonaws.regions.Regions
@@ -116,6 +115,8 @@ class ReposerverBoot(override val globalConfig: Config,
 
     val keyserverHealthCheck = new ServiceHealthCheck(keyServerUri)
 
+    val remoteDelegationClient = new HttpRemoteDelegationClient()
+
     implicit val tracing = Tracing.fromConfig(globalConfig, "reposerver")
 
     val routes: Route =
@@ -123,6 +124,7 @@ class ReposerverBoot(override val globalConfig: Config,
         tracing.traceRequests { implicit requestTracing =>
           new TufReposerverRoutes(keyStoreClient, NamespaceValidation.withDatabase, targetStore,
             messageBusPublisher,
+            remoteDelegationClient,
             prometheusMetricsRoutes,
             Seq(keyserverHealthCheck), metricRegistry).routes
         }

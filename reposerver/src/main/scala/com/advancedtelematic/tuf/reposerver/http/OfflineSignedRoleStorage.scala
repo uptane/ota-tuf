@@ -6,7 +6,7 @@ import cats.data.ValidatedNel
 import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, TargetCustom, TargetsRole, TufRole}
 import com.advancedtelematic.libtuf.data.TufDataType.{RepoId, SignedPayload, TargetFilename}
 import com.advancedtelematic.libtuf_server.repo.server.DataType._
-import com.advancedtelematic.tuf.reposerver.data.RepositoryDataType._
+import com.advancedtelematic.tuf.reposerver.data.RepoDataType._
 import com.advancedtelematic.tuf.reposerver.db.{SignedRoleRepositorySupport, TargetItemRepositorySupport}
 import io.circe.Encoder
 import cats.implicits._
@@ -22,7 +22,7 @@ import scala.async.Async.{async, await}
 import scala.concurrent.{ExecutionContext, Future}
 import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient
 import com.advancedtelematic.libtuf_server.repo.server.DataType.SignedRole
-import com.advancedtelematic.tuf.reposerver.data.RepositoryDataType.TargetItem
+import com.advancedtelematic.tuf.reposerver.data.RepoDataType.TargetItem
 import com.advancedtelematic.tuf.reposerver.http.RoleChecksumHeader.RoleChecksum
 import com.advancedtelematic.tuf.reposerver.target_store.TargetStore
 import org.slf4j.LoggerFactory
@@ -39,7 +39,7 @@ class OfflineSignedRoleStorage(keyserverClient: KeyserverClient)
   def store(repoId: RepoId, signedPayload: SignedPayload[TargetsRole]): Future[ValidatedNel[String, (Seq[TargetItem], SignedRole[TargetsRole])]] = async {
     val validatedPayloadSig = await(payloadSignatureIsValid(repoId, signedPayload))
       val existingTargets = await(targetItemRepo.findFor(repoId))
-      val delegationsValidated = trustedDelegations.validate(repoId, signedPayload.signed.delegations)
+      val delegationsValidated = trustedDelegations.validate(signedPayload.signed.delegations)
       val targetItemsValidated = validatedPayloadTargets(repoId, signedPayload, existingTargets)
       val signedRoleValidated = (validatedPayloadSig, delegationsValidated, targetItemsValidated).mapN {
         case (_, _, targetItems) =>

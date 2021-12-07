@@ -4,6 +4,7 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.{Directive1, Directives, Route}
 import akka.http.scaladsl.testkit.{RouteTestTimeout, ScalatestRouteTest}
+import akka.http.scaladsl.unmarshalling.FromEntityUnmarshaller
 import akka.http.scaladsl.util.FastFuture
 import akka.stream.scaladsl.Source
 import akka.testkit.TestDuration
@@ -20,11 +21,13 @@ import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 import com.advancedtelematic.libtuf.data.TufDataType._
 import com.advancedtelematic.libtuf.http.ReposerverHttpClient
 import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient
-import com.advancedtelematic.tuf.reposerver.http.{NamespaceValidation, TufReposerverRoutes}
+import com.advancedtelematic.tuf.reposerver.delegations.RemoteDelegationClient
+import com.advancedtelematic.tuf.reposerver.http.{Errors, NamespaceValidation, TufReposerverRoutes}
 import com.advancedtelematic.tuf.reposerver.target_store.{LocalTargetStoreEngine, TargetStore}
 import com.advancedtelematic.tuf.reposerver.util.ResourceSpec.TargetInfo
 import io.circe.{Codec, Json}
 import sttp.client.{NothingT, SttpBackend}
+import sttp.model.StatusCodes
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
@@ -34,7 +37,7 @@ import java.util.NoSuchElementException
 import java.util.concurrent.ConcurrentHashMap
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.concurrent.duration._
 import scala.util.Try
 import scala.async.Async._
@@ -239,6 +242,27 @@ object ResourceSpec {
   }
 }
 
+class FakeRemoteDelegationsClient()(implicit val system: ActorSystem) extends RemoteDelegationClient {
+
+  private val remotes = new ConcurrentHashMap[Uri, Json]()
+
+  def setRemote(uri: Uri, delegatedTargets: Json): Unit =
+    remotes.put(uri, delegatedTargets)
+
+  override def fetch[Resp](uri: Uri)(implicit um: FromEntityUnmarshaller[Resp]): Future[Resp] = {
+    if(!remotes.containsKey(uri))
+      FastFuture.failed(Errors.DelegationRemoteFetchFailed(uri, StatusCodes.NotFound, s"[test] remote delegation not found: $uri"))
+    else {
+      val delegationJson = remotes.get(uri)
+      val entity = HttpEntity.Strict(ContentTypes.`application/json`, ByteString(delegationJson.spaces2))
+
+      um(entity).recoverWith { case _ =>
+        FastFuture.failed(Errors.DelegationRemoteParseFailed(uri, "[test] invalid json"))
+      }
+    }
+  }
+}
+
 trait ResourceSpec extends TufReposerverSpec
   with ScalatestRouteTest
   with MysqlDatabaseSpec
@@ -253,6 +277,8 @@ trait ResourceSpec extends TufReposerverSpec
 
   val fakeKeyserverClient: FakeKeyserverClient = new FakeKeyserverClient
 
+  val fakeRemoteDelegationClient = new FakeRemoteDelegationsClient
+
   val defaultNamespaceExtractor = NamespaceDirectives.defaultNamespaceExtractor
 
   val namespaceValidation = new NamespaceValidation(defaultNamespaceExtractor) {
@@ -266,7 +292,7 @@ trait ResourceSpec extends TufReposerverSpec
   val memoryMessageBus = new MemoryMessageBus
   val messageBusPublisher = memoryMessageBus.publisher()
 
-  lazy val routes = new TufReposerverRoutes(fakeKeyserverClient, namespaceValidation, targetStore, messageBusPublisher).routes
+  lazy val routes = new TufReposerverRoutes(fakeKeyserverClient, namespaceValidation, targetStore, messageBusPublisher, fakeRemoteDelegationClient).routes
 
   implicit lazy val tracing = new NullServerRequestTracing
 

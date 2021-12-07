@@ -1,12 +1,13 @@
 package com.advancedtelematic.tuf.reposerver.delegations
 
+import akka.http.scaladsl.model.Uri
 import cats.implicits._
 import cats.data.Validated.{Invalid, Valid}
 import cats.data.ValidatedNel
 import com.advancedtelematic.libats.data.RefinedUtils._
 import com.advancedtelematic.libtuf.crypt.TufCrypto
 import com.advancedtelematic.libtuf.data.ClientCodecs._
-import com.advancedtelematic.libtuf.data.ClientDataType.{DelegatedRoleName, Delegation, Delegations, MetaItem, MetaPath, TargetsRole, ValidMetaPath}
+import com.advancedtelematic.libtuf.data.ClientDataType.{DelegatedRoleName, Delegation, MetaItem, MetaPath, TargetsRole, ValidMetaPath}
 import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RepoId, SignedPayload}
 import com.advancedtelematic.libtuf_server.crypto.Sha256Digest
 import com.advancedtelematic.libtuf_server.repo.server.DataType.SignedRole
@@ -18,6 +19,12 @@ import slick.jdbc.MySQLProfile.api._
 import scala.async.Async._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
+import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
+import akka.http.scaladsl.unmarshalling._
+import com.advancedtelematic.libtuf.data.TufCodecs._
+import com.advancedtelematic.libtuf.data.ClientCodecs._
+
+import java.time.Instant
 
 class SignedRoleDelegationsFind()(implicit val db: Database, val ec: ExecutionContext) extends DelegationRepositorySupport {
 
@@ -53,23 +60,44 @@ class SignedRoleDelegationsFind()(implicit val db: Database, val ec: ExecutionCo
 
 class DelegationsManagement()(implicit val db: Database, val ec: ExecutionContext)
                                                   extends DelegationRepositorySupport with SignedRoleRepositorySupport {
-  def create(repoId: RepoId, roleName: DelegatedRoleName, delegationMetadata: SignedPayload[TargetsRole])
+  def create(repoId: RepoId,
+             roleName: DelegatedRoleName,
+             delegationMetadata: SignedPayload[TargetsRole],
+             remoteUri: Option[Uri] = None,
+             lastFetch: Option[Instant] = None)
             (implicit signedRoleGeneration: SignedRoleGeneration): Future[Unit] = async {
     val targetsRole = await(signedRoleRepository.find[TargetsRole](repoId)).role
     val delegation = findDelegationMetadataByName(targetsRole, roleName)
 
     validateDelegationMetadataSignatures(targetsRole, delegation, delegationMetadata) match {
       case Valid(_) =>
-        await(delegationsRepo.persist(repoId, roleName, delegationMetadata.asJsonSignedPayload))
+        await(delegationsRepo.persist(repoId, roleName, delegationMetadata.asJsonSignedPayload, remoteUri, lastFetch))
         await(signedRoleGeneration.regenerateSnapshots(repoId))
       case Invalid(err) =>
         throw Errors.PayloadSignatureInvalid(err)
     }
   }
 
-  def find(repoId: RepoId, roleName: DelegatedRoleName): Future[JsonSignedPayload] =
-    delegationsRepo.find(repoId, roleName).map(_.content)
+  def createFromRemote(repoId: RepoId, uri: Uri, delegationName: DelegatedRoleName)(implicit signedRoleGeneration: SignedRoleGeneration, client: RemoteDelegationClient): Future[Unit] = async {
+    val signedRole = await(client.fetch[SignedPayload[TargetsRole]](uri))
+    await(create(repoId, delegationName, signedRole, Option(uri), Option(Instant.now())))
+  }
 
+  def updateFromRemote(repoId: RepoId, delegatedRoleName: DelegatedRoleName)(implicit signedRoleGeneration: SignedRoleGeneration, client: RemoteDelegationClient): Future[Unit] = async {
+    val delegation = await(delegationsRepo.find(repoId, delegatedRoleName))
+
+    if(delegation.remoteUri.isEmpty)
+      throw Errors.MissingRemoteDelegationUri(repoId, delegatedRoleName)
+
+    val signedRole = await(client.fetch[SignedPayload[TargetsRole]](delegation.remoteUri.get))
+
+    await(create(repoId, delegatedRoleName, signedRole, delegation.remoteUri, Option(Instant.now())))
+  }
+
+  def find(repoId: RepoId, roleName: DelegatedRoleName): Future[(JsonSignedPayload, Option[Instant])] = async {
+    val delegation = await(delegationsRepo.find(repoId, roleName))
+    delegation.content -> delegation.lastFetched
+  }
 
   private def findDelegationMetadataByName(targetsRole: TargetsRole, delegatedRoleName: DelegatedRoleName): Delegation = {
     targetsRole.delegations.flatMap(_.roles.find(_.name == delegatedRoleName)).getOrElse(throw Errors.DelegationNotDefined)

@@ -1,6 +1,7 @@
 package com.advancedtelematic.tuf.reposerver.db
 
 import java.time.Instant
+import akka.http.scaladsl.model.Uri
 import scala.util.Success
 import scala.util.Failure
 import akka.NotUsed
@@ -12,7 +13,7 @@ import com.advancedtelematic.libats.data.ErrorCode
 import com.advancedtelematic.libats.http.Errors.{EntityAlreadyExists, MissingEntity, MissingEntityId, RawError}
 import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RepoId, RoleType, TargetFilename}
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
-import com.advancedtelematic.tuf.reposerver.data.RepositoryDataType._
+import com.advancedtelematic.tuf.reposerver.data.RepoDataType._
 import com.advancedtelematic.libtuf_server.repo.server.DataType._
 import com.advancedtelematic.libats.slick.db.SlickExtensions._
 import com.advancedtelematic.libats.slick.codecs.SlickRefined._
@@ -29,7 +30,7 @@ import SlickMappings.delegatedRoleNameMapper
 import shapeless.ops.function.FnToProduct
 import shapeless.{Generic, HList, Succ}
 import com.advancedtelematic.libtuf_server.repo.server.SignedRoleProvider
-import com.advancedtelematic.tuf.reposerver.data.RepositoryDataType.TargetItem
+import com.advancedtelematic.tuf.reposerver.data.RepoDataType.TargetItem
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NoStackTrace
@@ -314,7 +315,7 @@ protected [db] class DelegationRepository()(implicit db: Database, ec: Execution
     Schema.delegations.filter(_.repoId === repoId).filter(_.roleName.inSet(roleNames)).result.failIfNotSingle(DelegationNotFound)
   }
 
-  def persist(repoId: RepoId, roleName: DelegatedRoleName, content: JsonSignedPayload): Future[Unit] = db.run {
-    Schema.delegations.insertOrUpdate(DbDelegation(repoId, roleName, content)).map(_ => ())
+  def persist(repoId: RepoId, roleName: DelegatedRoleName, content: JsonSignedPayload, remoteUri: Option[Uri], lastFetch: Option[Instant]): Future[Unit] = db.run {
+    Schema.delegations.insertOrUpdate(DbDelegation(repoId, roleName, content, remoteUri, lastFetch)).map(_ => ())
   }
 }

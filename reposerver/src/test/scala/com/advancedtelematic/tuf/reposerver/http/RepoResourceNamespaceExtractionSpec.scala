@@ -28,7 +28,7 @@ class RepoResourceNamespaceExtractionSpec extends TufReposerverSpec
   private val tufTargetsPublisher = new TufTargetsPublisher(messageBusPublisher)
 
   override lazy val routes: Route = ErrorHandler.handleErrors {
-    new RepoResource(fakeKeyserverClient, dbValidation, targetStore, tufTargetsPublisher).route
+    new RepoResource(fakeKeyserverClient, dbValidation, targetStore, tufTargetsPublisher, fakeRemoteDelegationClient).route
   }
 
   val testFile = {

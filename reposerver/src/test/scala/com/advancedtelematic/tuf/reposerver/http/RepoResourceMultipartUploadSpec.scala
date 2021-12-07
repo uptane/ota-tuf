@@ -56,7 +56,7 @@ class RepoResourceMultipartUploadSpec extends TufReposerverSpec with ResourceSpe
   }
 
   private lazy val fakeTargetStore: TargetStore = new TargetStore(fakeKeyserverClient, fakeStorage, fakeHttpClient, messageBusPublisher)
-  override lazy val routes: Route = new TufReposerverRoutes(fakeKeyserverClient, namespaceValidation, fakeTargetStore, messageBusPublisher).routes
+  override lazy val routes: Route = new TufReposerverRoutes(fakeKeyserverClient, namespaceValidation, fakeTargetStore, messageBusPublisher, fakeRemoteDelegationClient).routes
 
   def createRepo(): Namespace = {
     val namespace = Namespace.generate
