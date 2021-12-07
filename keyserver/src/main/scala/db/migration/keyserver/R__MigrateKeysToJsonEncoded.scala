@@ -1,13 +1,12 @@
-package db.migration
-
-import java.security.Security
+package db.migration.keyserver
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
 import com.advancedtelematic.libats.slick.db.AppMigration
 import com.advancedtelematic.tuf.keyserver.db.KeysToJsonEncodedMigration
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import slick.jdbc.MySQLProfile.api._
+
+import java.security.Security
 
 class R__MigrateKeysToJsonEncoded extends AppMigration  {
   Security.addProvider(new BouncyCastleProvider)
