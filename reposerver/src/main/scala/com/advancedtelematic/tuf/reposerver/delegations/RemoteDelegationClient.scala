@@ -4,7 +4,7 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.coding.Coders
 import akka.http.scaladsl.model.headers.HttpEncodings.{deflate, gzip}
-import akka.http.scaladsl.model.headers.{HttpEncodings, `Accept-Encoding`}
+import akka.http.scaladsl.model.headers.{HttpEncodings, RawHeader, `Accept-Encoding`}
 import akka.http.scaladsl.model.{HttpEntity, HttpMethods, HttpRequest, HttpResponse, Uri}
 import akka.http.scaladsl.unmarshalling.{FromEntityUnmarshaller, Unmarshaller}
 import akka.http.scaladsl.util.FastFuture
@@ -15,7 +15,7 @@ import scala.async.Async._
 import scala.concurrent.{ExecutionContext, Future}
 
 trait RemoteDelegationClient {
-  def fetch[Resp](uri: Uri)(implicit um: FromEntityUnmarshaller[Resp]): Future[Resp]
+  def fetch[Resp](uri: Uri, headers: Map[String, String])(implicit um: FromEntityUnmarshaller[Resp]): Future[Resp]
 }
 
 class HttpRemoteDelegationClient()(implicit val ec: ExecutionContext, system: ActorSystem) extends RemoteDelegationClient {
@@ -23,9 +23,10 @@ class HttpRemoteDelegationClient()(implicit val ec: ExecutionContext, system: Ac
 
   private lazy val log = LoggerFactory.getLogger(this.getClass)
 
-  override def fetch[Resp](uri: Uri)(implicit um: FromEntityUnmarshaller[Resp]): Future[Resp] = async {
+  override def fetch[Resp](uri: Uri, headers: Map[String, String])(implicit um: FromEntityUnmarshaller[Resp]): Future[Resp] = async {
     val req = HttpRequest(HttpMethods.GET, uri).addHeader(`Accept-Encoding`(gzip, deflate, HttpEncodings.identity))
-    val resp = await(_http.singleRequest(req).map(decodeResponse))
+    val reqWithHeaders = headers.foldLeft(req) { case (r, (n, v)) => r.addHeader(RawHeader(n, v)) }
+    val resp = await(_http.singleRequest(reqWithHeaders).map(decodeResponse))
 
     val f = if(resp.status.isFailure())
       unmarshallStringOrError(resp.entity)

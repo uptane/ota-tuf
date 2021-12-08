@@ -13,7 +13,7 @@ import com.advancedtelematic.libtuf_server.repo.server.DataType.SignedRole
 protected [db] object DBDataType {
   protected [db] case class DbSignedRole(repoId: RepoId, roleType: RoleType, content: JsonSignedPayload, checksum: Checksum, length: Long, version: Int, expireAt: Instant)
 
-  protected [db] case class DbDelegation(repoId: RepoId, roleName: DelegatedRoleName, content: JsonSignedPayload, remoteUri: Option[Uri], lastFetched: Option[Instant])
+  protected [db] case class DbDelegation(repoId: RepoId, roleName: DelegatedRoleName, content: JsonSignedPayload, remoteUri: Option[Uri], lastFetched: Option[Instant], remoteHeaders: Map[String, String])
 
   protected [db] implicit class DbSignedRoleOps(value: DbSignedRole) {
     def asSignedRole[T : TufRole]: SignedRole[T] =

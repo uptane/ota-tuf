@@ -315,7 +315,7 @@ protected [db] class DelegationRepository()(implicit db: Database, ec: Execution
     Schema.delegations.filter(_.repoId === repoId).filter(_.roleName.inSet(roleNames)).result.failIfNotSingle(DelegationNotFound)
   }
 
-  def persist(repoId: RepoId, roleName: DelegatedRoleName, content: JsonSignedPayload, remoteUri: Option[Uri], lastFetch: Option[Instant]): Future[Unit] = db.run {
-    Schema.delegations.insertOrUpdate(DbDelegation(repoId, roleName, content, remoteUri, lastFetch)).map(_ => ())
+  def persist(repoId: RepoId, roleName: DelegatedRoleName, content: JsonSignedPayload, remoteUri: Option[Uri], lastFetch: Option[Instant], remoteHeaders: Map[String, String]): Future[Unit] = db.run {
+    Schema.delegations.insertOrUpdate(DbDelegation(repoId, roleName, content, remoteUri, lastFetch, remoteHeaders)).map(_ => ())
   }
 }

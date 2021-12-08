@@ -64,23 +64,24 @@ class DelegationsManagement()(implicit val db: Database, val ec: ExecutionContex
              roleName: DelegatedRoleName,
              delegationMetadata: SignedPayload[TargetsRole],
              remoteUri: Option[Uri] = None,
-             lastFetch: Option[Instant] = None)
+             lastFetch: Option[Instant] = None,
+             remoteHeaders: Map[String, String] = Map.empty)
             (implicit signedRoleGeneration: SignedRoleGeneration): Future[Unit] = async {
     val targetsRole = await(signedRoleRepository.find[TargetsRole](repoId)).role
     val delegation = findDelegationMetadataByName(targetsRole, roleName)
 
     validateDelegationMetadataSignatures(targetsRole, delegation, delegationMetadata) match {
       case Valid(_) =>
-        await(delegationsRepo.persist(repoId, roleName, delegationMetadata.asJsonSignedPayload, remoteUri, lastFetch))
+        await(delegationsRepo.persist(repoId, roleName, delegationMetadata.asJsonSignedPayload, remoteUri, lastFetch, remoteHeaders))
         await(signedRoleGeneration.regenerateSnapshots(repoId))
       case Invalid(err) =>
         throw Errors.PayloadSignatureInvalid(err)
     }
   }
 
-  def createFromRemote(repoId: RepoId, uri: Uri, delegationName: DelegatedRoleName)(implicit signedRoleGeneration: SignedRoleGeneration, client: RemoteDelegationClient): Future[Unit] = async {
-    val signedRole = await(client.fetch[SignedPayload[TargetsRole]](uri))
-    await(create(repoId, delegationName, signedRole, Option(uri), Option(Instant.now())))
+  def createFromRemote(repoId: RepoId, uri: Uri, delegationName: DelegatedRoleName, remoteHeaders: Map[String, String])(implicit signedRoleGeneration: SignedRoleGeneration, client: RemoteDelegationClient): Future[Unit] = async {
+    val signedRole = await(client.fetch[SignedPayload[TargetsRole]](uri, remoteHeaders))
+    await(create(repoId, delegationName, signedRole, Option(uri), Option(Instant.now()), remoteHeaders))
   }
 
   def updateFromRemote(repoId: RepoId, delegatedRoleName: DelegatedRoleName)(implicit signedRoleGeneration: SignedRoleGeneration, client: RemoteDelegationClient): Future[Unit] = async {
@@ -89,9 +90,9 @@ class DelegationsManagement()(implicit val db: Database, val ec: ExecutionContex
     if(delegation.remoteUri.isEmpty)
       throw Errors.MissingRemoteDelegationUri(repoId, delegatedRoleName)
 
-    val signedRole = await(client.fetch[SignedPayload[TargetsRole]](delegation.remoteUri.get))
+    val signedRole = await(client.fetch[SignedPayload[TargetsRole]](delegation.remoteUri.get, delegation.remoteHeaders))
 
-    await(create(repoId, delegatedRoleName, signedRole, delegation.remoteUri, Option(Instant.now())))
+    await(create(repoId, delegatedRoleName, signedRole, delegation.remoteUri, Option(Instant.now()), delegation.remoteHeaders))
   }
 
   def find(repoId: RepoId, roleName: DelegatedRoleName): Future[(JsonSignedPayload, Option[Instant])] = async {

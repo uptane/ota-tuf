@@ -412,8 +412,7 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
 
   test("can add delegation using remote url") {
     implicit val repoId = addTargetToRepo()
-
-    val uri = Uri("https://test/mydelegation0")
+    val uri = Uri(s"https://test/mydelegation-${UUID.randomUUID()}")
 
     val signedDelegation = buildSignedDelegatedTargets()
 
@@ -434,8 +433,8 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
   test("can overwrite delegation using remote url") {
     implicit val repoId = addTargetToRepo()
 
-    val uri1 = Uri("https://test/mydelegation1")
-    val uri2 = Uri("https://test/mydelegation2")
+    val uri1 = Uri(s"https://test/mydelegation-${UUID.randomUUID()}")
+    val uri2 = Uri(s"https://test/mydelegation-${UUID.randomUUID()}")
 
     val signedDelegation1 = buildSignedDelegatedTargets()
     val signedDelegation2 = buildSignedDelegatedTargets(version = 3)
@@ -460,24 +459,24 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
   test("can update delegation using the configured URL") {
     implicit val repoId = addTargetToRepo()
 
-    val uri = Uri("https://test/mydelegation3")
+    val uri = Uri(s"https://test/mydelegation-${UUID.randomUUID()}")
 
     val signedDelegation1 = buildSignedDelegatedTargets()
     val signedDelegation2 = buildSignedDelegatedTargets(version = 3)
 
-    fakeRemoteDelegationClient.setRemote(uri, signedDelegation1.asJson)
+    fakeRemoteDelegationClient.setRemote(uri, signedDelegation1.asJson, Map("myheader" -> "myval2"))
 
     addNewTrustedDelegationKeysOK(keyPair.pubkey)
 
     addNewTrustedDelegationsOk(delegation)
 
-    val req1 = AddDelegationFromRemoteRequest(uri, delegation.name)
+    val req1 = AddDelegationFromRemoteRequest(uri, delegation.name, Map("myheader" -> "myval2").some)
     addNewRemoteDelegationOk(req1)
 
     val savedDelegation1 = getDelegationOk(delegation.name)
     savedDelegation1.json shouldBe signedDelegation1.json
 
-    fakeRemoteDelegationClient.setRemote(uri, signedDelegation2.asJson)
+    fakeRemoteDelegationClient.setRemote(uri, signedDelegation2.asJson, Map("myheader" -> "myval2"))
 
     Put(apiUri(s"repo/${repoId.show}/remote-delegations/${delegation.name.value}/refresh")) ~> routes ~> check {
       status shouldBe StatusCodes.OK
@@ -490,7 +489,7 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
   test("retrieves when the delegation was last fetched (headers)") {
     implicit val repoId = addTargetToRepo()
 
-    val uri = Uri("https://test/mydelegation3")
+    val uri = Uri(s"https://test/mydelegation-${UUID.randomUUID()}")
 
     val signedDelegation1 = buildSignedDelegatedTargets()
 
@@ -582,5 +581,26 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
       status shouldBe StatusCodes.BadGateway
       responseAs[ErrorRepresentation].code shouldBe ErrorCodes.DelegationRemoteParseFailed
     }
+  }
+
+  test("uses supplied headers to fetch remote uri") {
+    implicit val repoId = addTargetToRepo()
+
+    val uri = Uri(s"https://test/mydelegation-${UUID.randomUUID()}")
+
+    val signedDelegation = buildSignedDelegatedTargets()
+
+    fakeRemoteDelegationClient.setRemote(uri, signedDelegation.asJson, Map("myheader" -> "myvalue"))
+
+    addNewTrustedDelegationKeysOK(keyPair.pubkey)
+
+    addNewTrustedDelegationsOk(delegation)
+
+    val req = AddDelegationFromRemoteRequest(uri, delegation.name, Map("myheader" -> "myvalue").some)
+    addNewRemoteDelegationOk(req)
+
+    val savedDelegation = getDelegationOk(delegation.name)
+
+    savedDelegation.json shouldBe signedDelegation.json
   }
 }

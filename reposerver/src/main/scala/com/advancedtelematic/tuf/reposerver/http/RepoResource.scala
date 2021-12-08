@@ -299,7 +299,7 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
       } ~
       pathPrefix("remote-delegations") {
         (put & pathEnd & entity(as[AddDelegationFromRemoteRequest])) { req =>
-          onSuccess(delegations.createFromRemote(repoId, req.uri, req.delegationName)) {
+          onSuccess(delegations.createFromRemote(repoId, req.uri, req.delegationName, req.remoteHeaders.getOrElse(Map.empty))) {
             complete(StatusCodes.Created)
           }
         } ~

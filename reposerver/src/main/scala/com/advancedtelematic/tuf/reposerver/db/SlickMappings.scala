@@ -34,4 +34,6 @@ object SlickMappings {
   }
 
   implicit val delegatedRoleNameMapper = validatedStringMapper[DelegatedRoleName]
+
+  val remoteHeadersMapper = SlickCirceMapper.circeMapper[Map[String, String]]
 }

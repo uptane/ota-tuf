@@ -246,12 +246,18 @@ class FakeRemoteDelegationsClient()(implicit val system: ActorSystem) extends Re
 
   private val remotes = new ConcurrentHashMap[Uri, Json]()
 
-  def setRemote(uri: Uri, delegatedTargets: Json): Unit =
-    remotes.put(uri, delegatedTargets)
+  private val uriHeaders = new ConcurrentHashMap[Uri, Map[String, String]]()
 
-  override def fetch[Resp](uri: Uri)(implicit um: FromEntityUnmarshaller[Resp]): Future[Resp] = {
+  def setRemote(uri: Uri, delegatedTargets: Json, headers: Map[String, String] = Map.empty): Unit = {
+    remotes.put(uri, delegatedTargets)
+    uriHeaders.put(uri, headers)
+  }
+
+  override def fetch[Resp](uri: Uri, headers: Map[String, String])(implicit um: FromEntityUnmarshaller[Resp]): Future[Resp] = {
     if(!remotes.containsKey(uri))
       FastFuture.failed(Errors.DelegationRemoteFetchFailed(uri, StatusCodes.NotFound, s"[test] remote delegation not found: $uri"))
+    else if (uriHeaders.get(uri) != headers)
+      FastFuture.failed(Errors.DelegationRemoteFetchFailed(uri, StatusCodes.NotFound, s"[test] request headers do not match expected headers: $uri"))
     else {
       val delegationJson = remotes.get(uri)
       val entity = HttpEntity.Strict(ContentTypes.`application/json`, ByteString(delegationJson.spaces2))
