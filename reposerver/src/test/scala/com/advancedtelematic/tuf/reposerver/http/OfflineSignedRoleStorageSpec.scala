@@ -18,7 +18,7 @@ import com.advancedtelematic.tuf.reposerver.db.TargetItemRepositorySupport
 import com.advancedtelematic.libats.data.RefinedUtils.RefineTry
 import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient
 import com.advancedtelematic.libtuf_server.repo.server.DataType.SignedRole
-import com.advancedtelematic.tuf.reposerver.data.RepositoryDataType.{StorageMethod, TargetItem}
+import com.advancedtelematic.tuf.reposerver.data.RepoDataType.{StorageMethod, TargetItem}
 import io.circe.Json
 import com.advancedtelematic.libats.test.MysqlDatabaseSpec
 

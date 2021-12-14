@@ -5,8 +5,8 @@ import com.advancedtelematic.libats.slick.db.SlickCirceMapper
 import com.advancedtelematic.libtuf.data.ClientDataType.DelegatedRoleName
 import com.advancedtelematic.libtuf.data.ValidatedString
 import com.advancedtelematic.libtuf.data.ValidatedString.{ValidatedString, ValidatedStringValidation}
-import com.advancedtelematic.tuf.reposerver.data.RepositoryDataType.StorageMethod
-import com.advancedtelematic.tuf.reposerver.data.RepositoryDataType.StorageMethod.StorageMethod
+import com.advancedtelematic.tuf.reposerver.data.RepoDataType.StorageMethod
+import com.advancedtelematic.tuf.reposerver.data.RepoDataType.StorageMethod.StorageMethod
 import slick.jdbc.MySQLProfile.api._
 
 import scala.reflect.ClassTag
@@ -34,4 +34,6 @@ object SlickMappings {
   }
 
   implicit val delegatedRoleNameMapper = validatedStringMapper[DelegatedRoleName]
+
+  val remoteHeadersMapper = SlickCirceMapper.circeMapper[Map[String, String]]
 }

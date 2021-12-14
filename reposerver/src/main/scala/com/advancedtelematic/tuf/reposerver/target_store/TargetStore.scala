@@ -20,8 +20,8 @@ import com.advancedtelematic.tuf.reposerver.target_store.TargetStoreEngine.{Targ
 import org.slf4j.LoggerFactory
 import slick.jdbc.MySQLProfile.api.Database
 import com.advancedtelematic.libtuf_server.repo.server.DataType._
-import com.advancedtelematic.tuf.reposerver.data.RepositoryDataType._
-import com.advancedtelematic.tuf.reposerver.data.RepositoryDataType.TargetItem
+import com.advancedtelematic.tuf.reposerver.data.RepoDataType._
+import com.advancedtelematic.tuf.reposerver.data.RepoDataType.TargetItem
 import com.advancedtelematic.tuf.reposerver.http.Errors
 import cats.implicits._
 import scala.concurrent.{ExecutionContext, Future}

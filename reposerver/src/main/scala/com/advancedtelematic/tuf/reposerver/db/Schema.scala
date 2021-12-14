@@ -12,8 +12,8 @@ import SlickMappings._
 import com.advancedtelematic.libtuf_server.data.Requests.TargetComment
 import com.advancedtelematic.tuf.reposerver.db.DBDataType.{DbDelegation, DbSignedRole}
 import SlickMappings.delegatedRoleNameMapper
-import com.advancedtelematic.tuf.reposerver.data.RepositoryDataType.StorageMethod.StorageMethod
-import com.advancedtelematic.tuf.reposerver.data.RepositoryDataType.TargetItem
+import com.advancedtelematic.tuf.reposerver.data.RepoDataType.StorageMethod.StorageMethod
+import com.advancedtelematic.tuf.reposerver.data.RepoDataType.TargetItem
 
 object Schema {
   import com.advancedtelematic.libats.slick.codecs.SlickRefined._
@@ -82,13 +82,18 @@ object Schema {
   protected [db] val filenameComments = TableQuery[PackageCommentTable]
 
   class DelegationTable(tag: Tag) extends Table[DbDelegation](tag, "delegations") {
+    implicit val remoteHeadersMapper = SlickMappings.remoteHeadersMapper
+
     def repoId = column[RepoId]("repo_id")
     def roleName = column[DelegatedRoleName]("name")
     def content = column[JsonSignedPayload]("content")
+    def remoteUri = column[Option[Uri]]("uri")
+    def remoteHeaders = column[Map[String, String]]("remote_headers")
+    def lastFetched = column[Option[Instant]]("last_fetched_at")
 
     def pk = primaryKey("delegations_pk", (repoId, roleName))
 
-    override def * = (repoId, roleName, content) <> ((DbDelegation.apply _).tupled, DbDelegation.unapply)
+    override def * = (repoId, roleName, content, remoteUri, lastFetched, remoteHeaders) <> ((DbDelegation.apply _).tupled, DbDelegation.unapply)
   }
 
   protected [db] val delegations = TableQuery[DelegationTable]

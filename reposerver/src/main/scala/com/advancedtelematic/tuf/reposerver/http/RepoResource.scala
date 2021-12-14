@@ -1,9 +1,10 @@
 package com.advancedtelematic.tuf.reposerver.http
 
+import akka.http.scaladsl.marshalling.ToResponseMarshallable
 import io.circe.syntax._
 import com.advancedtelematic.libats.data.ErrorRepresentation._
 import akka.http.scaladsl.model.headers.{RawHeader, `Content-Length`}
-import akka.http.scaladsl.model.{EntityStreamException, HttpEntity, HttpRequest, HttpResponse, ParsingException, StatusCodes, Uri}
+import akka.http.scaladsl.model.{EntityStreamException, HttpEntity, HttpHeader, HttpRequest, HttpResponse, ParsingException, StatusCode, StatusCodes, Uri}
 import akka.http.scaladsl.server._
 import akka.http.scaladsl.unmarshalling._
 import akka.stream.scaladsl.Source
@@ -13,7 +14,7 @@ import com.advancedtelematic.libats.http.Errors.{EntityAlreadyExists, MissingEnt
 import com.advancedtelematic.libats.http.RefinedMarshallingSupport._
 import com.advancedtelematic.libats.http.UUIDKeyAkka._
 import com.advancedtelematic.libtuf.data.ClientCodecs._
-import com.advancedtelematic.libtuf.data.ClientDataType.{Delegation, RootRole, TargetCustom, TargetsRole}
+import com.advancedtelematic.libtuf.data.ClientDataType.{DelegatedRoleName, Delegation, RootRole, TargetCustom, TargetsRole}
 import com.advancedtelematic.libtuf.data.TufCodecs._
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 import com.advancedtelematic.libats.http.AnyvalMarshallingSupport._
@@ -31,9 +32,9 @@ import com.advancedtelematic.libtuf_server.repo.server.DataType.SignedRole
 import com.advancedtelematic.tuf.reposerver.Settings
 import com.advancedtelematic.libtuf_server.repo.server.DataType._
 import com.advancedtelematic.libtuf_server.repo.server.RepoRoleRefresh
-import com.advancedtelematic.tuf.reposerver.data.RepositoryDataType._
+import com.advancedtelematic.tuf.reposerver.data.RepoDataType._
 import com.advancedtelematic.tuf.reposerver.db._
-import com.advancedtelematic.tuf.reposerver.delegations.DelegationsManagement
+import com.advancedtelematic.tuf.reposerver.delegations.{DelegationsManagement, RemoteDelegationClient}
 import com.advancedtelematic.tuf.reposerver.http.Errors.{NoRepoForNamespace, RequestCanceledByUpstream}
 import com.advancedtelematic.tuf.reposerver.http.RoleChecksumHeader._
 import com.advancedtelematic.tuf.reposerver.target_store.TargetStore
@@ -44,10 +45,13 @@ import slick.jdbc.MySQLProfile.api._
 
 import scala.async.Async._
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
+import com.advancedtelematic.tuf.reposerver.data.RepoCodecs._
+
 
 class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: NamespaceValidation,
-                   targetStore: TargetStore, tufTargetsPublisher: TufTargetsPublisher)
+                   targetStore: TargetStore, tufTargetsPublisher: TufTargetsPublisher,
+                   remoteDelegationsClient: RemoteDelegationClient)
                   (implicit val db: Database, val ec: ExecutionContext) extends Directives
   with TargetItemRepositorySupport
   with RepoNamespaceRepositorySupport
@@ -56,6 +60,8 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
   with Settings {
 
   private implicit val signedRoleGeneration = TufRepoSignedRoleGeneration(keyserverClient)
+  private implicit val _client = remoteDelegationsClient
+
   private val offlineSignedRoleStorage = new OfflineSignedRoleStorage(keyserverClient)
   private val roleRefresher = new RepoRoleRefresh(keyserverClient, new TufRepoSignedRoleProvider(), new TufRepoTargetItemsProvider())
   private val targetRoleEdit = new TargetRoleEdit(signedRoleGeneration)
@@ -279,6 +285,9 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
         (pathEnd & get) {
           complete(trustedDelegations.get(repoId))
         } ~
+        (path(DelegatedRoleNamePath) & delete) { delegatedRoleName =>
+          complete(trustedDelegations.remove(repoId, delegatedRoleName)(signedRoleGeneration))
+        } ~
         path("keys") {
           (put & entity(as[List[TufKey]])) { keys =>
             complete(trustedDelegations.addKeys(repoId, keys)(signedRoleGeneration).map(_ => StatusCodes.NoContent))
@@ -288,12 +297,27 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
           }
         }
       } ~
+      pathPrefix("remote-delegations") {
+        (put & pathEnd & entity(as[AddDelegationFromRemoteRequest])) { req =>
+          onSuccess(delegations.createFromRemote(repoId, req.uri, req.delegationName, req.remoteHeaders.getOrElse(Map.empty))) {
+            complete(StatusCodes.Created)
+          }
+        } ~
+          (path(DelegatedRoleNamePath / "refresh") & put) { delegatedRoleName =>
+            complete(delegations.updateFromRemote(repoId, delegatedRoleName))
+          }
+      } ~
       path("delegations" / DelegatedRoleUriPath) { delegatedRoleName =>
         (put & entity(as[SignedPayload[TargetsRole]])) { payload =>
           complete(delegations.create(repoId, delegatedRoleName, payload).map(_ => StatusCodes.NoContent))
         } ~
         get {
-          complete(delegations.find(repoId, delegatedRoleName))
+          onSuccess(delegations.find(repoId, delegatedRoleName)) {
+            case (delegation, Some(lastFetched)) =>
+              complete(StatusCodes.OK, List(RawHeader("x-ats-delegation-last-fetched-at", lastFetched.toString)), delegation)
+            case (delegation, _) =>
+              complete(StatusCodes.OK -> delegation)
+          }
         }
       } ~
       pathPrefix("uploads") {

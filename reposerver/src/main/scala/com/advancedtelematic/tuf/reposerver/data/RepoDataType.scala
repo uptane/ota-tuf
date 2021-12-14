@@ -5,7 +5,7 @@ import com.advancedtelematic.libats.data.DataType.Checksum
 import com.advancedtelematic.libtuf.data.ClientDataType._
 import com.advancedtelematic.libtuf.data.TufDataType.{RepoId, TargetFilename}
 
-object RepositoryDataType {
+object RepoDataType {
   object StorageMethod {
     sealed trait StorageMethod
     object Managed extends StorageMethod
@@ -16,4 +16,6 @@ object RepositoryDataType {
   import StorageMethod._
 
   case class TargetItem(repoId: RepoId, filename: TargetFilename, uri: Option[Uri], checksum: Checksum, length: Long, custom: Option[TargetCustom] = None, storageMethod: StorageMethod = Managed)
+
+  case class AddDelegationFromRemoteRequest(uri: Uri, delegationName: DelegatedRoleName, remoteHeaders: Option[Map[String, String]] = None)
 }

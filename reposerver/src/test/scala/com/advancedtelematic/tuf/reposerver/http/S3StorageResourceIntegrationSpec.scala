@@ -55,7 +55,7 @@ class S3StorageResourceIntegrationSpec
 
   override lazy val routes = Route.seal {
     pathPrefix("api" / "v1") {
-      new RepoResource(fakeKeyserverClient, namespaceValidation, targetStore, tufTargetsPublisher).route
+      new RepoResource(fakeKeyserverClient, namespaceValidation, targetStore, tufTargetsPublisher, fakeRemoteDelegationClient).route
     }
   }
 
