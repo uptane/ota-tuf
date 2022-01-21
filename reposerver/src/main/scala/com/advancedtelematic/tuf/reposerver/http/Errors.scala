@@ -1,11 +1,14 @@
 package com.advancedtelematic.tuf.reposerver.http
 
-import akka.http.scaladsl.model.StatusCodes
+import akka.http.scaladsl.model.{StatusCode, StatusCodes, Uri}
 import cats.data.NonEmptyList
 import com.advancedtelematic.libats.data.DataType.Namespace
 import com.advancedtelematic.libats.data.ErrorCode
 import com.advancedtelematic.libats.http.Errors.{JsonError, RawError}
+import com.advancedtelematic.libtuf.data.ClientDataType.DelegatedRoleName
+import com.advancedtelematic.libtuf.data.TufDataType.RepoId
 import io.circe.syntax._
+
 
 
 object ErrorCodes {
@@ -22,6 +25,9 @@ object ErrorCodes {
   val PayloadSignatureInvalid = ErrorCode("payload_signature_invalid")
   val InvalidOfflineTargets = ErrorCode("invalid_offline_targets")
   val RequestCanceledByUpstream = ErrorCode("request_canceled_by_upstream")
+  val DelegationRemoteFetchFailed = ErrorCode("delegation_remote_fetch_failed")
+  val DelegationRemoteParseFailed = ErrorCode("delegation_remote_parse_failed")
+  val MissingRemoteDelegationUri = ErrorCode("missing_remote_delegation_uri")
 }
 
 object Errors {
@@ -33,6 +39,17 @@ object Errors {
   val RoleChecksumNotProvided = RawError(ErrorCodes.RoleChecksumNotProvided, StatusCodes.PreconditionRequired, "A targets role already exists, but no previous checksum was sent")
   val RoleChecksumMismatch = RawError(ErrorCodes.RoleChecksumMismatch, StatusCodes.PreconditionFailed, "Provided checksum of previous role does not match current checksum")
   val TooManyReposForNamespace = RawError(ErrorCodes.TooManyReposForNamespace, StatusCodes.BadRequest, "Too many repos found for this namespace. Use the /repo/:repo_id API instead")
+
+  def MissingRemoteDelegationUri(repoId: RepoId, delegationName: DelegatedRoleName) =
+    RawError(ErrorCodes.MissingRemoteDelegationUri, StatusCodes.PreconditionFailed, s"Role $repoId/$delegationName does not have a remote uri and therefore cannot be refreshed")
+
+  def DelegationRemoteFetchFailed(uri: Uri, statusCode: StatusCode, status: String) =
+    RawError(ErrorCodes.DelegationRemoteFetchFailed, StatusCodes.BadGateway,
+      s"Could not get signed targets role from remote delegation service at $uri. Server responded with $statusCode/$status")
+
+  def DelegationRemoteParseFailed(uri: Uri, errorMsg: String) =
+    RawError(ErrorCodes.DelegationRemoteParseFailed, StatusCodes.BadGateway,
+      s"Could not parse delegations json from $uri. Error: $errorMsg")
 
   def PayloadTooLarge(size: Long, max: Long) =
     RawError(com.advancedtelematic.libtuf.data.ErrorCodes.Reposerver.PayloadTooLarge, StatusCodes.PayloadTooLarge,

@@ -9,6 +9,7 @@ import com.advancedtelematic.libats.messaging.MessageBusPublisher
 import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient
 import com.advancedtelematic.metrics.MetricsSupport
 import com.advancedtelematic.tuf.reposerver.VersionInfo
+import com.advancedtelematic.tuf.reposerver.delegations.RemoteDelegationClient
 import com.advancedtelematic.tuf.reposerver.target_store.TargetStore
 import com.codahale.metrics.MetricRegistry
 import slick.jdbc.MySQLProfile.api._
@@ -20,6 +21,7 @@ class TufReposerverRoutes(keyserverClient: KeyserverClient,
                           namespaceValidation: NamespaceValidation,
                           targetStore: TargetStore,
                           messageBusPublisher: MessageBusPublisher,
+                          remoteDelegationClient: RemoteDelegationClient,
                           metricsRoutes: Route = Directives.reject,
                           dependencyChecks: Seq[HealthCheck] = Seq.empty,
                           metricRegistry: MetricRegistry = MetricsSupport.metricRegistry)
@@ -31,7 +33,7 @@ class TufReposerverRoutes(keyserverClient: KeyserverClient,
     handleRejections(rejectionHandler) {
       ErrorHandler.handleErrors {
         pathPrefix("api" / "v1") {
-          new RepoResource(keyserverClient, namespaceValidation, targetStore, new TufTargetsPublisher(messageBusPublisher)).route
+          new RepoResource(keyserverClient, namespaceValidation, targetStore, new TufTargetsPublisher(messageBusPublisher), remoteDelegationClient).route
         } ~ DbHealthResource(versionMap, dependencies = dependencyChecks, metricRegistry = metricRegistry).route ~ metricsRoutes
       }
     }

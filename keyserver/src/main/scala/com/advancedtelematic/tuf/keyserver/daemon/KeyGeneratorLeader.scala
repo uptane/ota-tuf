@@ -17,6 +17,7 @@ import com.advancedtelematic.libats.slick.db.SlickEncryptedColumn.EncryptedColum
 import com.advancedtelematic.tuf.keyserver.daemon.KeyGenerationOp.KeyGenerationOp
 import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType.KeyGenRequestStatus
 import com.advancedtelematic.tuf.keyserver.db.{KeyGenRequestSupport, KeyRepositorySupport}
+import com.advancedtelematic.tuf.keyserver.roles.SignedRootRoles
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}

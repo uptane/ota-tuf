@@ -80,26 +80,6 @@ release sbt artifacts:
   rules:
     - if: '($CI_COMMIT_BRANCH == "master") || ($CI_PIPELINE_SOURCE == "merge_request_event")'
 
-build docker image reposerver:
-  stage: build image
-  extends:
-    - .jfrog-sbt-docker-publish
-    - .master-or-mr-rule
-  variables:
-    ARTIFACTORY_REPO: ota-docker-dev-horw
-    SERVICE_NAME: tuf-reposerver
-    SBT_NAME: reposerver/
-
-build docker image keyserver:
-  stage: build image
-  extends:
-    - .jfrog-sbt-docker-publish
-    - .master-or-mr-rule
-  variables:
-    ARTIFACTORY_REPO: ota-docker-dev-horw
-    SERVICE_NAME: tuf-keyserver
-    SBT_NAME: keyserver/
-
 build docker image tuf-server:
   stage: build image
   extends:
@@ -119,16 +99,9 @@ build docker image tuf-server:
     include:
       - local: gitlab/deploy-image.yml
 
-deploy tuf-reposerver:
+deploy tuf-server:
   extends:
     - .deploy-image
     - .master-or-mr-rule
   variables:
-    SERVICE: tuf-reposerver
-
-deploy tuf-keyserver:
-  extends:
-    - .deploy-image
-    - .master-or-mr-rule
-  variables:
-    SERVICE: tuf-keyserver
+    SERVICE: tuf-server

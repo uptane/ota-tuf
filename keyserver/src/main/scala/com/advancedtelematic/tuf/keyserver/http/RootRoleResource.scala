@@ -22,6 +22,7 @@ import io.circe.syntax._
 import slick.jdbc.MySQLProfile.api._
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 class RootRoleResource()
                       (implicit val db: Database, val ec: ExecutionContext, mat: Materializer)
@@ -39,9 +40,10 @@ class RootRoleResource()
 
     val keyGenerationOp = DefaultKeyGenerationOp()
 
-    val f = for { // ERROR is uses so the daemon doesn't pickup this request
+    val f = for { // use ERROR so the daemon doesn't pickup this request
       reqs <- keyGenerationRequests.createDefaultGenRequest(repoId, genRequest.threshold, genRequest.keyType, KeyGenRequestStatus.ERROR)
       _ <- Future.traverse(reqs)(keyGenerationOp)
+      _ <- signedRootRoles.findFreshAndPersist(repoId) // Force generation of root.json role now
     } yield StatusCodes.Created -> reqs.map(_.id)
 
     complete(f)
@@ -86,7 +88,13 @@ class RootRoleResource()
         complete(f)
       } ~
       path(IntNumber) { version =>
-        complete(signedRootRoles.findByVersion(repoId, version))
+        onComplete(signedRootRoles.findByVersion(repoId, version)) {
+          case Success(role) =>
+            complete(role)
+          case Failure(ex @ SignedRootRoleRepository.MissingSignedRole) =>
+            val err = ErrorRepresentation(ex.code, ex.msg, None, Option(ex.errorId))
+            complete(StatusCodes.NotFound -> err.asJson)
+        }
       } ~
       pathPrefix("private_keys") {
         path(KeyIdPath) { keyId =>
