@@ -28,7 +28,7 @@ include:
   - project: rd/innovation/continuous-delivery/ci-container-build
     file: gitlab-ci-templates/jfrog-sbt-docker-publish.yaml
 
-image: artifactory-horw.int.toradex.com/ota-docker-dev-horw/tdx-inno-ci-scala:0.0.1
+image: harbor-dev.int.toradex.com/ota-docker-dev-horw/tdx-inno-ci-scala:0.0.1
 
 services:
   - name: docker:dind
