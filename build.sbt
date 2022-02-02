@@ -131,7 +131,7 @@ lazy val cli = (project in file("cli"))
     topLevelDirectory := Some("garage-sign"),
     executableScriptName := "garage-sign",
     Universal / mappings += (file("cli/LICENSE") -> "docs/LICENSE"),
-    libraryDependencies += "com.typesafe" % "config" % "1.4.1" % Test)
+    libraryDependencies += "com.typesafe" % "config" % "1.4.2" % Test)
   .dependsOn(libtuf)
 
 lazy val ota_tuf = (project in file("."))
