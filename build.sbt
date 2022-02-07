@@ -24,7 +24,7 @@ lazy val commonDeps = libraryDependencies ++= {
 }
 
 lazy val serverDependencies = libraryDependencies ++= {
-  lazy val akkaV = "2.6.17"
+  lazy val akkaV = "2.6.18"
   lazy val akkaHttpV = "10.2.7"
   lazy val libatsV = libatsVersion.value
   lazy val slickV = "3.2.3"
@@ -36,7 +36,7 @@ lazy val serverDependencies = libraryDependencies ++= {
     "com.typesafe.akka" %% "akka-http" % akkaHttpV,
     "com.typesafe.akka" %% "akka-slf4j" % akkaV,
     "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpV % "test",
-    "com.softwaremill.sttp.client" %% "akka-http-backend" % "2.2.10" % "test",
+    "com.softwaremill.sttp.client" %% "akka-http-backend" % "2.3.0" % "test",
 
     "io.github.uptane" %% "libats-http" % libatsV,
     "io.github.uptane" %% "libats-http-tracing" % libatsV,
@@ -47,7 +47,7 @@ lazy val serverDependencies = libraryDependencies ++= {
     "io.github.uptane" %% "libats-logging" % libatsV,
     "com.typesafe.slick" %% "slick" % slickV,
     "com.typesafe.slick" %% "slick-hikaricp" % slickV,
-    "org.mariadb.jdbc" % "mariadb-java-client" % "2.7.4"
+    "org.mariadb.jdbc" % "mariadb-java-client" % "2.7.5"
   )
 }
 
