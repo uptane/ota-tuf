@@ -56,7 +56,7 @@ class ChangeEncryptionKey(implicit
             key_id varchar(254) not null,
             old_payload text,
             created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            primary key (`key_id`)) """.asUpdate
+            primary key (`key_id`)) DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci""".asUpdate
 
     await(db.run(stateTable))
 
