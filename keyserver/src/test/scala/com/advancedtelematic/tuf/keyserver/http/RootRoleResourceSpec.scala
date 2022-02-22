@@ -758,6 +758,28 @@ class RootRoleResourceSpec extends TufKeyserverSpec
     }
   }
 
+  test("GET on versioned root.json returns renewed root if old expired") {
+    val repoId = RepoId.generate()
+
+    Post(apiUri(s"root/${repoId.show}"), ClientRootGenRequest(1, KeyType.default, forceSync = Some(false))) ~> routes ~> check {
+      status shouldBe StatusCodes.Accepted
+    }
+
+    processKeyGenerationRequest(repoId).futureValue
+
+    val signedRootRoles = new SignedRootRoles(defaultRoleExpire = Duration.ofMillis(1))
+
+    val secondRoot = signedRootRoles.findFreshAndPersist(repoId).futureValue
+
+    Get(apiUri(s"root/${repoId.show}/3")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val signed = responseAs[SignedPayload[RootRole]].signed
+      signed.version shouldBe 3
+      signed.expires.isAfter(secondRoot.signed.expires) shouldBe true
+    }
+  }
+
+
   keyTypeTest("GET returns OK with expired root if root is expired and keys are offline") { keyType =>
     val repoId = RepoId.generate()
 
