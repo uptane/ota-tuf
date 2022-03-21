@@ -1,5 +1,5 @@
 
-libraryDependencies += "com.amazonaws" % "aws-java-sdk-s3" % "1.12.181"
+libraryDependencies += "com.amazonaws" % "aws-java-sdk-s3" % "1.12.182"
 
 libraryDependencies += "org.apache.commons" % "commons-compress" % "1.21"
 
