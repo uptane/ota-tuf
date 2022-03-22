@@ -2,7 +2,6 @@ package com.advancedtelematic.tuf.reposerver.http
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-
 import org.scalatest.EitherValues._
 import akka.http.scaladsl.model.Multipart.FormData.BodyPart
 import akka.http.scaladsl.model._
@@ -14,7 +13,7 @@ import cats.syntax.either._
 import cats.syntax.option._
 import cats.syntax.show._
 import com.advancedtelematic.libats.codecs.CirceCodecs._
-import com.advancedtelematic.libats.data.DataType.HashMethod
+import com.advancedtelematic.libats.data.DataType.{HashMethod, Namespace}
 import com.advancedtelematic.libats.data.ErrorRepresentation
 import com.advancedtelematic.libats.data.RefinedUtils.RefineTry
 import com.advancedtelematic.libats.http.Errors.RawError
@@ -65,6 +64,12 @@ class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
 
     val isValid = TufCrypto.isValid(signature, fakeKeyserverClient.publicKey(repoId, roleType), signed)
     isValid shouldBe true
+  }
+
+  def createRepo()(implicit ns: NamespaceTag): Unit = {
+    Post(apiUri(s"user_repo")).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+    }
   }
 
   test("POST returns latest signed json") {
@@ -685,7 +690,7 @@ class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
       status shouldBe StatusCodes.OK
     }
 
-    val payload = io.circe.jawn.parse("""{"param0":0,"param1":{"nested1":1,"nested2":"mystring"}}""").right.value
+    val payload = io.circe.jawn.parse("""{"param0":0,"param1":{"nested1":1,"nested2":"mystring"}}""").value
 
     Patch(apiUri(s"repo/${repoId.show}/proprietary-custom/${targetFilename.value}"), payload) ~> routes ~> check {
       status shouldBe StatusCodes.NoContent
@@ -1260,6 +1265,75 @@ class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
       responseAs[ErrorRepresentation].description should include("Entity already exists")
     }
   }
+
+  test("targets.json expire date is set according to expired-not-before") {
+    withRandomNamepace { implicit ns =>
+      createRepo()
+
+      val notBefore = Instant.now().plus(30 * 6, ChronoUnit.DAYS)
+
+      Put(apiUri(s"user_repo/targets/expire/not-before"), ExpireNotBeforeRequest(notBefore)).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.NoContent
+      }
+
+      Get(apiUri(s"user_repo/targets.json")).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val targetsRole = responseAs[SignedPayload[TargetsRole]].signed
+        targetsRole.expires.isAfter(notBefore.minusSeconds(1)) shouldBe true
+      }
+    }
+  }
+
+  test("targets.json is refreshed on GET if current expire date is earlier than set expires-not-before") {
+    withRandomNamepace { implicit ns =>
+      createRepo()
+
+      val notBefore = Instant.now().plus(30 * 6, ChronoUnit.DAYS)
+
+      val initialVersion = Get(apiUri(s"user_repo/targets.json")).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[SignedPayload[TargetsRole]].signed.version
+      }
+
+      Put(apiUri(s"user_repo/targets/expire/not-before"), ExpireNotBeforeRequest(notBefore)).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.NoContent
+      }
+
+      Get(apiUri(s"user_repo/targets.json")).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val targetsRole = responseAs[SignedPayload[TargetsRole]].signed
+        targetsRole.version shouldBe initialVersion+1
+        targetsRole.expires.isAfter(notBefore.minusSeconds(1)) shouldBe true
+      }
+    }
+  }
+
+  test("targets.json expire date is set according to expires-not-before when adding a target") {
+    withRandomNamepace { implicit ns =>
+      createRepo()
+
+      val notBefore = Instant.now().plus(30 * 6, ChronoUnit.DAYS)
+
+      Get(apiUri(s"user_repo/targets.json")).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      Put(apiUri(s"user_repo/targets/expire/not-before"), ExpireNotBeforeRequest(notBefore)).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.NoContent
+      }
+
+      Put(apiUri(s"user_repo/targets/some/target/thing?name=name&version=version"), form).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      Get(apiUri(s"user_repo/targets.json")).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val targetsRole = responseAs[SignedPayload[TargetsRole]].signed
+        targetsRole.expires.isAfter(notBefore.minusSeconds(1)) shouldBe true
+      }
+    }
+  }
+
 
   implicit class ErrorRepresentationOps(value: ErrorRepresentation) {
     def firstErrorCause: Option[String] =

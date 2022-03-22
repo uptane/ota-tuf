@@ -1,6 +1,6 @@
 package com.advancedtelematic.tuf.reposerver.http
 
-import akka.http.scaladsl.marshalling.ToResponseMarshallable
+import java.time.Instant
 import io.circe.syntax._
 import com.advancedtelematic.libats.data.ErrorRepresentation._
 import akka.http.scaladsl.model.headers.{RawHeader, `Content-Length`}
@@ -79,7 +79,7 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
     through this method.
   */
   private val withContentLengthCheck: Directive1[Long] =
-    (optionalHeaderValueByType[`Content-Length`](()) & extractRequestEntity)
+    (optionalHeaderValueByType(`Content-Length`) & extractRequestEntity)
       .tmap { case (clHeader, entity) => clHeader.map(_.length).orElse(entity.contentLengthOption) }
       .flatMap {
         case Some(cl) if cl <= outOfBandUploadLimit => provide(cl)
@@ -359,6 +359,12 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
           }
       } ~
       pathPrefix("targets") {
+        path("expire" / "not-before") {
+          (put & entity(as[ExpireNotBeforeRequest])) { req =>
+            val f = repoNamespaceRepo.setExpiresNotBefore(repoId, Option(req.expireAt))
+            complete(f.map(_ => StatusCodes.NoContent))
+          }
+        } ~
         path(TargetFilenamePath) { filename =>
           post {
             entity(as[RequestTargetItem]) { clientItem =>
@@ -437,3 +443,13 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
       modifyRepoRoutes(repoId)
     }
 }
+
+object ExpireNotBeforeRequest {
+  import io.circe.{Encoder, Decoder}
+
+  implicit val refreshRequestEncoder: Encoder[ExpireNotBeforeRequest] = io.circe.generic.semiauto.deriveEncoder[ExpireNotBeforeRequest]
+  implicit val refreshRequestDecoder: Decoder[ExpireNotBeforeRequest] = io.circe.generic.semiauto.deriveDecoder[ExpireNotBeforeRequest]
+}
+
+
+case class ExpireNotBeforeRequest(expireAt: Instant)
