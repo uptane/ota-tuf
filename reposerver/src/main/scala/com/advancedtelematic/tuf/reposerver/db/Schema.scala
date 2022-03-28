@@ -56,13 +56,14 @@ object Schema {
 
   protected [db] val signedRoles = TableQuery[SignedRoleTable]
 
-  class RepoNamespaceTable(tag: Tag) extends Table[(RepoId, Namespace)](tag, "repo_namespaces") {
+  class RepoNamespaceTable(tag: Tag) extends Table[(RepoId, Namespace, Option[Instant])](tag, "repo_namespaces") {
     def repoId = column[RepoId]("repo_id")
     def namespace = column[Namespace]("namespace")
+    def expiresNotBefore = column[Option[Instant]]("expires_not_before")
 
     def pk = primaryKey("repo_namespaces_pk", namespace)
 
-    override def * = (repoId, namespace)
+    override def * = (repoId, namespace, expiresNotBefore)
   }
 
   protected [db] val repoNamespaces = TableQuery[RepoNamespaceTable]
