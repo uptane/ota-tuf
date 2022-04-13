@@ -4,12 +4,12 @@ import java.net.URI
 import java.time.{Instant, Period, ZoneOffset}
 import java.util.concurrent.TimeUnit
 import com.advancedtelematic.libats.data.DataType.Checksum
-import com.advancedtelematic.libtuf.crypt.Sha256FileDigest
+import com.advancedtelematic.libtuf.crypt.{Sha256FileDigest, TufCrypto}
 import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, RootRole, TargetCustom}
 import com.advancedtelematic.libtuf.data.TufCodecs._
 import com.advancedtelematic.libtuf.data.TufDataType.TargetFormat.TargetFormat
-import com.advancedtelematic.libtuf.data.TufDataType.{HardwareIdentifier, RoleType, TargetFilename, TargetFormat, TargetName, TargetVersion, ValidTargetFilename}
+import com.advancedtelematic.libtuf.data.TufDataType.{HardwareIdentifier, RoleType, SignedPayload, TargetFilename, TargetFormat, TargetName, TargetVersion, ValidTargetFilename}
 import com.advancedtelematic.libtuf.http.{ReposerverClient, TufServerClient}
 import com.advancedtelematic.tuf.cli.CliConfigOptionOps._
 import com.advancedtelematic.tuf.cli.Commands._
@@ -220,6 +220,18 @@ object CommandHandler {
       config.keyNames.map { keyName =>
         userKeyStorage.genKeys(keyName, config.keyType, config.keySize)
       }.sequence_
+
+    case SignUserJson =>
+      for {
+        inJson <- io.circe.jawn.parsePath(config.inputPath.valueOrConfigError).toTry
+        pubKey <- CliKeyStorage.readPublicKey(config.pubKeyPath.valueOrConfigError)
+        privKey <- CliKeyStorage.readPrivateKey(config.keyPaths.headOption.valueOrConfigError)
+      } yield {
+        val signature = TufCrypto.signPayload(privKey, inJson).toClient(pubKey.id)
+        val payload = SignedPayload(Seq(signature), inJson, inJson)
+
+        config.outputPath.streamOrStdout.write(payload.asJson.spaces2.getBytes)
+      }
 
     case IdUserKey =>
       CliKeyStorage.readPublicKey(config.inputPath.valueOrConfigError).map { key =>

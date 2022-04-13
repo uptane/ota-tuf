@@ -11,7 +11,7 @@ lazy val UnitTest = config("ut").extend(Test)
 lazy val commonConfigs = Seq(ItTest, UnitTest)
 
 lazy val commonDeps = libraryDependencies ++= {
-  val scalaTestV = "3.2.10"
+  val scalaTestV = "3.2.11"
   lazy val libatsV = libatsVersion.value
   lazy val catsV = "2.7.0"
 
@@ -131,7 +131,7 @@ lazy val cli = (project in file("cli"))
     topLevelDirectory := Some("garage-sign"),
     executableScriptName := "garage-sign",
     Universal / mappings += (file("cli/LICENSE") -> "docs/LICENSE"),
-    libraryDependencies += "com.typesafe" % "config" % "1.4.1" % Test)
+    libraryDependencies += "com.typesafe" % "config" % "1.4.2" % Test)
   .dependsOn(libtuf)
 
 lazy val ota_tuf = (project in file("."))

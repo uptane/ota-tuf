@@ -65,6 +65,7 @@ case class Config(command: Command,
                   serverCertPath: Option[Path] = None,
                   delegatedPaths: List[DelegatedPathPattern] = List.empty,
                   keyPaths: List[Path] = List.empty,
+                  pubKeyPath: Option[Path] = None,
                   force: Boolean = false,
                   reposerverUrl: Option[URI] = None,
                   verbose: Boolean = false,
@@ -162,6 +163,22 @@ object Cli extends App with VersionInfo {
     }
 
     version("version").text("Prints the current binary version.")
+
+    note(" " + sys.props("line.separator"))
+
+    cmd("sign-json")
+      .toCommand(SignUserJson)
+      .text("Signs valid user provided json with a specified key")
+      .children(
+        opt[Path]("priv-key").abbr("k")
+          .text("The path to the private key to use to sign json")
+          .action { (arg, c) => c.copy(keyPaths = arg :: c.keyPaths) },
+        opt[Path]("pub-key").abbr("p")
+          .text("The path to the public key to use to sign json")
+          .toConfigOptionParam('pubKeyPath),
+        opt[Path]('i', "input").toConfigOptionParam('inputPath)
+          .text("path to input json")
+      )
 
     note(" " + sys.props("line.separator"))
 
