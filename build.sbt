@@ -128,8 +128,8 @@ lazy val cli = (project in file("cli"))
   .settings(Publish.disable)
   .settings(BuildInfoSettings("com.advancedtelematic.tuf.cli"))
   .settings(
-    topLevelDirectory := Some("garage-sign"),
-    executableScriptName := "garage-sign",
+    topLevelDirectory := Some("uptane-sign"),
+    executableScriptName := "uptane-sign",
     Universal / mappings += (file("cli/LICENSE") -> "docs/LICENSE"),
     libraryDependencies += "com.typesafe" % "config" % "1.4.2" % Test)
   .dependsOn(libtuf)
