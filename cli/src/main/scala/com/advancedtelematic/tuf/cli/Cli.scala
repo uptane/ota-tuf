@@ -80,7 +80,7 @@ object Cli extends App with VersionInfo {
 
   private lazy val log = LoggerFactory.getLogger(this.getClass)
 
-  val PROGRAM_NAME = "garage-sign"
+  val PROGRAM_NAME = "uptane-sign"
 
   lazy val repoNameOpt: OptionParser[Config] => OptionDef[RepoName, Config] = { parser =>
     parser
@@ -168,7 +168,7 @@ object Cli extends App with VersionInfo {
   lazy val parser = new scopt.OptionParser[Config](PROGRAM_NAME) {
     head(projectName, Cli.version)
 
-    help("help").text("Prints all available `garage-sign` commands and options.")
+    help("help").text("Prints all available `uptane-sign` commands and options.")
 
     version("version").text("Prints the current binary version.")
 
