@@ -43,8 +43,8 @@ jobs:
       - run: docker push uptane/tuf-reposerver:$GITHUB_SHA
       - run: docker push uptane/tuf-keyserver:$GITHUB_SHA
 
-  release-garage-sign:
-    name: Release garage-sign
+  release-uptane-sign:
+    name: Release uptane-sign
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

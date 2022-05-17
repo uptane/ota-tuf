@@ -11,7 +11,7 @@ lazy val UnitTest = config("ut").extend(Test)
 lazy val commonConfigs = Seq(ItTest, UnitTest)
 
 lazy val commonDeps = libraryDependencies ++= {
-  val scalaTestV = "3.2.11"
+  val scalaTestV = "3.2.12"
   lazy val libatsV = libatsVersion.value
   lazy val catsV = "2.7.0"
 
@@ -128,8 +128,8 @@ lazy val cli = (project in file("cli"))
   .settings(Publish.disable)
   .settings(BuildInfoSettings("com.advancedtelematic.tuf.cli"))
   .settings(
-    topLevelDirectory := Some("garage-sign"),
-    executableScriptName := "garage-sign",
+    topLevelDirectory := Some("uptane-sign"),
+    executableScriptName := "uptane-sign",
     Universal / mappings += (file("cli/LICENSE") -> "docs/LICENSE"),
     libraryDependencies += "com.typesafe" % "config" % "1.4.2" % Test)
   .dependsOn(libtuf)
