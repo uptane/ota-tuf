@@ -11,7 +11,8 @@ else
     MYSQL="docker run -i --rm --link $HOST mariadb:10.4 mysql"
 fi
 
-if [[ "$MYSQL_COMMAND" == "mysql" ]] && [ ! command -v mysqladmin &> /dev/null ];
+# If using local mysql and mysqladmin is also installed locally use it
+if [[ "$MYSQL_COMMAND" == "mysql" ]] && command -v mysqladmin &> /dev/null;
 then
     MYSQLADMIN=mysqladmin
 else

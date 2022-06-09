@@ -242,7 +242,7 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
     for {
       _ <- targetStore.delete(repoId, filename)
       _ <- targetRoleEdit.deleteTargetItem(repoId, filename)
-      _ <- tufTargetsPublisher.deleteTargetItem(namespace)
+      _ <- tufTargetsPublisher.targetsMetaModified(namespace)
     } yield StatusCodes.NoContent
   }
 
@@ -284,9 +284,7 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
           val f = trustedDelegations.add(repoId, payload)(signedRoleGeneration).map(_ => StatusCodes.NoContent)
           f.foreach { _ =>
             // Launch and forget. We don't care about kafka msg errors in the api response, we will log any errors if sending fails
-            tufTargetsPublisher.newTrustedDelegationsAdded(namespace).recover {
-              case err => log.error("Failed to publish message after adding trusted delegations to targets metadata. Error: " + err.getMessage())
-            }
+            tufTargetsPublisher.targetsMetaModified(namespace)
           }
           complete(f)
         } ~
@@ -297,9 +295,7 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
           val f = trustedDelegations.remove(repoId, delegatedRoleName)(signedRoleGeneration).map(_ => StatusCodes.NoContent)
           f.foreach { _ =>
             // Launch and forget. We don't care about kafka msg errors in the api response, we will log any errors if sending fails
-            tufTargetsPublisher.deleteTrustedDelegation(namespace).recover{
-              case err => log.error("Failed to publish message for deleting trusted delegations. Error: " + err.getMessage())
-            }
+            tufTargetsPublisher.targetsMetaModified(namespace)
           }
           complete(f)
         } ~
@@ -308,7 +304,7 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
             val f = trustedDelegations.addKeys(repoId, keys)(signedRoleGeneration).map(_ => StatusCodes.NoContent)
             f.foreach { _ =>
               // Launch and forget. We don't care about kafka msg errors in the api response, we will log any errors if sending fails
-              tufTargetsPublisher.newTrustedDelegationKeysAdded(namespace)
+              tufTargetsPublisher.targetsMetaModified(namespace)
             }
             complete(f)
           } ~
