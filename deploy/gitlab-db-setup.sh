@@ -13,9 +13,9 @@ fi
 
 if [[ "$MYSQL_COMMAND" == "mysql" ]] && [ ! command -v mysqladmin &> /dev/null ];
 then
-    MYSQLADMIN="docker run -i --rm --link $HOST mariadb:10.4 mysqladmin"
-else
     MYSQLADMIN=mysqladmin
+else
+    MYSQLADMIN="docker run -i --rm --link $HOST mariadb:10.4 mysqladmin"
 fi
 
 until $MYSQLADMIN ping --silent --protocol=TCP -h $HOST -P 3306 -u root -proot; do echo waiting for mysql; sleep 1; done

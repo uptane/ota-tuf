@@ -5,6 +5,7 @@ import com.advancedtelematic.libats.messaging.MessageBusPublisher
 import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, TargetCustom}
 import com.advancedtelematic.libtuf.data.TufDataType.TargetFilename
 import com.advancedtelematic.libtuf_server.data.Messages.TufTargetAdded
+import com.advancedtelematic.libtuf_server.data.Messages.TufTargetsModified
 import cats.implicits._
 import scala.concurrent.{ExecutionContext, Future}
 import com.advancedtelematic.libats.codecs.CirceCodecs._
@@ -13,14 +14,37 @@ import com.advancedtelematic.tuf.reposerver.data.RepoDataType.TargetItem
 
 
 class TufTargetsPublisher(messageBus: MessageBusPublisher)(implicit ec: ExecutionContext) {
-  def targetAdded(namespace: Namespace, item: TargetItem): Future[Unit] =
-    messageBus.publish(TufTargetAdded(namespace, item.filename, item.checksum, item.length, item.custom))
+  def targetAdded(namespace: Namespace, item: TargetItem): Future[Unit] = {
+    for {
+      t <- messageBus.publish(TufTargetAdded(namespace, item.filename, item.checksum, item.length, item.custom))
+      _ <- targetsMetaModified(namespace)
+    } yield t
+  }
 
   def newTargetsAdded(namespace: Namespace, allTargets: Map[TargetFilename, ClientTargetItem], existing: Seq[TargetItem]): Future[Unit] = {
-    newTargetsFromExisting(allTargets, existing.map(_.filename)).toList.traverse_ { case (filename, checksum, clientTargetItem) =>
-      messageBus.publish(TufTargetAdded(namespace, filename, checksum,
-                                        clientTargetItem.length, clientTargetItem.customParsed[TargetCustom]))
-    }
+    for {
+      res <- newTargetsFromExisting(allTargets, existing.map(_.filename)).toList.traverse_ {case (filename, checksum, clientTargetItem) =>
+        messageBus.publish (TufTargetAdded (namespace, filename, checksum,
+        clientTargetItem.length, clientTargetItem.customParsed[TargetCustom]))
+      }
+      _ <- targetsMetaModified (namespace)
+    } yield res
+  }
+
+  def deleteTargetItem(namespace: Namespace): Future[Unit] = {
+    targetsMetaModified(namespace)
+  }
+
+  def newTrustedDelegationKeysAdded(namespace: Namespace): Future[Unit] = {
+    targetsMetaModified(namespace)
+  }
+
+  def newTrustedDelegationsAdded(namespace: Namespace): Future[Unit] = {
+    targetsMetaModified(namespace)
+  }
+
+  def deleteTrustedDelegation(namespace: Namespace): Future[Unit] = {
+    targetsMetaModified(namespace)
   }
 
   private def newTargetsFromExisting(allTargets: Map[TargetFilename, ClientTargetItem], existing: Seq[TargetFilename]) =
@@ -29,4 +53,7 @@ class TufTargetsPublisher(messageBus: MessageBusPublisher)(implicit ec: Executio
         (targetFilename, Checksum(hashMethod, validChecksum), clientTargetItem)
       }
     }
+
+  private def targetsMetaModified(namespace: Namespace): Future[Unit] =
+    messageBus.publish(TufTargetsModified(namespace))
 }
