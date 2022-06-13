@@ -238,10 +238,11 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
       }
     }
 
-  def deleteTargetItem(repoId: RepoId, filename: TargetFilename): Route = complete {
+  def deleteTargetItem(namespace: Namespace, repoId: RepoId, filename: TargetFilename): Route = complete {
     for {
       _ <- targetStore.delete(repoId, filename)
       _ <- targetRoleEdit.deleteTargetItem(repoId, filename)
+      _ <- tufTargetsPublisher.targetsMetaModified(namespace)
     } yield StatusCodes.NoContent
   }
 
@@ -280,17 +281,32 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
       } ~
       pathPrefix("trusted-delegations" ) {
         (pathEnd & put & entity(as[List[Delegation]])) { payload =>
-          complete(trustedDelegations.add(repoId, payload)(signedRoleGeneration).map(_ => StatusCodes.NoContent))
+          val f = trustedDelegations.add(repoId, payload)(signedRoleGeneration).map(_ => StatusCodes.NoContent)
+          f.foreach { _ =>
+            // Launch and forget. We don't care about kafka msg errors in the api response, we will log any errors if sending fails
+            tufTargetsPublisher.targetsMetaModified(namespace)
+          }
+          complete(f)
         } ~
         (pathEnd & get) {
           complete(trustedDelegations.get(repoId))
         } ~
         (path(DelegatedRoleNamePath) & delete) { delegatedRoleName =>
-          complete(trustedDelegations.remove(repoId, delegatedRoleName)(signedRoleGeneration))
+          val f = trustedDelegations.remove(repoId, delegatedRoleName)(signedRoleGeneration).map(_ => StatusCodes.NoContent)
+          f.foreach { _ =>
+            // Launch and forget. We don't care about kafka msg errors in the api response, we will log any errors if sending fails
+            tufTargetsPublisher.targetsMetaModified(namespace)
+          }
+          complete(f)
         } ~
         path("keys") {
           (put & entity(as[List[TufKey]])) { keys =>
-            complete(trustedDelegations.addKeys(repoId, keys)(signedRoleGeneration).map(_ => StatusCodes.NoContent))
+            val f = trustedDelegations.addKeys(repoId, keys)(signedRoleGeneration).map(_ => StatusCodes.NoContent)
+            f.foreach { _ =>
+              // Launch and forget. We don't care about kafka msg errors in the api response, we will log any errors if sending fails
+              tufTargetsPublisher.targetsMetaModified(namespace)
+            }
+            complete(f)
           } ~
           get {
             complete(trustedDelegations.getKeys(repoId))
@@ -392,7 +408,7 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
             complete(targetStore.retrieve(repoId, filename))
           } ~
           delete {
-            deleteTargetItem(repoId, filename)
+            deleteTargetItem(namespace, repoId, filename)
           }
         } ~
         withRequestTimeout(userRepoUploadRequestTimeout, timeoutResponseHandler) { // For when SignedPayload[TargetsRole] is too big and takes a long time to upload

@@ -8,8 +8,8 @@ import akka.util.ByteString
 import com.advancedtelematic.libats.data.DataType.HashMethod
 import com.advancedtelematic.libtuf.data.ClientDataType.{ClientHashes, ClientTargetItem, TargetCustom, TargetsRole}
 import com.advancedtelematic.libtuf.data.TufDataType.{Ed25519KeyType, KeyType, RepoId, RsaKeyType, SignedPayload, TargetFilename, TargetFormat, TargetName, TargetVersion}
-import com.advancedtelematic.libtuf_server.data.Messages.{PackageStorageUsage, TufTargetAdded}
-import com.advancedtelematic.tuf.reposerver.util.{RepoResourceSpecUtil, ResourceSpec, TufReposerverSpec}
+import com.advancedtelematic.libtuf_server.data.Messages.{PackageStorageUsage, TufTargetAdded, TufTargetsModified}
+import com.advancedtelematic.tuf.reposerver.util.{RepoResourceDelegationsSpecUtil, RepoResourceSpecUtil, ResourceSpec, TufReposerverSpec}
 import eu.timepit.refined.api.Refined
 import io.circe.Json
 import org.scalatest.concurrent.PatienceConfiguration
@@ -24,7 +24,7 @@ import com.advancedtelematic.libats.http.HttpCodecs._
 import com.advancedtelematic.libtuf_server.data.Requests.CreateRepositoryRequest
 
 class RepoResourceBusMessagesSpec extends TufReposerverSpec
-  with ResourceSpec with PatienceConfiguration with RepoResourceSpecUtil {
+  with ResourceSpec with PatienceConfiguration with RepoResourceSpecUtil with RepoResourceDelegationsSpecUtil {
 
   override implicit def patienceConfig: PatienceConfig = PatienceConfig().copy(timeout = Span(5, Seconds))
 
@@ -36,6 +36,8 @@ class RepoResourceBusMessagesSpec extends TufReposerverSpec
     // check for target item
 
     probe.expectMsgType[TufTargetAdded]
+    probe.expectMsgType[TufTargetsModified]
+
 
     val signedPayload1 = buildSignedTargetsRole(repoId, offlineTargets)
 
@@ -46,6 +48,8 @@ class RepoResourceBusMessagesSpec extends TufReposerverSpec
     }
 
     probe.expectMsgType[TufTargetAdded]
+    probe.expectMsgType[TufTargetsModified]
+
 
     val targetRole = Get(apiUri(s"repo/${repoId.show}/targets.json")) ~> routes ~> check {
       status shouldBe StatusCodes.OK
@@ -58,8 +62,8 @@ class RepoResourceBusMessagesSpec extends TufReposerverSpec
     // 3rd target item
     val hashes: ClientHashes = Map(HashMethod.SHA256 -> Refined.unsafeApply("8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4"))
     val targetCustomJson = TargetCustom(TargetName("name"), TargetVersion("version"), Seq.empty, TargetFormat.BINARY.some)
-                              .asJson
-                              .deepMerge(Json.obj("uri" -> Uri("https://ats.com").asJson))
+      .asJson
+      .deepMerge(Json.obj("uri" -> Uri("https://ats.com").asJson))
     val offlineTargetFilename2: TargetFilename = Refined.unsafeApply("another/file/name")
     val offlineTargets2 = targetRole.targets.updated(offlineTargetFilename2, ClientTargetItem(hashes, 0, Some(targetCustomJson)))
     val signedPayload2 = buildSignedTargetsRole(repoId, offlineTargets2, targetRole.version + 1)
@@ -70,6 +74,7 @@ class RepoResourceBusMessagesSpec extends TufReposerverSpec
     }
 
     probe.expectMsgType[TufTargetAdded]
+    probe.expectMsgType[TufTargetsModified]
   }
 
   test("publishes messages to bus on creating first target by uploading target.json") {
@@ -90,6 +95,7 @@ class RepoResourceBusMessagesSpec extends TufReposerverSpec
       }
 
       probe.expectMsgType[TufTargetAdded]
+      probe.expectMsgType[TufTargetsModified]
     }
   }
 
@@ -109,14 +115,16 @@ class RepoResourceBusMessagesSpec extends TufReposerverSpec
       }
 
       subscriber.expectMsgType[TufTargetAdded]
+      subscriber.expectMsgType[TufTargetsModified]
     }
   }
 
   keyTypeTest("publishes usage messages to bus") { keyType =>
-    val testEntity = HttpEntity(ByteString("""
-                                           |Like all the men of the Library, in my younger days I traveled;
-                                           |I have journeyed in quest of a book, perhaps the catalog of catalogs.
-                                           |""".stripMargin))
+    val testEntity = HttpEntity(ByteString(
+      """
+        |Like all the men of the Library, in my younger days I traveled;
+        |I have journeyed in quest of a book, perhaps the catalog of catalogs.
+        |""".stripMargin))
 
     val fileBodyPart = BodyPart("file", testEntity, Map("filename" -> "babel.txt"))
     val form = Multipart.FormData(fileBodyPart)
@@ -137,6 +145,58 @@ class RepoResourceBusMessagesSpec extends TufReposerverSpec
 
       probe.expectMsgType[PackageStorageUsage]
       probe.expectMsgType[TufTargetAdded]
+      probe.expectMsgType[TufTargetsModified]
     }
+  }
+
+  // Add trusted delegation keys
+  test("publishes messages to bus on adding trusted delegation keys to target.json") {
+    val repoId = addTargetToRepo()
+    val probe = TestProbe()
+    memoryMessageBus.subscribe[TufTargetsModified](probe.testActor)
+    Put(apiUri(s"repo/${repoId.show}/trusted-delegations/keys"), List(keyPair.pubkey.asJson)) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+    probe.expectMsgType[TufTargetsModified]
+  }
+
+  // Add trusted delegations
+  test("publishes messages to bus when adding trusted delegations to target.json") {
+    val repoId = addTargetToRepo()
+    Put(apiUri(s"repo/${repoId.show}/trusted-delegations/keys"), List(keyPair.pubkey.asJson)) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+    val probe = TestProbe()
+    memoryMessageBus.subscribe[TufTargetsModified](probe.testActor)
+    addNewTrustedDelegations(delegation)(repoId)
+    probe.expectMsgType[TufTargetsModified]
+  }
+
+  // Delete trusted delegations
+  test("publishes messages to bus when deleting trusted delegations from targets.json") {
+    val repoId = addTargetToRepo()
+    Put(apiUri(s"repo/${repoId.show}/trusted-delegations/keys"), List(keyPair.pubkey.asJson)) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+    addNewTrustedDelegations(delegation)(repoId) ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+    val probe = TestProbe()
+    memoryMessageBus.subscribe[TufTargetsModified](probe.testActor)
+    Delete(apiUri(s"repo/${repoId.show}/trusted-delegations/${delegation.name.value}")) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+    probe.expectMsgType[TufTargetsModified]
+  }
+
+  // Delete target
+  test("publishes messages to bus when deleting target from targets.json") {
+    val repoId = addTargetToRepo()
+    val probe = TestProbe()
+    memoryMessageBus.subscribe[TufTargetsModified](probe.testActor)
+    Delete(apiUri(s"repo/${repoId.show}/targets/myfile01")) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+    probe.expectMsgType[TufTargetsModified]
   }
 }
