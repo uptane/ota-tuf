@@ -3,10 +3,10 @@ package com.advancedtelematic.tuf.keyserver.http
 import akka.actor.ActorSystem
 import akka.http.scaladsl.server.{Directives, _}
 import akka.stream.Materializer
-import com.advancedtelematic.libats.http.{ErrorHandler, HealthCheck}
+import com.advancedtelematic.libats.http.ErrorHandler
 import com.advancedtelematic.libats.http.DefaultRejectionHandler._
 import com.advancedtelematic.libats.slick.monitoring.DbHealthResource
-import com.advancedtelematic.metrics.MetricsSupport
+import com.advancedtelematic.metrics.{HealthCheck, MetricsSupport}
 import com.advancedtelematic.tuf.keyserver.VersionInfo
 import com.codahale.metrics.MetricRegistry
 

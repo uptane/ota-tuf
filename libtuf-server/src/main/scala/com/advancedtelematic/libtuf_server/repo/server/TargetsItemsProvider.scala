@@ -6,6 +6,7 @@ import com.advancedtelematic.libtuf_server.repo.server.DataType.SignedRole
 import com.advancedtelematic.libtuf_server.repo.server.TargetsItemsProvider.TargetItems
 import io.circe.{Decoder, Encoder, Json}
 import io.circe.syntax._
+
 import scala.concurrent.Future
 
 object TargetsItemsProvider {
