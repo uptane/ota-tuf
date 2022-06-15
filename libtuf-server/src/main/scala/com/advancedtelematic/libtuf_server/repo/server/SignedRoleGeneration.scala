@@ -122,7 +122,10 @@ class SignedRoleGeneration(keyserverClient: KeyserverClient,
       case RoleType.TARGETS =>
         findFreshRole[TargetsRole](repoId)(refresher.refreshTargets(repoId))
       case RoleType.SNAPSHOT =>
-        findFreshRole[SnapshotRole](repoId)(refresher.refreshSnapshots(repoId))
+        for {
+          _ <- findFreshRole[TargetsRole](repoId)(refresher.refreshTargets(repoId)) // Getting a fresh targets before will ensure the returned snapshots will include the latest
+          snapshotRole <- findFreshRole[SnapshotRole](repoId)(refresher.refreshSnapshots(repoId))
+        } yield snapshotRole
       case RoleType.TIMESTAMP =>
         findFreshRole[TimestampRole](repoId)(refresher.refreshTimestamp(repoId))
       case r =>
