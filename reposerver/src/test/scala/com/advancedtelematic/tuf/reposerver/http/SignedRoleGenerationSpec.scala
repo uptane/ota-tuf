@@ -93,4 +93,22 @@ class SignedRoleGenerationSpec extends TufReposerverSpec with MysqlDatabaseSpec 
     val renewedTargets = signedRoleGeneration.findRole[TargetsRole](repoId).futureValue
     renewedTargets.version shouldBe oldTargets.version + 1
   }
+
+  test("finding timestamp triggers a targets.json renewal if needed") {
+    val repoId = setupRepo().futureValue
+
+    val oldTargets = signedRoleGeneration.findRole[TargetsRole](repoId).futureValue
+    val oldSnapshots = signedRoleGeneration.findRole[SnapshotRole](repoId).futureValue
+    val oldTimestamps = signedRoleGeneration.findRole[TimestampRole](repoId).futureValue
+
+    signedRoleRepository.persist[TargetsRole](repoId, oldTargets.copy(expiresAt = Instant.now().minus(365, ChronoUnit.DAYS)), forceVersion = true).futureValue
+
+    val renewedTimestamps = signedRoleGeneration.findRole[TimestampRole](repoId).futureValue
+
+    renewedTimestamps.version shouldBe oldTimestamps.version + 1
+    renewedTimestamps.role.meta(RoleType.SNAPSHOT.metaPath).version shouldBe oldSnapshots.version + 1
+
+    val renewedTargets = signedRoleGeneration.findRole[TargetsRole](repoId).futureValue
+    renewedTargets.version shouldBe oldTargets.version + 1
+  }
 }
