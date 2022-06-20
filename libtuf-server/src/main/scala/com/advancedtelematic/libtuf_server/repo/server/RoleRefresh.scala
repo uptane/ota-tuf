@@ -1,10 +1,12 @@
 package com.advancedtelematic.libtuf_server.repo.server
 
+import akka.http.scaladsl.util.FastFuture
+
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.libtuf.data.ClientDataType.{MetaItem, MetaPath, SnapshotRole, TargetsRole, TimestampRole, TufRole, _}
-import com.advancedtelematic.libtuf.data.TufDataType.RepoId
+import com.advancedtelematic.libtuf.data.TufDataType.{RepoId, RoleType}
 import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient
 import com.advancedtelematic.libtuf_server.repo.server.DataType.SignedRole
 import io.circe.syntax._
@@ -35,7 +37,22 @@ class RepoRoleRefresh(keyserverClient: KeyserverClient,
     List(default, notBefore).max
   }
 
-  def refreshTargets(repoId: RepoId): Future[SignedRole[TargetsRole]] = async {
+  def refreshRole[T](repoId: RepoId)(implicit tufRole: TufRole[T]): Future[SignedRole[T]] = {
+    def ensureSafeDowncast[U : TufRole](role: SignedRole[U]): Future[SignedRole[T]] =
+      if(tufRole != role.tufRole)
+        FastFuture.failed(new IllegalArgumentException(s"Error refreshing role, Cannot cast ${role.tufRole} to ${tufRole}"))
+      else
+        FastFuture.successful(role.asInstanceOf[SignedRole[T]])
+
+    tufRole.roleType match {
+      case RoleType.TARGETS => refreshTargets(repoId).flatMap(r => ensureSafeDowncast(r))
+      case RoleType.SNAPSHOT => refreshSnapshots(repoId).flatMap(r => ensureSafeDowncast(r))
+      case RoleType.TIMESTAMP => refreshTimestamp(repoId).flatMap(r => ensureSafeDowncast(r))
+      case t => FastFuture.failed(new IllegalArgumentException("Cannot refresh repo role of type " + t))
+    }
+  }
+
+  private def refreshTargets(repoId: RepoId): Future[SignedRole[TargetsRole]] = async {
     val existingTargets = await(findExisting[TargetsRole](repoId))
     val existingSnapshots = await(findExisting[SnapshotRole](repoId))
     val existingTimestamps = await(findExisting[TimestampRole](repoId))
@@ -45,7 +62,7 @@ class RepoRoleRefresh(keyserverClient: KeyserverClient,
     await(commitRefresh(repoId, newTargets, dependencies))
   }
 
-  def refreshSnapshots(repoId: RepoId): Future[SignedRole[SnapshotRole]] = async {
+  private def refreshSnapshots(repoId: RepoId): Future[SignedRole[SnapshotRole]] = async {
     val existingTargets = await(findExisting[TargetsRole](repoId))
     val existingSnapshots = await(findExisting[SnapshotRole](repoId))
     val existingTimestamps = await(findExisting[TimestampRole](repoId))
@@ -55,7 +72,7 @@ class RepoRoleRefresh(keyserverClient: KeyserverClient,
     await(commitRefresh(repoId, newSnapshots, dependencies))
   }
 
-  def refreshTimestamp(repoId: RepoId): Future[SignedRole[TimestampRole]] = async {
+  private def refreshTimestamp(repoId: RepoId): Future[SignedRole[TimestampRole]] = async {
     val existingTimestamp = await(findExisting[TimestampRole](repoId))
     val existingSnapshots = await(findExisting[SnapshotRole](repoId))
     val newTimestamp = await(roleRefresh(repoId).refreshTimestamps(existingTimestamp, existingSnapshots))
