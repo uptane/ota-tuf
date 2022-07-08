@@ -13,7 +13,7 @@ lazy val commonConfigs = Seq(ItTest, UnitTest)
 lazy val commonDeps = libraryDependencies ++= {
   val scalaTestV = "3.2.12"
   lazy val libatsV = libatsVersion.value
-  lazy val catsV = "2.7.0"
+  lazy val catsV = "2.8.0"
 
   Seq(
     "org.scala-lang.modules" %% "scala-async" % "0.9.6",
