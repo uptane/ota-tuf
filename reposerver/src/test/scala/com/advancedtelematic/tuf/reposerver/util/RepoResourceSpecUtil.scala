@@ -20,7 +20,6 @@ import cats.syntax.show._
 import cats.syntax.option._
 import io.circe.syntax._
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
-import com.advancedtelematic.libtuf.data.TufCodecs._
 import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.libats.http.HttpCodecs._
 
@@ -70,3 +69,4 @@ trait RepoResourceSpecUtil extends ResourceSpec with SignedRoleRepositorySupport
 
   val offlineTargets = createOfflineTargets(offlineTargetFilename)
 }
+

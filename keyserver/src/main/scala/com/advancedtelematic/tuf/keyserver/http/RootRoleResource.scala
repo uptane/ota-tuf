@@ -91,9 +91,20 @@ class RootRoleResource()
         onComplete(signedRootRoles.findByVersion(repoId, version)) {
           case Success(role) =>
             complete(role)
-          case Failure(ex @ SignedRootRoleRepository.MissingSignedRole) =>
-            val err = ErrorRepresentation(ex.code, ex.msg, None, Option(ex.errorId))
-            complete(StatusCodes.NotFound -> err.asJson)
+
+          case Failure(notFoundErr @ SignedRootRoleRepository.MissingSignedRole) =>
+            onSuccess(signedRootRoles.findFreshAndPersist(repoId)) { latestRoot =>
+              if(latestRoot.signed.version == version)
+                complete(latestRoot)
+              else {
+                val notFoundErrRepr = ErrorRepresentation(notFoundErr.code, notFoundErr.msg, None, Option(notFoundErr.errorId)).asJson
+                val refreshErr = ErrorRepresentation(notFoundErr.code, "Root role not found and role not refreshed", Option(notFoundErrRepr), Option(notFoundErr.errorId))
+                complete(StatusCodes.NotFound -> refreshErr.asJson) // Avoids logging error by returning ready respond instead of using failWith
+              }
+            }
+
+          case Failure(ex) =>
+            failWith(ex)
         }
       } ~
       pathPrefix("private_keys") {

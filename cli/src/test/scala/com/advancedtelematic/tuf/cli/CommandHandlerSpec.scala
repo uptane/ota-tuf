@@ -247,4 +247,28 @@ class CommandHandlerSpec extends CliSpec with KeyTypeSpecSupport with Inspectors
     method shouldBe HashMethod.SHA256
     checksum shouldBe Sha256FileDigest.from(uploadFilePath).hash
   }
+
+  test("adds an uploaded target to targets.json with custom metadata") {
+    val uploadFilePath = Files.createTempFile("s3upload-", ".txt")
+    Files.write(uploadFilePath, "“You who read me, are You sure of understanding my language“".getBytes(StandardCharsets.UTF_8))
+
+    val clientMeta = Json.obj("myjsonkey" -> "somevalue".asJson)
+
+    val config = Config(AddUploadedTarget, targetName = TargetName("uploaded-target-before").some,
+      targetVersion = TargetVersion("0.0.2").some,
+      inputPath = uploadFilePath.some, customMeta = clientMeta)
+
+    handler(config).futureValue
+
+    val role = tufRepo.readUnsignedRole[TargetsRole].get
+    val addedTarget = role.targets.get(Refined.unsafeApply("uploaded-target-before-0.0.2")).value
+
+    addedTarget.length shouldBe uploadFilePath.toFile.length()
+    val (method, checksum) = addedTarget.hashes.head
+    method shouldBe HashMethod.SHA256
+    checksum shouldBe Sha256FileDigest.from(uploadFilePath).hash
+
+    addedTarget.custom.value.hcursor.get[String]("myjsonkey") shouldBe Right("somevalue")
+  }
+
 }

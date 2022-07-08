@@ -17,7 +17,6 @@ import org.slf4j.LoggerFactory
 import scala.async.Async._
 import scala.concurrent.{ExecutionContext, Future}
 
-
 class SignedRoleGeneration(keyserverClient: KeyserverClient,
                            targetsProvider: TargetsItemsProvider[_],
                            signedRoleProvider: SignedRoleProvider)(implicit ec: ExecutionContext) {
@@ -37,7 +36,7 @@ class SignedRoleGeneration(keyserverClient: KeyserverClient,
   def regenerateAllSignedRoles(repoId: RepoId): Future[JsonSignedPayload] = async {
     await(fetchRootRole(repoId))
 
-    val expireAt = defaultExpire
+    val expireAt = await(nextExpire(repoId))
 
     val targetVersion = await(nextVersion[TargetsRole](repoId))
 
@@ -51,7 +50,8 @@ class SignedRoleGeneration(keyserverClient: KeyserverClient,
 
   def regenerateSnapshots(repoId: RepoId): Future[(SignedRole[SnapshotRole], SignedRole[TimestampRole])] = async {
     val existingTargets = await(signedRoleProvider.find[TargetsRole](repoId))
-    val (snapshots, timestamps) = await(freshSignedDependent(repoId, existingTargets, defaultExpire))
+    val expireAt = await(nextExpire(repoId))
+    val (snapshots, timestamps) = await(freshSignedDependent(repoId, existingTargets, expireAt))
     await(signedRoleProvider.persistAll(repoId, List(snapshots, timestamps)))
     (snapshots, timestamps)
   }
@@ -85,17 +85,21 @@ class SignedRoleGeneration(keyserverClient: KeyserverClient,
     }
 
   private def findFreshRole[T](repoId: RepoId)(refreshFn: => Future[SignedRole[T]])(implicit tufRole: TufRole[T]): Future[SignedRole[T]] = {
-    signedRoleProvider.find[T](repoId).flatMap { role =>
-      if (role.expiresAt.isBefore(Instant.now.plus(1, ChronoUnit.HOURS))) {
+    val f = for {
+      notBefore <- signedRoleProvider.expireNotBefore(repoId)
+      existingRole <- signedRoleProvider.find[T](repoId)
+      signedRole <- if (existingRole.expiresAt.isBefore(Instant.now.plus(1, ChronoUnit.HOURS)) ||
+        existingRole.expiresAt.isBefore(notBefore.getOrElse(existingRole.expiresAt))) {
         refreshFn.recoverWith {
           case KeyserverClient.RoleKeyNotFound =>
             log.info(s"Could not update ${tufRole.roleType} (for $repoId) because the keys are missing, returning expired version")
-            FastFuture.successful(role)
+            FastFuture.successful(existingRole)
         }
       } else
-        FastFuture.successful(role)
+        FastFuture.successful(existingRole)
+    } yield signedRole
 
-    }.recoverWith {
+    f.recoverWith {
       case _: MissingEntityId[_] =>
         generateAndCacheRole[T](repoId)
     }
@@ -118,7 +122,10 @@ class SignedRoleGeneration(keyserverClient: KeyserverClient,
       case RoleType.TARGETS =>
         findFreshRole[TargetsRole](repoId)(refresher.refreshTargets(repoId))
       case RoleType.SNAPSHOT =>
-        findFreshRole[SnapshotRole](repoId)(refresher.refreshSnapshots(repoId))
+        for {
+          _ <- findFreshRole[TargetsRole](repoId)(refresher.refreshTargets(repoId)) // Getting a fresh targets before will ensure the returned snapshots will include the latest
+          snapshotRole <- findFreshRole[SnapshotRole](repoId)(refresher.refreshSnapshots(repoId))
+        } yield snapshotRole
       case RoleType.TIMESTAMP =>
         findFreshRole[TimestampRole](repoId)(refresher.refreshTimestamp(repoId))
       case r =>
@@ -145,8 +152,11 @@ class SignedRoleGeneration(keyserverClient: KeyserverClient,
     TimestampRole(meta, expireAt, version)
   }
 
-  private def defaultExpire: Instant =
-    Instant.now().plus(31, ChronoUnit.DAYS)
+  private def nextExpire(repoId: RepoId): Future[Instant] = async {
+    val default = Instant.now().plus(31, ChronoUnit.DAYS)
+    val notBefore = await(signedRoleProvider.expireNotBefore(repoId)).getOrElse(default)
+    List(default, notBefore).max
+  }
 
   private def extractDelegationsFromTargetsRole(repoId: RepoId): Future[Option[Delegations]] =
     signedRoleProvider.find[TargetsRole](repoId).map { signedTargetRole =>
@@ -154,11 +164,12 @@ class SignedRoleGeneration(keyserverClient: KeyserverClient,
     }.recover {
       case _: MissingEntityId[_] => None
     }
-  def genTargetsFromExistingItems(repoId: RepoId, delegations: Option[Delegations]=None): Future[TargetsRole] = for {
+
+  def genTargetsFromExistingItems(repoId: RepoId, delegations: Option[Delegations] = None): Future[TargetsRole] = for {
     nextVersion <- nextVersion[TargetsRole](repoId)
     targetItems <- targetsProvider.findTargets(repoId)
-  } yield TargetsRole(defaultExpire, targetItems.items, nextVersion, delegations, targetItems.customJson)
-
+    expireAt <- nextExpire(repoId)
+  } yield TargetsRole(expireAt, targetItems.items, nextVersion, delegations, targetItems.customJson)
 
   def genTargetsFromExistingItems(repoId: RepoId, delegations: Option[Delegations], expireAt: Instant, version: Int): Future[TargetsRole] = for {
     items <- targetsProvider.findTargets(repoId)

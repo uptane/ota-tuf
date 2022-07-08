@@ -6,7 +6,7 @@ stages:
 
 variables:
   DOCKER_TLS_CERTDIR: ""
-  DOCKER_HOST: tcp://localhost:2375
+  DOCKER_HOST: tcp://docker:2375
   DOCKER_DRIVER: overlay2
   MYSQL_ROOT_PASSWORD: "root"
   MYSQL_DATABASE: "ota_tuf"
@@ -28,7 +28,7 @@ include:
   - project: rd/innovation/continuous-delivery/ci-container-build
     file: gitlab-ci-templates/jfrog-sbt-docker-publish.yaml
 
-image: artifactory-horw.int.toradex.com/ota-docker-dev-horw/tdx-inno-ci-scala:0.0.1
+image: harbor-dev.int.toradex.com/ota-docker-dev-horw/tdx-inno-ci-scala:jvm17-0.0.4
 
 services:
   - name: docker:dind
