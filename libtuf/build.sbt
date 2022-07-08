@@ -1,5 +1,5 @@
 libraryDependencies ++= {
-  val bouncyCastleV = "1.70"
+  val bouncyCastleV = "1.71"
 
   Seq(
     "org.bouncycastle" % "bcprov-jdk15on" % bouncyCastleV,
