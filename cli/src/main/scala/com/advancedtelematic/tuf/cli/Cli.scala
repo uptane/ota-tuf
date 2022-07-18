@@ -4,7 +4,6 @@ import java.net.URI
 import java.nio.file.{Files, Path, Paths}
 import java.security.Security
 import java.time.{Instant, Period}
-
 import cats.Eval
 import cats.syntax.either._
 import cats.syntax.option._
@@ -32,6 +31,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import com.advancedtelematic.libtuf.data.ValidatedString._
 import DelegatedRoleName._
+import io.circe.Json
 
 case class Config(command: Command,
                   home: Path = Paths.get("tuf"),
@@ -65,10 +65,12 @@ case class Config(command: Command,
                   serverCertPath: Option[Path] = None,
                   delegatedPaths: List[DelegatedPathPattern] = List.empty,
                   keyPaths: List[Path] = List.empty,
+                  pubKeyPath: Option[Path] = None,
                   force: Boolean = false,
                   reposerverUrl: Option[URI] = None,
                   verbose: Boolean = false,
-                  inplace: Boolean = false)
+                  inplace: Boolean = false,
+                  customMeta: Json = Json.Null)
 
 object Cli extends App with VersionInfo {
 
@@ -78,7 +80,7 @@ object Cli extends App with VersionInfo {
 
   private lazy val log = LoggerFactory.getLogger(this.getClass)
 
-  val PROGRAM_NAME = "garage-sign"
+  val PROGRAM_NAME = "uptane-sign"
 
   lazy val repoNameOpt: OptionParser[Config] => OptionDef[RepoName, Config] = { parser =>
     parser
@@ -116,6 +118,21 @@ object Cli extends App with VersionInfo {
         .text("Skips sanity checking. For example, allows to set a date in the past."))
   }
 
+  lazy val customMetaOpts: OptionParser[Config] => OptionDef[_, Config] = { parser =>
+    parser.opt[Json]("customMeta")
+      .required()
+      .toConfigParam('customMeta)
+      .validate { json =>
+        val badFields = List("name", "version", "hardwareIds", "targetFormat", "uri", "cliUploaded")
+
+        if(badFields.exists(json.hcursor.downField(_).succeeded))
+          parser.failure(s"Fields ${badFields.mkString("`", ",", "`")} not allowed when specifying custom metadata")
+        else
+          parser.success
+      }
+      .text("Json to be added to the target custom metadata")
+  }
+
   lazy val addTargetOptions: OptionParser[Config] => Seq[OptionDef[_, Config]] = { parser =>
     Seq(
       parser.opt[Long]("length")
@@ -151,7 +168,7 @@ object Cli extends App with VersionInfo {
   lazy val parser = new scopt.OptionParser[Config](PROGRAM_NAME) {
     head(projectName, Cli.version)
 
-    help("help").text("Prints all available `garage-sign` commands and options.")
+    help("help").text("Prints all available `uptane-sign` commands and options.")
 
     version("version").text("Prints the current binary version.")
 
@@ -162,6 +179,22 @@ object Cli extends App with VersionInfo {
     }
 
     version("version").text("Prints the current binary version.")
+
+    note(" " + sys.props("line.separator"))
+
+    cmd("sign-json")
+      .toCommand(SignUserJson)
+      .text("Signs valid user provided json with a specified key")
+      .children(
+        opt[Path]("priv-key").abbr("k")
+          .text("The path to the private key to use to sign json")
+          .action { (arg, c) => c.copy(keyPaths = arg :: c.keyPaths) },
+        opt[Path]("pub-key").abbr("p")
+          .text("The path to the public key to use to sign json")
+          .toConfigOptionParam('pubKeyPath),
+        opt[Path]('i', "input").toConfigOptionParam('inputPath)
+          .text("path to input json")
+      )
 
     note(" " + sys.props("line.separator"))
 
@@ -395,6 +428,7 @@ object Cli extends App with VersionInfo {
         cmd("add")
           .toCommand(AddTarget)
           .children(addTargetOptions(this):_*)
+          .children(customMetaOpts(this))
           .text("Adds a target."),
         cmd("add-uploaded")
           .toCommand(AddUploadedTarget)
@@ -414,7 +448,8 @@ object Cli extends App with VersionInfo {
             opt[List[HardwareIdentifier]]("hardwareids")
               .required()
               .toConfigParam('hardwareIds)
-              .text("The types of hardware with which this image is compatible.")
+              .text("The types of hardware with which this image is compatible."),
+            customMetaOpts(this)
           ).text("Adds a target that you previously uploaded to OTA Connect using the `targets upload` command."),
         cmd("delete")
           .toCommand(DeleteTarget)

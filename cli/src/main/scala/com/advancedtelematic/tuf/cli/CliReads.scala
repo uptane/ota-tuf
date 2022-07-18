@@ -95,4 +95,8 @@ object CliReads {
   }
 
   implicit def seqToListRead[T : Read]: Read[List[T]] = Read.seqRead[T].map(_.toList)
+
+  implicit val jsonRead: Read[Json] = Read.stringRead.map { str =>
+    io.circe.parser.parse(str).valueOr(err => throw new IllegalArgumentException("Invalid json: " + err.message))
+  }
 }

@@ -46,4 +46,10 @@ object Messages {
   implicit val deviceUpdateReportDecoder: Decoder[DeviceUpdateReport] = deriveDecoder
 
   implicit val deviceUpdateReportMessageLike = MessageLike[DeviceUpdateReport](_.device.toString)
+
+
+  final case class TufTargetsModified(namespace: Namespace)
+  implicit val tufTargetsModifiedEncoder: Encoder[TufTargetsModified] = deriveEncoder
+  implicit val tufTargetsModifiedDecoder: Decoder[TufTargetsModified] = deriveDecoder
+  implicit val tufTargetsModifiedMessageLike = MessageLike[TufTargetsModified](_.namespace.get)
 }

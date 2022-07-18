@@ -4,12 +4,12 @@ import java.net.URI
 import java.time.{Instant, Period, ZoneOffset}
 import java.util.concurrent.TimeUnit
 import com.advancedtelematic.libats.data.DataType.Checksum
-import com.advancedtelematic.libtuf.crypt.Sha256FileDigest
+import com.advancedtelematic.libtuf.crypt.{Sha256FileDigest, TufCrypto}
 import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, RootRole, TargetCustom}
 import com.advancedtelematic.libtuf.data.TufCodecs._
 import com.advancedtelematic.libtuf.data.TufDataType.TargetFormat.TargetFormat
-import com.advancedtelematic.libtuf.data.TufDataType.{HardwareIdentifier, RoleType, TargetFilename, TargetFormat, TargetName, TargetVersion, ValidTargetFilename}
+import com.advancedtelematic.libtuf.data.TufDataType.{HardwareIdentifier, RoleType, SignedPayload, TargetFilename, TargetFormat, TargetName, TargetVersion, ValidTargetFilename}
 import com.advancedtelematic.libtuf.http.{ReposerverClient, TufServerClient}
 import com.advancedtelematic.tuf.cli.CliConfigOptionOps._
 import com.advancedtelematic.tuf.cli.Commands._
@@ -20,6 +20,7 @@ import eu.timepit.refined._
 import io.circe.syntax._
 import org.slf4j.LoggerFactory
 import cats.implicits._
+import io.circe.Json
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
@@ -40,13 +41,15 @@ object CommandHandler {
   }
 
   private def buildClientTarget(name: TargetName, version: TargetVersion, length: Long, checksum: Checksum,
-                                hardwareIds: List[HardwareIdentifier], uri: Option[URI], format: TargetFormat, cliUploaded: Boolean = false): Try[(TargetFilename, ClientTargetItem)] =
+                                hardwareIds: List[HardwareIdentifier], uri: Option[URI], format: TargetFormat,
+                                clientCustomMeta: Json,
+                                cliUploaded: Boolean = false): Try[(TargetFilename, ClientTargetItem)] =
     for {
       targetFilename <- targetFilenameFrom(name, version)
       newTarget = {
         val custom = TargetCustom(name, version, hardwareIds, format.some, uri, cliUploaded = cliUploaded.some)
         val clientHashes = Map(checksum.method -> checksum.hash)
-        ClientTargetItem(clientHashes, length, custom.asJson.some)
+        ClientTargetItem(clientHashes, length, custom.asJson.deepMerge(clientCustomMeta).some)
       }
     } yield targetFilename -> newTarget
 
@@ -114,7 +117,8 @@ object CommandHandler {
         config.checksum.valueOrConfigError,
         config.hardwareIds,
         config.targetUri,
-        config.targetFormat
+        config.targetFormat,
+        config.customMeta
       )
 
       itemT
@@ -132,6 +136,7 @@ object CommandHandler {
         config.hardwareIds,
         uri = None,
         format = TargetFormat.BINARY,
+        config.customMeta,
         cliUploaded = true
       )
 
@@ -221,6 +226,18 @@ object CommandHandler {
         userKeyStorage.genKeys(keyName, config.keyType, config.keySize)
       }.sequence_
 
+    case SignUserJson =>
+      for {
+        inJson <- io.circe.jawn.parsePath(config.inputPath.valueOrConfigError).toTry
+        pubKey <- CliKeyStorage.readPublicKey(config.pubKeyPath.valueOrConfigError)
+        privKey <- CliKeyStorage.readPrivateKey(config.keyPaths.headOption.valueOrConfigError)
+      } yield {
+        val signature = TufCrypto.signPayload(privKey, inJson).toClient(pubKey.id)
+        val payload = SignedPayload(Seq(signature), inJson, inJson)
+
+        config.outputPath.streamOrStdout.write(payload.asJson.spaces2.getBytes)
+      }
+
     case IdUserKey =>
       CliKeyStorage.readPublicKey(config.inputPath.valueOrConfigError).map { key =>
         config.outputPath.streamOrStdout.write(key.id.value.getBytes)
@@ -254,7 +271,8 @@ object CommandHandler {
         config.checksum.valueOrConfigError,
         config.hardwareIds,
         config.targetUri,
-        config.targetFormat
+        config.targetFormat,
+        config.customMeta
       )
 
       itemT.flatMap { case(targetFilename, targetItem) =>

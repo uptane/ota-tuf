@@ -237,7 +237,21 @@ protected[db] class RepoNamespaceRepository()(implicit db: Database, ec: Executi
   val AlreadyExists = EntityAlreadyExists[(RepoId, Namespace)]()
 
   def persist(repoId: RepoId, namespace: Namespace): Future[Unit] = db.run {
-    (repoNamespaces += (repoId, namespace)).handleIntegrityErrors(AlreadyExists)
+    (repoNamespaces += (repoId, namespace, None)).handleIntegrityErrors(AlreadyExists)
+  }
+
+  def getExpiresNotBefore(repoId: RepoId): Future[Option[Instant]] = db.run {
+    repoNamespaces.filter(_.repoId === repoId)
+      .map(_.expiresNotBefore)
+      .result
+      .headOption
+  }.map(_.flatten)
+
+  def setExpiresNotBefore(repoId: RepoId, expiresNotBefore: Option[Instant]): Future[Unit] = db.run {
+    repoNamespaces.filter(_.repoId === repoId)
+      .map(_.expiresNotBefore)
+      .update(expiresNotBefore)
+      .handleSingleUpdateError(MissingEntity[RepoId]())
   }
 
   def ensureNotExists(namespace: Namespace): Future[Unit] =

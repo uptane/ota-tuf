@@ -12,6 +12,7 @@ import com.advancedtelematic.libats.test.MysqlDatabaseSpec
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Seconds, Span}
 
+import java.time.temporal.ChronoUnit
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.ExecutionContext.Implicits
 
@@ -74,5 +75,40 @@ class SignedRoleGenerationSpec extends TufReposerverSpec with MysqlDatabaseSpec 
 
     renewedTimestamps.version shouldBe oldTimestamps.version + 1
     renewedSnapshotsHash shouldBe renewedSnapshots.checksum.hash
+  }
+
+  test("finding snapshots triggers a targets.json renewal if needed") {
+    val repoId = setupRepo().futureValue
+
+    val oldTargets = signedRoleGeneration.findRole[TargetsRole](repoId).futureValue
+    val oldSnapshots = signedRoleGeneration.findRole[SnapshotRole](repoId).futureValue
+
+    signedRoleRepository.persist[TargetsRole](repoId, oldTargets.copy(expiresAt = Instant.now().minus(365, ChronoUnit.DAYS)), forceVersion = true).futureValue
+
+    val renewedSnapshots = signedRoleGeneration.findRole[SnapshotRole](repoId).futureValue
+
+    renewedSnapshots.version shouldBe oldSnapshots.version + 1
+    renewedSnapshots.role.meta(RoleType.TARGETS.metaPath).version shouldBe oldTargets.version + 1
+
+    val renewedTargets = signedRoleGeneration.findRole[TargetsRole](repoId).futureValue
+    renewedTargets.version shouldBe oldTargets.version + 1
+  }
+
+  test("finding timestamp triggers a targets.json renewal if needed") {
+    val repoId = setupRepo().futureValue
+
+    val oldTargets = signedRoleGeneration.findRole[TargetsRole](repoId).futureValue
+    val oldSnapshots = signedRoleGeneration.findRole[SnapshotRole](repoId).futureValue
+    val oldTimestamps = signedRoleGeneration.findRole[TimestampRole](repoId).futureValue
+
+    signedRoleRepository.persist[TargetsRole](repoId, oldTargets.copy(expiresAt = Instant.now().minus(365, ChronoUnit.DAYS)), forceVersion = true).futureValue
+
+    val renewedTimestamps = signedRoleGeneration.findRole[TimestampRole](repoId).futureValue
+
+    renewedTimestamps.version shouldBe oldTimestamps.version + 1
+    renewedTimestamps.role.meta(RoleType.SNAPSHOT.metaPath).version shouldBe oldSnapshots.version + 1
+
+    val renewedTargets = signedRoleGeneration.findRole[TargetsRole](repoId).futureValue
+    renewedTargets.version shouldBe oldTargets.version + 1
   }
 }
