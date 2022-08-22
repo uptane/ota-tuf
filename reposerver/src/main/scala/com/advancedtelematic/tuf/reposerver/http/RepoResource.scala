@@ -9,6 +9,7 @@ import akka.http.scaladsl.server._
 import akka.http.scaladsl.unmarshalling._
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
+import cats.data.Validated.{Valid, Invalid}
 import com.advancedtelematic.libats.data.RefinedUtils._
 import com.advancedtelematic.libats.http.Errors.{EntityAlreadyExists, MissingEntity}
 import com.advancedtelematic.libats.http.RefinedMarshallingSupport._
@@ -323,17 +324,22 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
             complete(delegations.updateFromRemote(repoId, delegatedRoleName))
           }
       } ~
-      path("delegations" / DelegatedRoleUriPath) { delegatedRoleName =>
-        (put & entity(as[SignedPayload[TargetsRole]])) { payload =>
-          complete(delegations.create(repoId, delegatedRoleName, payload).map(_ => StatusCodes.NoContent))
-        } ~
-        get {
-          onSuccess(delegations.find(repoId, delegatedRoleName)) {
-            case (delegation, Some(lastFetched)) =>
-              complete(StatusCodes.OK, List(RawHeader("x-ats-delegation-last-fetched-at", lastFetched.toString)), delegation)
-            case (delegation, _) =>
-              complete(StatusCodes.OK -> delegation)
+      path("delegations" / DelegatedRoleUriPath) { roleName =>
+        DelegatedRoleName.delegatedRoleNameValidation(roleName) match {
+          case Valid(delegatedRoleName) => {
+            (put & entity(as[SignedPayload[TargetsRole]])) { payload =>
+              complete(delegations.create(repoId, delegatedRoleName, payload).map(_ => StatusCodes.NoContent))
+            } ~
+            get {
+              onSuccess(delegations.find(repoId, delegatedRoleName)) {
+                case (delegation, Some(lastFetched)) =>
+                  complete(StatusCodes.OK, List(RawHeader("x-ats-delegation-last-fetched-at", lastFetched.toString)), delegation)
+                case (delegation, _) =>
+                  complete(StatusCodes.OK -> delegation)
+              }
+            }
           }
+          case Invalid(errList) => complete(Errors.InvalidDelegationName(errList))
         }
       } ~
       pathPrefix("uploads") {

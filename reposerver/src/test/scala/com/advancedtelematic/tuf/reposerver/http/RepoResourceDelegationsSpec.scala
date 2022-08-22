@@ -7,6 +7,7 @@ import java.time.temporal.ChronoUnit
 import akka.http.scaladsl.model.{StatusCodes, Uri}
 import cats.syntax.option._
 import cats.syntax.show._
+import com.advancedtelematic.libats.data.ErrorCodes.InvalidEntity
 import com.advancedtelematic.libats.data.ErrorRepresentation
 import com.advancedtelematic.libtuf.crypt.CanonicalJson._
 import com.advancedtelematic.libtuf.crypt.TufCrypto
@@ -14,6 +15,7 @@ import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.libtuf.data.ClientDataType.{DelegatedRoleName, Delegation, SnapshotRole, TargetsRole}
 import com.advancedtelematic.libtuf.data.TufCodecs._
 import com.advancedtelematic.libtuf.data.TufDataType.{Ed25519KeyType, RepoId, SignedPayload, TufKey}
+import com.advancedtelematic.libtuf.data.ValidatedString.StringToValidatedStringOps
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.AddDelegationFromRemoteRequest
 import com.advancedtelematic.tuf.reposerver.util.{RepoResourceDelegationsSpecUtil, RepoResourceSpecUtil, ResourceSpec, TufReposerverSpec}
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
@@ -143,6 +145,16 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     }
   }
 
+  test("Rejects trusted delegations using invalid delegation name *") {
+    implicit val repoId = addTargetToRepo()
+    val newKeys = Ed25519KeyType.crypto.generateKeyPair()
+
+    addNewTrustedDelegations(delegation.copy(name = "badDelegationName?".unsafeApply[DelegatedRoleName])) ~> check {
+      status shouldBe StatusCodes.BadRequest
+      responseAs[ErrorRepresentation].code shouldBe InvalidEntity
+    }
+  }
+
   test("Rejects targets.json containing delegations that reference unknown keys") {
     implicit val repoId = addTargetToRepo()
     val newKeys = Ed25519KeyType.crypto.generateKeyPair()
@@ -200,6 +212,24 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     Get(apiUri(s"repo/${repoId.show}/delegations/${delegatedRoleName.value}.json")) ~> routes ~> check {
       status shouldBe StatusCodes.OK
       responseAs[SignedPayload[TargetsRole]].asJson shouldBe signedDelegationRole.asJson
+    }
+  }
+
+  test("rejects delegated metadata when delegation name has invalid characters") {
+    implicit val repoId = addTargetToRepo()
+    val signedDelegation = buildSignedDelegatedTargets()
+    pushSignedDelegatedMetadata(signedDelegation, "badDelegationName*".unsafeApply[DelegatedRoleName]) ~> check {
+      status shouldBe StatusCodes.BadRequest
+      responseAs[ErrorRepresentation].code shouldBe ErrorCodes.InvalidDelegationName
+    }
+  }
+
+  test("rejects delegated metadata when delegation name is too long") {
+    implicit val repoId = addTargetToRepo()
+    val signedDelegation = buildSignedDelegatedTargets()
+    pushSignedDelegatedMetadata(signedDelegation, ("n"*51).unsafeApply[DelegatedRoleName]) ~> check {
+      status shouldBe StatusCodes.BadRequest
+      responseAs[ErrorRepresentation].code shouldBe ErrorCodes.InvalidDelegationName
     }
   }
 

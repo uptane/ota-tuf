@@ -35,12 +35,18 @@ class TrustedDelegations(implicit val db: Database, val ec: ExecutionContext) ex
   }
 
   def validate(delegations: Delegations): ValidatedNel[String, Delegations] = {
+    val nameErrors = for {
+      delegation <- delegations.roles if DelegatedRoleName.delegatedRoleNameValidation(delegation.name.value).isInvalid
+    } yield DelegatedRoleName.delegatedRoleNameValidation(delegation.name.value).toString()
+
     val keyErrors = for {
       delegation <- delegations.roles
       keyid <- delegation.keyids if !delegations.keys.contains(keyid)
     } yield "Invalid delegation key referenced by: " + delegation.name
-    if (keyErrors.nonEmpty) {
-      NonEmptyList.fromListUnsafe(keyErrors).invalid[Delegations]
+
+    val errorsList = nameErrors.++(keyErrors)
+    if (errorsList.nonEmpty)  {
+      NonEmptyList.fromListUnsafe(errorsList).invalid[Delegations]
     } else
       delegations.validNel[String]
   }

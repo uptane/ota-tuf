@@ -148,9 +148,10 @@ object ClientDataType {
   object DelegatedRoleName {
     implicit val delegatedRoleNameValidation = ValidatedStringValidation(new DelegatedRoleName(_)) { v: String =>
       cats.data.Validated.condNel(
-        v.nonEmpty || v.length > 50,
+        // prevent
+        v.nonEmpty && v.length < 51 && v.matches("[a-zA-Z0-9_-][a-zA-Z0-9_.-]*"),
         new DelegatedRoleName(v),
-        "delegated role name cannot be empty or bigger than 50 characters"
+        "delegated role name cannot be empty, bigger than 50 characters, or contain any special characters other than `_, -, .`"
       )
     }
   }

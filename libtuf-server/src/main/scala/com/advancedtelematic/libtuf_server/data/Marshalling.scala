@@ -27,6 +27,9 @@ object Marshalling {
 
   val DelegatedRoleUriPath = PathMatchers.Segment.flatMap { str =>
     val (roleName, _) = str.splitAt(str.indexOf(".json"))
-    DelegatedRoleName.delegatedRoleNameValidation(roleName).toOption
+    roleName.isEmpty() match {
+      case false => Some(roleName)
+      case _ => None
+    }
   }
 }
