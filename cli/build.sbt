@@ -1,6 +1,6 @@
 libraryDependencies += "com.github.scopt" %% "scopt" % "3.7.1"
 
-libraryDependencies += "org.slf4j" % "slf4j-api" % "1.7.36"
+libraryDependencies += "org.slf4j" % "slf4j-api" % "2.0.0"
 
 libraryDependencies += "io.circe" %% "circe-generic-extras" % "0.12.2"
 
