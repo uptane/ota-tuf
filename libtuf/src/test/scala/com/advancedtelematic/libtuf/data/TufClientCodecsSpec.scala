@@ -123,7 +123,7 @@ class TufClientCodecsSpec extends LibtufSpec with ScalaFutures  {
 
     result.failed.get shouldBe a[DecodingFailure]
 
-    result.failed.get.getMessage should include("name cannot be empty or bigger than 50 characters")
+    result.failed.get.getMessage should include("name cannot be empty, bigger than 50 characters, or contain any special characters other than `_, -, .`")
   }
 
   test("encodes a decoded targets.json to the same canonical json") {

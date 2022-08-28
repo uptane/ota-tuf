@@ -26,7 +26,7 @@ import com.advancedtelematic.tuf.reposerver.http.{TufRepoSignedRoleProvider, Tuf
 trait RepoResourceDelegationsSpecUtil extends RepoResourceSpecUtil {
   lazy val keyPair = Ed25519KeyType.crypto.generateKeyPair()
 
-  val delegatedRoleName = "mydelegation".unsafeApply[DelegatedRoleName]
+  val delegatedRoleName = "my-delegation.test.ok_".unsafeApply[DelegatedRoleName]
 
   val delegation = {
     val delegationPath = "mypath/*".unsafeApply[DelegatedPathPattern]
@@ -69,9 +69,9 @@ trait RepoResourceDelegationsSpecUtil extends RepoResourceSpecUtil {
     SignedPayload(List(signature), delegationTargets, delegationTargets.asJson)
   }
 
-  def pushSignedDelegatedMetadata(signedPayload: SignedPayload[TargetsRole])
+  def pushSignedDelegatedMetadata(signedPayload: SignedPayload[TargetsRole], roleName: DelegatedRoleName=delegatedRoleName)
                                          (implicit repoId: RepoId): RouteTestResult = {
-    Put(apiUri(s"repo/${repoId.show}/delegations/${delegatedRoleName.value}.json"), signedPayload) ~> routes
+    Put(apiUri(s"repo/${repoId.show}/delegations/${roleName.value}.json"), signedPayload) ~> routes
   }
 
   def pushSignedDelegatedMetadataOk(signedPayload: SignedPayload[TargetsRole])
