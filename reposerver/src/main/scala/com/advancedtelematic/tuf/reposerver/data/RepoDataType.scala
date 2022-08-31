@@ -17,5 +17,5 @@ object RepoDataType {
 
   case class TargetItem(repoId: RepoId, filename: TargetFilename, uri: Option[Uri], checksum: Checksum, length: Long, custom: Option[TargetCustom] = None, storageMethod: StorageMethod = Managed)
 
-  case class AddDelegationFromRemoteRequest(uri: Uri, delegationName: DelegatedRoleName, remoteHeaders: Option[Map[String, String]] = None)
+  case class AddDelegationFromRemoteRequest(uri: Uri, remoteHeaders: Option[Map[String, String]] = None)
 }

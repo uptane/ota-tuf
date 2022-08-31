@@ -300,6 +300,14 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
           }
           complete(f)
         } ~
+        (put & path(DelegatedRoleNamePath / "remote") & entity(as[AddDelegationFromRemoteRequest])) { (delegatedRoleName, req) =>
+          onSuccess(delegations.createFromRemote(repoId, req.uri, delegatedRoleName, req.remoteHeaders.getOrElse(Map.empty))) {
+            complete(StatusCodes.Created)
+          }
+        } ~
+        (put & path(DelegatedRoleNamePath / "remote" / "refresh")) { delegatedRoleName =>
+          complete(delegations.updateFromRemote(repoId, delegatedRoleName))
+        } ~
         path("keys") {
           (put & entity(as[List[TufKey]])) { keys =>
             val f = trustedDelegations.addKeys(repoId, keys)(signedRoleGeneration).map(_ => StatusCodes.NoContent)
@@ -314,20 +322,10 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
           }
         }
       } ~
-      pathPrefix("remote-delegations") {
-        (put & pathEnd & entity(as[AddDelegationFromRemoteRequest])) { req =>
-          onSuccess(delegations.createFromRemote(repoId, req.uri, req.delegationName, req.remoteHeaders.getOrElse(Map.empty))) {
-            complete(StatusCodes.Created)
-          }
-        } ~
-          (path(DelegatedRoleNamePath / "refresh") & put) { delegatedRoleName =>
-            complete(delegations.updateFromRemote(repoId, delegatedRoleName))
-          }
-      } ~
       path("delegations" / DelegatedRoleUriPath) { roleName =>
         DelegatedRoleName.delegatedRoleNameValidation(roleName) match {
           case Valid(delegatedRoleName) => {
-            (put & entity(as[SignedPayload[TargetsRole]])) { payload =>
+            (put & entity(as[SignedPayload[TargetsRole]]) & pathEnd) { payload =>
               complete(delegations.create(repoId, delegatedRoleName, payload).map(_ => StatusCodes.NoContent))
             } ~
             get {
