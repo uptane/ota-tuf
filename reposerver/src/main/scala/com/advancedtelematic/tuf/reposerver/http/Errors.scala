@@ -29,6 +29,7 @@ object ErrorCodes {
   val DelegationRemoteFetchFailed = ErrorCode("delegation_remote_fetch_failed")
   val DelegationRemoteParseFailed = ErrorCode("delegation_remote_parse_failed")
   val MissingRemoteDelegationUri = ErrorCode("missing_remote_delegation_uri")
+  val ImmutableFields = ErrorCode("immutable_fields_specified")
 }
 
 object Errors {
@@ -72,6 +73,8 @@ object Errors {
   def InvalidDelegationName(errors: NonEmptyList[String]) =
     JsonError(ErrorCodes.InvalidDelegationName, StatusCodes.BadRequest, errors.asJson, "Invalid delegation name")
 
+  case class RequestedImmutableFields(mutableFields: Seq[String], immutableFields: Seq[String])
+    extends com.advancedtelematic.libats.http.Errors.Error(ErrorCodes.ImmutableFields, StatusCodes.BadRequest, s"Only allowed to manipulate field(s): ${mutableFields.toString()}, NOT: ${immutableFields.toString()}")
   case class NotImplemented(message: String)
     extends com.advancedtelematic.libats.http.Errors.Error(com.advancedtelematic.libtuf.data.ErrorCodes.Reposerver.NotImplemented, StatusCodes.NotImplemented, message)
 

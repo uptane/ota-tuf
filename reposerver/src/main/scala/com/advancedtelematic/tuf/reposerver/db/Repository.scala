@@ -2,6 +2,7 @@ package com.advancedtelematic.tuf.reposerver.db
 
 import java.time.Instant
 import akka.http.scaladsl.model.Uri
+
 import scala.util.Success
 import scala.util.Failure
 import akka.NotUsed
@@ -19,14 +20,14 @@ import com.advancedtelematic.libats.slick.db.SlickExtensions._
 import com.advancedtelematic.libats.slick.codecs.SlickRefined._
 import com.advancedtelematic.libats.slick.db.SlickUUIDKey._
 import com.advancedtelematic.libats.slick.db.SlickAnyVal._
-import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, DelegatedRoleName, SnapshotRole, TargetCustom, TimestampRole, TufRole}
+import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, DelegatedRoleName, DelegationFriendlyName, SnapshotRole, TargetCustom, TimestampRole, TufRole}
 import com.advancedtelematic.libtuf_server.data.Requests.TargetComment
 import com.advancedtelematic.libtuf_server.data.TufSlickMappings._
 import com.advancedtelematic.tuf.reposerver.db.DBDataType.{DbDelegation, DbSignedRole}
 import com.advancedtelematic.tuf.reposerver.db.TargetItemRepositorySupport.MissingNamespaceException
 import com.advancedtelematic.tuf.reposerver.http.Errors._
 import com.advancedtelematic.libtuf_server.repo.server.Errors.SignedRoleNotFound
-import SlickMappings.delegatedRoleNameMapper
+import SlickMappings.{delegatedRoleNameMapper, delegationFriendlyNameMapper}
 import shapeless.ops.function.FnToProduct
 import shapeless.{Generic, HList, Succ}
 import com.advancedtelematic.libtuf_server.repo.server.SignedRoleProvider
@@ -329,7 +330,11 @@ protected [db] class DelegationRepository()(implicit db: Database, ec: Execution
     Schema.delegations.filter(_.repoId === repoId).filter(_.roleName.inSet(roleNames)).result.failIfNotSingle(DelegationNotFound)
   }
 
-  def persist(repoId: RepoId, roleName: DelegatedRoleName, content: JsonSignedPayload, remoteUri: Option[Uri], lastFetch: Option[Instant], remoteHeaders: Map[String, String]): Future[Unit] = db.run {
-    Schema.delegations.insertOrUpdate(DbDelegation(repoId, roleName, content, remoteUri, lastFetch, remoteHeaders)).map(_ => ())
+  def persist(repoId: RepoId, roleName: DelegatedRoleName, content: JsonSignedPayload, remoteUri: Option[Uri], lastFetch: Option[Instant], remoteHeaders: Map[String, String], friendlyName: Option[DelegationFriendlyName]): Future[Unit] = db.run {
+    Schema.delegations.insertOrUpdate(DbDelegation(repoId, roleName, content, remoteUri, lastFetch, remoteHeaders, friendlyName)).map(_ => ())
+  }
+
+  def setDelegationFriendlyName(repoId: RepoId, roleName: DelegatedRoleName, friendlyName: DelegationFriendlyName): Future[Unit] = db.run {
+    Schema.delegations.filter(d => d.repoId === repoId && d.roleName === roleName).map(_.friendlyName).update(Option(friendlyName)).handleSingleUpdateError(MissingEntity[RepoId]())
   }
 }

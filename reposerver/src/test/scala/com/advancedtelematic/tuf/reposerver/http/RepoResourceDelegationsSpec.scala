@@ -7,16 +7,18 @@ import java.time.temporal.ChronoUnit
 import akka.http.scaladsl.model.{StatusCodes, Uri}
 import cats.syntax.option._
 import cats.syntax.show._
+import com.advancedtelematic.libats.data
 import com.advancedtelematic.libats.data.ErrorCodes.InvalidEntity
 import com.advancedtelematic.libats.data.ErrorRepresentation
 import com.advancedtelematic.libtuf.crypt.CanonicalJson._
 import com.advancedtelematic.libtuf.crypt.TufCrypto
 import com.advancedtelematic.libtuf.data.ClientCodecs._
-import com.advancedtelematic.libtuf.data.ClientDataType.{DelegatedRoleName, Delegation, SnapshotRole, TargetsRole}
+import com.advancedtelematic.libtuf.data.ClientDataType.{DelegatedRoleName, Delegation, DelegationFriendlyName, SnapshotRole, TargetsRole}
 import com.advancedtelematic.libtuf.data.TufCodecs._
 import com.advancedtelematic.libtuf.data.TufDataType.{Ed25519KeyType, RepoId, SignedPayload, TufKey}
 import com.advancedtelematic.libtuf.data.ValidatedString.StringToValidatedStringOps
-import com.advancedtelematic.tuf.reposerver.data.RepoDataType.AddDelegationFromRemoteRequest
+import com.advancedtelematic.tuf.reposerver.data.RepoDataType.{AddDelegationFromRemoteRequest, DelegationInfo}
+import com.advancedtelematic.tuf.reposerver.data.RepoCodecs.delegationInfoCodec
 import com.advancedtelematic.tuf.reposerver.util.{RepoResourceDelegationsSpecUtil, RepoResourceSpecUtil, ResourceSpec, TufReposerverSpec}
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
 import eu.timepit.refined.api.Refined
@@ -145,13 +147,14 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     }
   }
 
-  test("Rejects trusted delegations using invalid delegation name *") {
+  test("Rejects trusted delegations using invalid delegation name") {
     implicit val repoId = addTargetToRepo()
     val newKeys = Ed25519KeyType.crypto.generateKeyPair()
 
     addNewTrustedDelegations(delegation.copy(name = "badDelegationName?".unsafeApply[DelegatedRoleName])) ~> check {
       status shouldBe StatusCodes.BadRequest
       responseAs[ErrorRepresentation].code shouldBe InvalidEntity
+      responseAs[ErrorRepresentation].description should include("delegated role name cannot be empty, bigger than 50 characters, or contain any special characters other than")
     }
   }
 
@@ -221,6 +224,7 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     pushSignedDelegatedMetadata(signedDelegation, "badDelegationName*".unsafeApply[DelegatedRoleName]) ~> check {
       status shouldBe StatusCodes.BadRequest
       responseAs[ErrorRepresentation].code shouldBe ErrorCodes.InvalidDelegationName
+      responseAs[ErrorRepresentation].cause.getOrElse("").toString should include("delegated role name cannot be empty, bigger than 50 characters, or contain any special characters other than")
     }
   }
 
@@ -230,6 +234,7 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     pushSignedDelegatedMetadata(signedDelegation, ("n"*51).unsafeApply[DelegatedRoleName]) ~> check {
       status shouldBe StatusCodes.BadRequest
       responseAs[ErrorRepresentation].code shouldBe ErrorCodes.InvalidDelegationName
+      responseAs[ErrorRepresentation].cause.getOrElse("").toString should include("delegated role name cannot be empty, bigger than 50 characters, or contain any special characters other than")
     }
   }
 
@@ -466,6 +471,88 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
       val ts = Instant.parse(tsStr)
 
       ts.isAfter(start) shouldBe true
+    }
+  }
+
+  test("can specify the friendlyName during remote delegation creation") {
+    implicit val repoId = addTargetToRepo()
+
+    val uri = Uri(s"https://test/mydelegation-${UUID.randomUUID()}")
+
+    val signedDelegation1 = buildSignedDelegatedTargets()
+
+    fakeRemoteDelegationClient.setRemote(uri, signedDelegation1.asJson, Map("myheader" -> "myval2"))
+
+    addNewTrustedDelegationKeysOK(keyPair.pubkey)
+
+    addNewTrustedDelegationsOk(delegation)
+    val friendlyName = "my-friendly-delegation-name".unsafeApply[DelegationFriendlyName]
+
+    val req = AddDelegationFromRemoteRequest(uri, Map("myheader" -> "myval2").some, Some(friendlyName))
+    addNewRemoteDelegation(delegation.name, req) ~> check {
+      status shouldBe StatusCodes.Created
+    }
+
+    getDelegationInfo(delegation.name) ~> check {
+      status shouldBe StatusCodes.OK
+      responseAs[DelegationInfo].friendlyName.getOrElse("") shouldBe friendlyName
+    }
+  }
+
+    test("specifying invalid friendlyName during remote delegation creation returns error") {
+    implicit val repoId = addTargetToRepo()
+
+    val uri = Uri(s"https://test/mydelegation-${UUID.randomUUID()}")
+
+    val signedDelegation1 = buildSignedDelegatedTargets()
+
+    fakeRemoteDelegationClient.setRemote(uri, signedDelegation1.asJson, Map("myheader" -> "myval2"))
+
+    addNewTrustedDelegationKeysOK(keyPair.pubkey)
+
+    addNewTrustedDelegationsOk(delegation)
+    val friendlyName = "m"*105
+
+    val req = AddDelegationFromRemoteRequest(uri, Map("myheader" -> "myval2").some, Option(friendlyName.unsafeApply[DelegationFriendlyName]))
+    addNewRemoteDelegation(delegation.name, req) ~> check {
+      status shouldBe StatusCodes.BadRequest
+      responseAs[ErrorRepresentation].description should include("delegation friendly name name cannot be empty or longer than 80 characters")
+    }
+  }
+
+  test("can set the friendlyName for any existing delegation") {
+    implicit val repoId = addTargetToRepo()
+
+    uploadOfflineSignedTargetsRole()
+
+    val signedDelegation = buildSignedDelegatedTargets()
+
+    pushSignedDelegatedMetadataOk(signedDelegation)
+
+    val friendlyName = "my-friendly-delegation-name".unsafeApply[DelegationFriendlyName]
+    Patch(apiUri(s"repo/${repoId.show}/trusted-delegations/${delegation.name.value}/info"), DelegationInfo(None, None, Some(friendlyName)).asJson) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+    }
+
+    getDelegationInfo(delegation.name) ~> check {
+      status shouldBe StatusCodes.OK
+      responseAs[DelegationInfo].friendlyName.getOrElse("") shouldBe friendlyName
+    }
+  }
+
+  test("Attempting to set immutable members of delegationInfo fails gracefully with error response") {
+    implicit val repoId = addTargetToRepo()
+
+    uploadOfflineSignedTargetsRole()
+
+    val signedDelegation = buildSignedDelegatedTargets()
+
+    pushSignedDelegatedMetadataOk(signedDelegation)
+
+    val friendlyName = "my-friendly-delegation-name".unsafeApply[DelegationFriendlyName]
+    Patch(apiUri(s"repo/${repoId.show}/trusted-delegations/${delegation.name.value}/info"), DelegationInfo(None, Some("http://some-remote-uri"), Some(friendlyName)).asJson) ~> routes ~> check {
+      status shouldBe StatusCodes.BadRequest
+      responseAs[ErrorRepresentation].code shouldBe ErrorCodes.ImmutableFields
     }
   }
 
