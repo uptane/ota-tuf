@@ -90,8 +90,12 @@ trait RepoResourceDelegationsSpecUtil extends RepoResourceSpecUtil {
     Put(apiUri(s"repo/${repoId.show}/trusted-delegations"), delegations.asJson) ~> routes
   }
 
-  def addNewRemoteDelegation(req: AddDelegationFromRemoteRequest)
+  def addNewRemoteDelegation(delegatedRoleName: DelegatedRoleName, req: AddDelegationFromRemoteRequest)
                                     (implicit  repoId: RepoId, pos: Position): RouteTestResult = {
-    Put(apiUri(s"repo/${repoId.show}/remote-delegations"), req.asJson) ~> routes
+    Put(apiUri(s"repo/${repoId.show}/trusted-delegations/${delegatedRoleName.value}/remote"), req.asJson) ~> routes
+  }
+
+  def getDelegationInfo(delegatedRoleName: DelegatedRoleName)(implicit repoId: RepoId): RouteTestResult = {
+    Get(apiUri(s"repo/${repoId.show}/trusted-delegations/${delegatedRoleName.value}/info")) ~> routes
   }
 }

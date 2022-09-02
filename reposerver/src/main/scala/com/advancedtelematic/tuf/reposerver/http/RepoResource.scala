@@ -9,7 +9,7 @@ import akka.http.scaladsl.server._
 import akka.http.scaladsl.unmarshalling._
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
-import cats.data.Validated.{Valid, Invalid}
+import cats.data.Validated.{Invalid, Valid}
 import com.advancedtelematic.libats.data.RefinedUtils._
 import com.advancedtelematic.libats.http.Errors.{EntityAlreadyExists, MissingEntity}
 import com.advancedtelematic.libats.http.RefinedMarshallingSupport._
@@ -19,8 +19,6 @@ import com.advancedtelematic.libtuf.data.ClientDataType.{DelegatedRoleName, Dele
 import com.advancedtelematic.libtuf.data.TufCodecs._
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 import com.advancedtelematic.libats.http.AnyvalMarshallingSupport._
-import com.advancedtelematic.libtuf.data.TufCodecs._
-import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.libats.data.DataType.Namespace
 import com.advancedtelematic.libats.data.ErrorRepresentation
 import com.advancedtelematic.libtuf.data.TufDataType._
@@ -36,7 +34,7 @@ import com.advancedtelematic.libtuf_server.repo.server.RepoRoleRefresh
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType._
 import com.advancedtelematic.tuf.reposerver.db._
 import com.advancedtelematic.tuf.reposerver.delegations.{DelegationsManagement, RemoteDelegationClient}
-import com.advancedtelematic.tuf.reposerver.http.Errors.{NoRepoForNamespace, RequestCanceledByUpstream}
+import com.advancedtelematic.tuf.reposerver.http.Errors.{DelegationNotFound, NoRepoForNamespace, RequestCanceledByUpstream}
 import com.advancedtelematic.tuf.reposerver.http.RoleChecksumHeader._
 import com.advancedtelematic.tuf.reposerver.target_store.TargetStore
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
@@ -280,6 +278,16 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
       (get & path(JsonRoleTypeMetaPath)) { roleType =>
         findRole(repoId, roleType)
       } ~
+      /*
+      Welp, delegations and their respective API endpoints (and the surrounding vernacular) are a bit confusing.
+        Trusted-Delegations refer to the references that must exist in a user's targets metadata in order to 'delegate' signing authority to a third party
+        Delegations refer to the actual delegated metadata, that is, the json files signed with a third party key containing delegated targets
+        We also made Trusted-Delegations the toplevel api endpoint for a collection of "api actions" that interact with delegations.
+        These actions are:
+         - creation of delegations by fetching the delegated metadata via a remote-uri (known as a remote delegation)
+         - refreshing a remote-delegation using the saved remote-uri
+         - setting and retrieving delegation info. Info being things like friendlyName, remoteUri, lastFetched, etc.
+       */
       pathPrefix("trusted-delegations" ) {
         (pathEnd & put & entity(as[List[Delegation]])) { payload =>
           val f = trustedDelegations.add(repoId, payload)(signedRoleGeneration).map(_ => StatusCodes.NoContent)
@@ -300,6 +308,24 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
           }
           complete(f)
         } ~
+        (put & path(DelegatedRoleNamePath / "remote") & pathEnd & entity(as[AddDelegationFromRemoteRequest])) { (delegatedRoleName, req) =>
+          onSuccess(delegations.createFromRemote(repoId, req.uri, delegatedRoleName, req.remoteHeaders.getOrElse(Map.empty), req.friendlyName)) {
+            complete(StatusCodes.Created)
+          }
+        } ~
+        (put & path(DelegatedRoleNamePath / "remote" / "refresh")) { delegatedRoleName =>
+          complete(delegations.updateFromRemote(repoId, delegatedRoleName))
+        } ~
+        (get & path(DelegatedRoleNamePath / "info")) { delegatedRoleName =>
+          onSuccess(delegations.find(repoId, delegatedRoleName)) { (_, delegationInfo) =>
+            complete(StatusCodes.OK, delegationInfo)
+          }
+        } ~
+        (patch & path(DelegatedRoleNamePath / "info") & entity(as[DelegationInfo])) { (delegatedRoleName, delegationInfo) =>
+          onSuccess(delegations.setDelegationInfo(repoId, delegatedRoleName, delegationInfo)) {
+            complete(StatusCodes.OK)
+          }
+        } ~
         path("keys") {
           (put & entity(as[List[TufKey]])) { keys =>
             val f = trustedDelegations.addKeys(repoId, keys)(signedRoleGeneration).map(_ => StatusCodes.NoContent)
@@ -314,28 +340,20 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
           }
         }
       } ~
-      pathPrefix("remote-delegations") {
-        (put & pathEnd & entity(as[AddDelegationFromRemoteRequest])) { req =>
-          onSuccess(delegations.createFromRemote(repoId, req.uri, req.delegationName, req.remoteHeaders.getOrElse(Map.empty))) {
-            complete(StatusCodes.Created)
-          }
-        } ~
-          (path(DelegatedRoleNamePath / "refresh") & put) { delegatedRoleName =>
-            complete(delegations.updateFromRemote(repoId, delegatedRoleName))
-          }
-      } ~
       path("delegations" / DelegatedRoleUriPath) { roleName =>
         DelegatedRoleName.delegatedRoleNameValidation(roleName) match {
           case Valid(delegatedRoleName) => {
-            (put & entity(as[SignedPayload[TargetsRole]])) { payload =>
+            (put & entity(as[SignedPayload[TargetsRole]]) & pathEnd) { payload =>
               complete(delegations.create(repoId, delegatedRoleName, payload).map(_ => StatusCodes.NoContent))
             } ~
             get {
-              onSuccess(delegations.find(repoId, delegatedRoleName)) {
-                case (delegation, Some(lastFetched)) =>
-                  complete(StatusCodes.OK, List(RawHeader("x-ats-delegation-last-fetched-at", lastFetched.toString)), delegation)
-                case (delegation, _) =>
-                  complete(StatusCodes.OK -> delegation)
+              onSuccess(delegations.find(repoId, delegatedRoleName)) { (delegation, delegationInfo) =>
+                delegationInfo match {
+                  case DelegationInfo(Some(lastFetched), _, _) =>
+                    complete(StatusCodes.OK, List(RawHeader("x-ats-delegation-last-fetched-at", lastFetched.toString)), delegation)
+                  case DelegationInfo(_, _, _) =>
+                    complete(StatusCodes.OK -> delegation)
+                }
               }
             }
           }
