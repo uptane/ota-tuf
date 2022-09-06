@@ -8,15 +8,19 @@ import akka.http.scaladsl.model.{StatusCodes, Uri}
 import cats.syntax.option._
 import cats.syntax.show._
 import com.advancedtelematic.libats.data
+import com.advancedtelematic.libats.data.DataType.HashMethod
+import com.advancedtelematic.libats.data.DataType.HashMethod.HashMethod
 import com.advancedtelematic.libats.data.ErrorCodes.InvalidEntity
-import com.advancedtelematic.libats.data.ErrorRepresentation
+import com.advancedtelematic.libats.data.{DataType, ErrorRepresentation}
 import com.advancedtelematic.libtuf.crypt.CanonicalJson._
 import com.advancedtelematic.libtuf.crypt.TufCrypto
 import com.advancedtelematic.libtuf.data.ClientCodecs._
-import com.advancedtelematic.libtuf.data.ClientDataType.{DelegatedRoleName, Delegation, DelegationFriendlyName, SnapshotRole, TargetsRole}
+import com.advancedtelematic.libtuf.data.ClientDataType.{DelegatedPathPattern, DelegatedRoleName, Delegation, DelegationFriendlyName, SnapshotRole, TargetsRole}
 import com.advancedtelematic.libtuf.data.TufCodecs._
+import com.advancedtelematic.libtuf.data.{ClientDataType, TufDataType}
 import com.advancedtelematic.libtuf.data.TufDataType.{Ed25519KeyType, RepoId, SignedPayload, TufKey}
 import com.advancedtelematic.libtuf.data.ValidatedString.StringToValidatedStringOps
+import com.advancedtelematic.libtuf_server.crypto.Sha256Digest
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.{AddDelegationFromRemoteRequest, DelegationInfo}
 import com.advancedtelematic.tuf.reposerver.data.RepoCodecs.delegationInfoCodec
 import com.advancedtelematic.tuf.reposerver.util.{RepoResourceDelegationsSpecUtil, RepoResourceSpecUtil, ResourceSpec, TufReposerverSpec}
@@ -259,6 +263,66 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     pushSignedDelegatedMetadata( signedDelegation) ~> check {
       status shouldBe StatusCodes.BadRequest
       responseAs[ErrorRepresentation].code shouldBe ErrorCodes.PayloadSignatureInvalid
+    }
+  }
+
+  test("rejects delegated metadata when a target filename doesn't match path specified in delegation refs in targets.json") {
+    implicit val repoId = addTargetToRepo()
+    uploadOfflineSignedTargetsRole()
+    val testTargets: Map[TufDataType.TargetFilename, ClientDataType.ClientTargetItem] = Map(Refined.unsafeApply("bad-target-filename") -> ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None))
+    val signedDelegation = buildSignedDelegatedTargets(
+      targets = testTargets
+
+    )
+    pushSignedDelegatedMetadata(signedDelegation) ~> check {
+      status shouldBe StatusCodes.BadRequest
+      responseAs[ErrorRepresentation].code shouldBe ErrorCodes.InvalidDelegatedTarget
+    }
+  }
+
+  test("rejects delegated metadata when a target filename doesn't match nested path specified in delegation refs in targets.json") {
+    implicit val repoId = addTargetToRepo()
+    val customDelegationRef = delegation.copy(paths=List("*/wicked/*".unsafeApply[DelegatedPathPattern]))
+    uploadOfflineSignedTargetsRole(delegations.copy(roles = List(customDelegationRef)))
+
+    val testTargets: Map[TufDataType.TargetFilename, ClientDataType.ClientTargetItem] = Map(Refined.unsafeApply("someprefix/mypath/wicked-target") -> ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None))
+    val signedDelegation = buildSignedDelegatedTargets(
+      targets = testTargets
+
+    )
+    pushSignedDelegatedMetadata(signedDelegation) ~> check {
+      status shouldBe StatusCodes.BadRequest
+      responseAs[ErrorRepresentation].code shouldBe ErrorCodes.InvalidDelegatedTarget
+    }
+  }
+
+  test("Accepts delegated metadata with nested delegation filename path glob in targets.json") {
+    implicit val repoId = addTargetToRepo()
+    val customDelegationRef = delegation.copy(paths=List("*/wicked/*".unsafeApply[DelegatedPathPattern]))
+    uploadOfflineSignedTargetsRole(delegations.copy(roles = List(customDelegationRef)))
+
+    val testTargets: Map[TufDataType.TargetFilename, ClientDataType.ClientTargetItem] = Map(Refined.unsafeApply("only-poppin/wicked/lit-targets") -> ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None))
+    val signedDelegation = buildSignedDelegatedTargets(
+      targets = testTargets
+    )
+    pushSignedDelegatedMetadata(signedDelegation) ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+  }
+
+  test("Accepts delegated metadata with multiple delegated paths specified and only one matching") {
+    implicit val repoId = addTargetToRepo()
+    val customDelegationRef = delegation.copy(paths=List("*/wicked/*".unsafeApply[DelegatedPathPattern],
+                                                          "*/alpine/*".unsafeApply[DelegatedPathPattern]
+                                                          ))
+    uploadOfflineSignedTargetsRole(delegations.copy(roles = List(customDelegationRef)))
+
+    val testTargets: Map[TufDataType.TargetFilename, ClientDataType.ClientTargetItem] = Map(Refined.unsafeApply("only-poppin/alpine/lit-targets") -> ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None))
+    val signedDelegation = buildSignedDelegatedTargets(
+      targets = testTargets
+    )
+    pushSignedDelegatedMetadata(signedDelegation) ~> check {
+      status shouldBe StatusCodes.NoContent
     }
   }
 

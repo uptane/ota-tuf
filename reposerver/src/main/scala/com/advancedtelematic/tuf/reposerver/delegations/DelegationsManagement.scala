@@ -3,12 +3,12 @@ package com.advancedtelematic.tuf.reposerver.delegations
 import akka.http.scaladsl.model.Uri
 import cats.implicits._
 import cats.data.Validated.{Invalid, Valid}
-import cats.data.{NonEmptyList, ValidatedNel}
+import cats.data.{NonEmptyList, Validated, ValidatedNel}
 import com.advancedtelematic.libats.data.RefinedUtils._
 import com.advancedtelematic.libtuf.crypt.TufCrypto
 import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.libtuf.data.ClientDataType.{DelegatedRoleName, Delegation, DelegationFriendlyName, MetaItem, MetaPath, TargetsRole, ValidMetaPath}
-import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RepoId, SignedPayload}
+import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RepoId, SignedPayload, TargetFilename}
 import com.advancedtelematic.libtuf_server.crypto.Sha256Digest
 import com.advancedtelematic.libtuf_server.repo.server.DataType.SignedRole
 import com.advancedtelematic.libtuf_server.repo.server.SignedRoleGeneration
@@ -75,8 +75,14 @@ class DelegationsManagement()(implicit val db: Database, val ec: ExecutionContex
 
     validateDelegationMetadataSignatures(targetsRole, delegation, delegationMetadata) match {
       case Valid(_) =>
-        await(delegationsRepo.persist(repoId, roleName, delegationMetadata.asJsonSignedPayload, remoteUri, lastFetch, remoteHeaders, friendlyName))
-        await(signedRoleGeneration.regenerateSnapshots(repoId))
+        validateDelegationTargetPaths(targetsRole, roleName, delegationMetadata) match {
+          case Valid(_) =>
+            await(delegationsRepo.persist(repoId, roleName, delegationMetadata.asJsonSignedPayload, remoteUri, lastFetch, remoteHeaders, friendlyName))
+            await(signedRoleGeneration.regenerateSnapshots(repoId))
+          case Invalid(err) =>
+            throw Errors.InvalidDelegatedTarget(err)
+        }
+
       case Invalid(err) =>
         throw Errors.PayloadSignatureInvalid(err)
     }
@@ -128,5 +134,21 @@ class DelegationsManagement()(implicit val db: Database, val ec: ExecutionContex
                                                    delegationMetadata: SignedPayload[TargetsRole]): ValidatedNel[String, SignedPayload[TargetsRole]] = {
     val publicKeys = targetsRole.delegations.map(_.keys).getOrElse(Map.empty).filterKeys(delegation.keyids.contains)
     TufCrypto.payloadSignatureIsValid(publicKeys, delegation.threshold, delegationMetadata)
+  }
+
+  private def validateDelegationTargetPaths(targetsRole: TargetsRole,
+                                            delegatedRoleName: DelegatedRoleName,
+                                            delegationMetadata: SignedPayload[TargetsRole]): ValidatedNel[String, SignedPayload[TargetsRole]] = {
+    val delegationRef = findDelegationMetadataByName(targetsRole, delegatedRoleName)
+
+    // Find invalid targets by running all targetNames (map keys) through the pathPattern regexes in trusted delegations
+    val invalidTargets: List[TargetFilename] = delegationMetadata.signed.targets.filterKeys{ target =>
+      val matchedPaths = delegationRef.paths.filter(pathPattern => target.value.matches( pathPattern.value.replace("*", ".*") ))
+      matchedPaths.length < 1
+    }.toList.map(_._1)
+
+    Right(delegationMetadata).ensure(s"Target(s): ${invalidTargets} does not match any registered path patterns of this delegation") {
+      _ => invalidTargets.length < 1
+    }.toValidatedNel
   }
 }
