@@ -70,7 +70,9 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
       responseAs[List[Delegation]]
     }
   }
-
+  private def getTrustedDelegationInfo()(implicit repoId: RepoId): RouteTestResult = {
+    Get(apiUri(s"repo/${repoId.show}/trusted-delegations/info")) ~> routes
+  }
   private def getTrustedDelegationKeys()(implicit repoId: RepoId): RouteTestResult = {
     Get(apiUri(s"repo/${repoId.show}/trusted-delegations/keys")) ~> routes
   }
@@ -219,6 +221,18 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     Get(apiUri(s"repo/${repoId.show}/delegations/${delegatedRoleName.value}.json")) ~> routes ~> check {
       status shouldBe StatusCodes.OK
       responseAs[SignedPayload[TargetsRole]].asJson shouldBe signedDelegationRole.asJson
+    }
+  }
+
+  test("returns all trusted delegation info") {
+    implicit val repoId = addTargetToRepo()
+    uploadOfflineSignedTargetsRole()
+    val signedDelegationRole = buildSignedDelegatedTargets()
+    pushSignedDelegatedMetadataOk(signedDelegationRole)
+    getTrustedDelegationInfo() ~> check {
+      status shouldBe StatusCodes.OK
+      val someMap = responseAs[Map[String, DelegationInfo]]
+      someMap(delegation.name.value) shouldBe DelegationInfo(None, None, None)
     }
   }
 
@@ -560,6 +574,12 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     getDelegationInfo(delegation.name) ~> check {
       status shouldBe StatusCodes.OK
       responseAs[DelegationInfo].friendlyName.getOrElse("") shouldBe friendlyName
+    }
+
+    getTrustedDelegationInfo() ~> check {
+      status shouldBe StatusCodes.OK
+      val respMap = responseAs[Map[String,DelegationInfo]]
+      respMap(delegation.name.value).friendlyName.getOrElse("") shouldBe friendlyName
     }
   }
 
