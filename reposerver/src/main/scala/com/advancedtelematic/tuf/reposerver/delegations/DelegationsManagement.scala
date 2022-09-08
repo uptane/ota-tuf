@@ -26,6 +26,7 @@ import com.advancedtelematic.libtuf.data.TufCodecs._
 import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.DelegationInfo
 
+import java.nio.file.{FileSystems, Paths}
 import java.time.Instant
 
 class SignedRoleDelegationsFind()(implicit val db: Database, val ec: ExecutionContext) extends DelegationRepositorySupport {
@@ -140,14 +141,27 @@ class DelegationsManagement()(implicit val db: Database, val ec: ExecutionContex
                                             delegatedRoleName: DelegatedRoleName,
                                             delegationMetadata: SignedPayload[TargetsRole]): ValidatedNel[String, SignedPayload[TargetsRole]] = {
     val delegationRef = findDelegationMetadataByName(targetsRole, delegatedRoleName)
-
+    val matcher = FileSystems.getDefault().getPathMatcher(s"glob:${}")
     // Find invalid targets by running all targetNames (map keys) through the pathPattern regexes in trusted delegations
     val invalidTargets: List[TargetFilename] = delegationMetadata.signed.targets.filterKeys{ target =>
-      val matchedPaths = delegationRef.paths.filter(pathPattern => target.value.matches( pathPattern.value.replace("*", ".*") ))
+      val matchedPaths = delegationRef.paths.filter{pathPattern =>
+      /*
+         So Aktualizr uses glob patterns on a regular string (not a file-path) via this function without any flags: https://man7.org/linux/man-pages/man3/fnmatch.3.html
+         Here we are using java's path matcher which is different because it assumes we are operating on a path and naturally implies directory boundaries!
+         We escape curly brackets {} because aktualizr wont treat them as special characters and we replace * with ** to match 0 or more characters across directory
+         boundaries which gets us closer to aktualizr-parity, However, java will treat all other special characters
+         as if they were a path, not a string! So unexpected behavior could occur here when using ? and [] among directory boundaries.
+         Something like this is really what we need (but it's old and abandoned): https://github.com/morgen-peschke/scala-glob
+      */
+        FileSystems.getDefault().getPathMatcher(s"glob:${pathPattern.value.replace("{", "\\{")
+                                                                          .replace("}", "\\}")
+                                                                          .replace("*","**")}").matches(Paths.get(target.value))
+      }
+      // if no delegation paths matched targetName, we return true, which designates this targetName as invalid
       matchedPaths.length < 1
     }.toList.map(_._1)
 
-    Right(delegationMetadata).ensure(s"Target(s): ${invalidTargets} does not match any registered path patterns of this delegation") {
+    Right(delegationMetadata).ensure(s"Target(s): ${invalidTargets} does not match any registered path patterns of this delegation: ${delegationRef.paths.map(_.value)}") {
       _ => invalidTargets.length < 1
     }.toValidatedNel
   }
