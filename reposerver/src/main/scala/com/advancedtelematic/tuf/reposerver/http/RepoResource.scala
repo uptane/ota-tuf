@@ -326,6 +326,13 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
             complete(StatusCodes.OK)
           }
         } ~
+        (get & path("info") & pathEnd) {
+          val infos: Future[Map[String, DelegationInfo]] = for {
+            trustedDelegations <- trustedDelegations.get(repoId)
+            delegationInfos <- Future.sequence(trustedDelegations.map(td => delegations.find(repoId, td.name).map(d => td.name.value -> d._2)))
+          } yield (delegationInfos.toMap)
+          complete(StatusCodes.OK, infos )
+        } ~
         path("keys") {
           (put & entity(as[List[TufKey]])) { keys =>
             val f = trustedDelegations.addKeys(repoId, keys)(signedRoleGeneration).map(_ => StatusCodes.NoContent)
