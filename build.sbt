@@ -51,7 +51,7 @@ lazy val serverDependencies = libraryDependencies ++= {
 
 lazy val commonSettings = Seq(
   organization := "io.github.uptane",
-  scalaVersion := "2.12.15",
+  scalaVersion := "2.12.17",
   organizationName := "uptane",
   organizationHomepage := Some(url("https://uptane.github.io/")),
   scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8", "-Xexperimental", "-Ypartial-unification"),
@@ -132,7 +132,7 @@ lazy val cli = (project in file("cli"))
   .dependsOn(libtuf)
 
 lazy val ota_tuf = (project in file("."))
-  .settings(scalaVersion := "2.12.15")
+  .settings(scalaVersion := "2.12.17")
   .settings(Publish.disable)
   .settings(Release.settings(libtuf, libtuf_server, keyserver, reposerver))
   .aggregate(libtuf_server, libtuf, keyserver, reposerver, cli)
