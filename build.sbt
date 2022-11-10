@@ -11,7 +11,7 @@ lazy val UnitTest = config("ut").extend(Test)
 lazy val commonConfigs = Seq(ItTest, UnitTest)
 
 lazy val commonDeps = libraryDependencies ++= {
-  val scalaTestV = "3.2.12"
+  val scalaTestV = "3.2.14"
   lazy val libatsV = libatsVersion.value
   lazy val catsV = "2.7.0"
 
@@ -47,7 +47,7 @@ lazy val serverDependencies = libraryDependencies ++= {
     "io.github.uptane" %% "libats-logging" % libatsV,
     "com.typesafe.slick" %% "slick" % slickV,
     "com.typesafe.slick" %% "slick-hikaricp" % slickV,
-    "org.mariadb.jdbc" % "mariadb-java-client" % "3.0.4"
+    "org.mariadb.jdbc" % "mariadb-java-client" % "3.0.9"
   )
 }
 
