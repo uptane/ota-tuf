@@ -7,7 +7,7 @@ import cats.data.{NonEmptyList, Validated, ValidatedNel}
 import com.advancedtelematic.libats.data.RefinedUtils._
 import com.advancedtelematic.libtuf.crypt.TufCrypto
 import com.advancedtelematic.libtuf.data.ClientCodecs._
-import com.advancedtelematic.libtuf.data.ClientDataType.{DelegatedRoleName, Delegation, DelegationFriendlyName, MetaItem, MetaPath, TargetsRole, ValidMetaPath}
+import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, DelegatedRoleName, Delegation, DelegationClientTargetItem, DelegationFriendlyName, MetaItem, MetaPath, TargetCustom, TargetsRole, ValidMetaPath}
 import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RepoId, SignedPayload, TargetFilename}
 import com.advancedtelematic.libtuf_server.crypto.Sha256Digest
 import com.advancedtelematic.libtuf_server.repo.server.DataType.SignedRole
@@ -24,10 +24,11 @@ import akka.http.scaladsl.unmarshalling._
 import akka.http.scaladsl.util.FastFuture
 import com.advancedtelematic.libtuf.data.TufCodecs._
 import com.advancedtelematic.libtuf.data.ClientCodecs._
-import com.advancedtelematic.tuf.reposerver.data.RepoDataType.DelegationInfo
+import com.advancedtelematic.tuf.reposerver.data.RepoDataType.{DelegationInfo, TargetItem}
 
 import java.nio.file.{FileSystems, Paths}
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 
 class SignedRoleDelegationsFind()(implicit val db: Database, val ec: ExecutionContext) extends DelegationRepositorySupport {
 
@@ -113,6 +114,46 @@ class DelegationsManagement()(implicit val db: Database, val ec: ExecutionContex
     val delegation = await(delegationsRepo.find(repoId, roleName))
     (delegation.content, DelegationInfo(delegation.lastFetched, delegation.remoteUri, delegation.friendlyName))
   }
+
+
+  private def GetAllDelegationTargets(repoId: RepoId):  Future[Seq[(DelegatedRoleName, Map[TargetFilename, ClientTargetItem])]] = {
+    val expiresAt = Instant.now().plus(1, ChronoUnit.DAYS)
+    delegationsRepo.findAll(repoId).flatMap { delegations =>
+      Future.sequence {
+        delegations.map { delegation =>
+          SignedRole.withChecksum[TargetsRole](delegation.content, 1, expiresAt)
+            .map(signedRole => (delegation.roleName, signedRole.role.targets))
+        }
+      }
+    }
+  }
+
+  def findTargetByFilename(repoId: RepoId, targetFilename: TargetFilename): Future[DelegationClientTargetItem] = {
+    val delegationItems = GetAllDelegationTargets(repoId).map{delegations =>
+      delegations.flatMap{ case(delegatedRoleName, targetsMap) =>
+        targetsMap.filter(_._1 == targetFilename).map{ case (filename, targetItem) =>
+          DelegationClientTargetItem(filename, delegatedRoleName, targetItem)
+        }
+      }
+    }
+    // So having the same named target across delegations is actually ok...
+    // Should we just get rid of this function?
+    delegationItems.map(_.head)
+  }
+  // delegations dont have a database table for targetItems so we must use the json directly
+  def findTargets(repoId: RepoId, nameContains: Option[String] = None): Future[List[DelegationClientTargetItem]] = {
+    val allDelegationTargets = GetAllDelegationTargets(repoId)
+    allDelegationTargets.map {
+      _.flatMap { case (delegatedRoleName, targetsMap) =>
+        val filteredMap = if(nameContains.isDefined)
+          targetsMap.filter(_._1.value.contains(nameContains.getOrElse("")))
+        else targetsMap
+        filteredMap.map(kv => DelegationClientTargetItem(kv._1, delegatedRoleName, kv._2))
+      }.toList
+    }
+  }
+
+  //withChecksum[T : TufRole : Decoder](content: JsonSignedPayload, version: Int, expireAt: Instant)
   // Only allow setting friendlyName for now, add more here
   def setDelegationInfo(repoId: RepoId, roleName: DelegatedRoleName, delegationInfo: DelegationInfo): Future[Unit] = {
     delegationInfo match {

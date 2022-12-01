@@ -1333,7 +1333,49 @@ class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
       }
     }
   }
-
+  test("can fetch single targets_item") {
+    // Create package
+    // fetch it
+    // verify response
+  }
+  test("can fetch all target_items when pattern parameter is excluded") {
+    // create packages
+    // fetch them
+    // verify all packages present and formatted as expected
+  }
+  test("can search target_items with pattern and get expected output") {
+    // create packages with multiple names that can be pattern matched
+    // fetch them
+    // verify all packages expected are present and those not expected are excluded
+    // output format should be verified
+  }
+  test("can edit single targets_item") {
+    // Create package
+    // fetch it
+    // edit it
+    // fetch it
+    // verify response
+  }
+  test("can fetch single comment for single package") {
+    // Create package
+    // fetch it
+    // verify response
+  }
+  test("can fetch all comments for all packages") {
+    // Create package
+    // fetch it
+    // verify response
+  }
+  test("can search comments for targetnames matching query pattern") {
+    // Create packages
+    // fetch with search query
+    // verify expected packages included and non-expected are excluded
+  }
+  test("can update the comments on a package") {
+    // Create package
+    // fetch it
+    // verify response
+  }
 
   implicit class ErrorRepresentationOps(value: ErrorRepresentation) {
     def firstErrorCause: Option[String] =

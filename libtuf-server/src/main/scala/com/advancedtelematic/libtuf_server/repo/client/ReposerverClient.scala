@@ -1,8 +1,6 @@
 package com.advancedtelematic.libtuf_server.repo.client
 
 import java.util.UUID
-
-
 import akka.actor.ActorSystem
 import akka.http.scaladsl.marshalling.Marshal
 import akka.http.scaladsl.model.Uri.Path.Slash
@@ -14,7 +12,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import com.advancedtelematic.libats.data.DataType.{Checksum, Namespace}
-import com.advancedtelematic.libats.data.ErrorCode
+import com.advancedtelematic.libats.data.{ErrorCode, PaginationResult}
 import com.advancedtelematic.libats.http.Errors.{RawError, RemoteServiceError}
 import com.advancedtelematic.libats.http.HttpCodecs._
 import com.advancedtelematic.libats.http.tracing.Tracing.ServerRequestTracing
@@ -24,17 +22,19 @@ import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.libtuf.data.TufCodecs._
 import com.advancedtelematic.libtuf.data.TufDataType.TargetFormat.TargetFormat
 import com.advancedtelematic.libtuf.data.TufDataType.{HardwareIdentifier, KeyType, RepoId, SignedPayload, TargetFilename, TargetName, TargetVersion}
-import com.advancedtelematic.libtuf_server.data.Requests.CreateRepositoryRequest
+import com.advancedtelematic.libtuf_server.data.Requests.{CommentRequest, CreateRepositoryRequest, FilenameComment, TargetComment}
 import com.advancedtelematic.libtuf_server.repo.client.ReposerverClient.{KeysNotReady, NotFound, RootNotInKeyserver}
 import io.circe.{Decoder, Encoder, Json}
 import com.advancedtelematic.libats.codecs.CirceCodecs._
 import com.advancedtelematic.libtuf.data.ClientCodecs._
-import com.advancedtelematic.libtuf.data.ClientDataType.{RootRole, TargetsRole}
+import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, DelegationClientTargetItem, RootRole, TargetCustom, TargetsRole}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success}
 import io.circe.generic.semiauto._
+
+import java.net.URI
 
 object ReposerverClient {
 
@@ -49,6 +49,14 @@ object ReposerverClient {
                                version: Option[TargetVersion],
                                hardwareIds: Seq[HardwareIdentifier],
                                length: Long)
+  object EditTargetItem {
+    implicit val encoder: Encoder[EditTargetItem] = deriveEncoder
+    implicit val decoder: Decoder[EditTargetItem] = deriveDecoder
+  }
+  case class EditTargetItem(uri: Option[URI] = None,
+                            hardwareIds: Seq[HardwareIdentifier] = Seq.empty[HardwareIdentifier],
+                            proprietaryCustom: Option[Json] = None
+                           )
 
   val KeysNotReady = RawError(ErrorCode("keys_not_ready"), StatusCodes.Locked, "keys not ready")
   val RootNotInKeyserver = RawError(ErrorCode("root_role_not_in_keyserver"), StatusCodes.FailedDependency, "the root role was not found in upstream keyserver")
@@ -85,6 +93,21 @@ trait ReposerverClient {
   def targetExists(namespace: Namespace, targetFilename: TargetFilename): Future[Boolean]
 
   def fetchTargets(namespace: Namespace): Future[SignedPayload[TargetsRole]]
+
+  def setTargetComments(namespace: Namespace, targetFilename: TargetFilename, comment: String): Future[Unit]
+  def fetchSingleTargetComments(namespace: Namespace, targetFilename: TargetFilename): Future[FilenameComment]
+  def fetchTargetsComments(namespace: Namespace, targetNameContains: Option[String]): Future[PaginationResult[FilenameComment]]
+  def deleteTarget(namespace: Namespace, targetFilename: TargetFilename): Future[Unit]
+
+  def editTarget(namespace: Namespace,
+                 targetFilename: TargetFilename,
+                 uri: Option[URI] = None,
+                 hardwareIds: Seq[HardwareIdentifier] = Seq.empty,
+                 proprietaryMeta: Option[Json] = None) : Future[ClientTargetItem]
+  def fetchSingleTargetItem(namespace: Namespace, targetFilename: TargetFilename): Future[ClientTargetItem]
+  def fetchTargetItems(namespace: Namespace, nameContains: Option[String] = None): Future[PaginationResult[ClientTargetItem]]
+  def fetchDelegationTargetItems(namespace: Namespace, nameContains: Option[String] = None): Future[PaginationResult[DelegationClientTargetItem]]
+  def fetchSingleDelegationTargetItem(namespace: Namespace, targetFilename: TargetFilename): Future[DelegationClientTargetItem]
 }
 
 object ReposerverHttpClient extends ServiceHttpClientSupport {
@@ -180,6 +203,81 @@ class ReposerverHttpClient(reposerverUri: Uri, httpClient: HttpRequest => Future
     val req = HttpRequest(HttpMethods.GET, uri = apiUri(Path("user_repo/targets.json")))
 
     execHttpUnmarshalledWithNamespace[SignedPayload[TargetsRole]](namespace, req).handleErrors {
+      case error if error.status == StatusCodes.NotFound =>
+        FastFuture.failed(NotFound)
+    }
+  }
+
+  override def fetchSingleTargetItem(namespace: Namespace, targetFilename: TargetFilename): Future[ClientTargetItem] = {
+    val req = HttpRequest(HttpMethods.GET, uri = apiUri(Path(s"user_repo/target_items/${targetFilename.value}")))
+    execHttpUnmarshalledWithNamespace[ClientTargetItem](namespace, req).ok
+  }
+
+  override def fetchTargetItems(namespace: Namespace, nameContains: Option[String] = None): Future[PaginationResult[ClientTargetItem]] = {
+    val reqUri = if (nameContains.isDefined)
+      apiUri(Path(s"user_repo/target_items")).withQuery(Query("nameContains" -> nameContains.get))
+    else
+      apiUri(Path(s"user_repo/target_items"))
+    val req = HttpRequest(HttpMethods.GET, uri = reqUri)
+    execHttpUnmarshalledWithNamespace[PaginationResult[ClientTargetItem]](namespace, req).ok
+  }
+
+  override def fetchSingleDelegationTargetItem(namespace: Namespace, targetFilename: TargetFilename): Future[DelegationClientTargetItem] = {
+    val req = HttpRequest(HttpMethods.GET, uri = apiUri(Path(s"user_repo/delegations_items/${targetFilename.value}")))
+    execHttpUnmarshalledWithNamespace[DelegationClientTargetItem](namespace, req).ok
+  }
+
+  override def fetchDelegationTargetItems(namespace: Namespace, nameContains: Option[String] = None): Future[PaginationResult[DelegationClientTargetItem]] = {
+    val reqUri = if (nameContains.isDefined)
+      apiUri(Path(s"user_repo/delegations_items")).withQuery(Query("nameContains" -> nameContains.get))
+    else
+      apiUri(Path(s"user_repo/delegations_items"))
+    val req = HttpRequest(HttpMethods.GET, uri = reqUri)
+    execHttpUnmarshalledWithNamespace[PaginationResult[DelegationClientTargetItem]](namespace, req).ok
+  }
+
+  override def setTargetComments(namespace: Namespace, targetFilename: TargetFilename, comment: String): Future[Unit] = {
+    val commentBody = HttpEntity(ContentTypes.`application/json`, CommentRequest(TargetComment(comment)).asJson.noSpaces)
+    val req = HttpRequest(HttpMethods.PUT, uri = apiUri(Path(s"user_repo/comments/${targetFilename.value}")), entity = commentBody)
+    execHttpUnmarshalledWithNamespace[Unit](namespace, req).ok
+  }
+
+  override def fetchTargetsComments(namespace: Namespace, targetNameContains: Option[String]): Future[PaginationResult[FilenameComment]] = {
+    val commentUri = if (targetNameContains.isDefined)
+        apiUri(Path("user_repo/comments")).withQuery(Query("nameContains" -> targetNameContains.getOrElse("")))
+      else
+        apiUri(Path("user_repo/comments"))
+    val req = HttpRequest(HttpMethods.GET, uri = commentUri)
+
+    execHttpUnmarshalledWithNamespace[PaginationResult[FilenameComment]](namespace, req).handleErrors {
+      case error if error.status == StatusCodes.NotFound =>
+        FastFuture.failed(NotFound)
+    }
+  }
+  override def fetchSingleTargetComments(namespace: Namespace, targetFilename: TargetFilename): Future[FilenameComment] = {
+    val req = HttpRequest(HttpMethods.GET, uri = apiUri(Path(s"user_repo/comments/${targetFilename.value}")))
+    execHttpUnmarshalledWithNamespace[FilenameComment](namespace, req).ok
+  }
+
+  def deleteTarget(namespace: Namespace, targetFilename: TargetFilename): Future[Unit] = {
+    val req = HttpRequest(HttpMethods.DELETE, uri = apiUri(Path(s"user_repo/targets/${targetFilename}")))
+    execHttpUnmarshalledWithNamespace[Unit](namespace, req).handleErrors {
+      case error if error.status == StatusCodes.NotFound =>
+        FastFuture.failed(NotFound)
+    }
+  }
+  // Does the reposerver support this?
+  override def editTarget(namespace: Namespace,
+                           targetFilename: TargetFilename,
+                           uri: Option[URI] = None,
+                           hardwareIds: Seq[HardwareIdentifier] = Seq.empty,
+                           proprietaryMeta: Option[Json] = None
+                          ): Future[ClientTargetItem] = {
+    val editTargetItem = EditTargetItem(uri, hardwareIds, proprietaryMeta)
+    val req = HttpRequest(HttpMethods.PATCH,
+                uri = apiUri(Path(s"user_repo/targets/${targetFilename}"))).
+                  withEntity(ContentTypes.`application/json`, editTargetItem.asJson.noSpaces)
+    execHttpUnmarshalledWithNamespace[ClientTargetItem](namespace, req).handleErrors {
       case error if error.status == StatusCodes.NotFound =>
         FastFuture.failed(NotFound)
     }

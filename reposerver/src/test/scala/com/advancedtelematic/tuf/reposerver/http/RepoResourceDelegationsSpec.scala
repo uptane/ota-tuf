@@ -770,4 +770,21 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
 
     savedDelegation.json shouldBe signedDelegation.json
   }
+
+  test("can fetch single delegations_item") {
+    // Create package
+    // fetch it
+    // verify response
+  }
+  test("can fetch all delegations_items when pattern parameter is excluded") {
+    // create packages
+    // fetch them
+    // verify all packages present and formatted as expected
+  }
+  test("can search delegations_items with pattern and get expected output") {
+    // create packages with multiple names that can be pattern matched
+    // fetch them
+    // verify all packages expected are present and those not expected are excluded
+    // output format should be verified
+  }
 }

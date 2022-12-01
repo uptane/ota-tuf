@@ -1,6 +1,7 @@
 package com.advancedtelematic.tuf.reposerver.http
 
-import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RepoId, TargetFilename}
+import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RepoId, TargetFilename, ValidTargetFilename}
+import com.advancedtelematic.libtuf_server.repo.client.ReposerverClient.EditTargetItem
 import com.advancedtelematic.libtuf_server.repo.server.SignedRoleGeneration
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.TargetItem
 import com.advancedtelematic.tuf.reposerver.db.{FilenameCommentRepository, TargetItemRepositorySupport}
@@ -44,5 +45,21 @@ class TargetRoleEdit(signedRoleGeneration: SignedRoleGeneration)
     _ <- targetItemRepo.deleteItemAndComments(filenameCommentRepo)(repoId, filename)
     _ <- signedRoleGeneration.regenerateAllSignedRoles(repoId)
   } yield ()
+
+  def editTargetItemCustom(repoId: RepoId, filename: TargetFilename, targetEdit: EditTargetItem): Future[Unit] = for {
+    _ <- signedRoleGeneration.ensureTargetsCanBeSigned(repoId)
+    existingTarget <- targetItemRepo.findByFilename(repoId, filename)
+    if (targetEdit.proprietaryCustom.isDefined)
+      // avoid calling updateTargetProprietaryCustom here because it regenerates all roles, which we only want to do once
+      newCustomJson = existingTarget.custom.map { custom => custom.copy(proprietary = mergeCustomJson(custom.proprietary, targetEdit.proprietaryCustom.get)) }
+      _ <- targetItemRepo.setCustom(repoId, filename, newCustomJson)
+    if (targetEdit.uri.isDefined)
+      newCustomJson = existingTarget.custom.map { custom => custom.copy(uri = targetEdit.uri) }
+      _ <- targetItemRepo.setCustom(repoId, filename, newCustomJson)
+    if (targetEdit.hardwareIds.nonEmpty)
+      newCustomJson = existingTarget.custom.map { custom => custom.copy(hardwareIds = targetEdit.hardwareIds) }
+      _ <- targetItemRepo.setCustom(repoId, filename, newCustomJson)
+    _ <- signedRoleGeneration.regenerateAllSignedRoles(repoId)
+  } yield()
 
 }

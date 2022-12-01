@@ -10,23 +10,24 @@ import akka.http.scaladsl.unmarshalling._
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import cats.data.Validated.{Invalid, Valid}
+import com.advancedtelematic.libats.data.DataType.HashMethod.HashMethod
 import com.advancedtelematic.libats.data.RefinedUtils._
 import com.advancedtelematic.libats.http.Errors.{EntityAlreadyExists, MissingEntity}
 import com.advancedtelematic.libats.http.RefinedMarshallingSupport._
 import com.advancedtelematic.libats.http.UUIDKeyAkka._
 import com.advancedtelematic.libtuf.data.ClientCodecs._
-import com.advancedtelematic.libtuf.data.ClientDataType.{DelegatedRoleName, Delegation, RootRole, TargetCustom, TargetsRole}
+import com.advancedtelematic.libtuf.data.ClientDataType.{ClientHashes, ClientTargetItem, DelegatedRoleName, Delegation, DelegationClientTargetItem, RootRole, TargetCustom, TargetsRole}
 import com.advancedtelematic.libtuf.data.TufCodecs._
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 import com.advancedtelematic.libats.http.AnyvalMarshallingSupport._
-import com.advancedtelematic.libats.data.DataType.Namespace
-import com.advancedtelematic.libats.data.ErrorRepresentation
+import com.advancedtelematic.libats.data.DataType.{Namespace, ValidChecksum}
+import com.advancedtelematic.libats.data.{ErrorRepresentation, PaginationResult}
 import com.advancedtelematic.libtuf.data.TufDataType._
 import com.advancedtelematic.libtuf_server.data.Marshalling._
 import com.advancedtelematic.libtuf_server.data.Requests.{CommentRequest, CreateRepositoryRequest, _}
 import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient
 import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient.RootRoleNotFound
-import com.advancedtelematic.libtuf_server.repo.client.ReposerverClient.RequestTargetItem
+import com.advancedtelematic.libtuf_server.repo.client.ReposerverClient.{EditTargetItem, RequestTargetItem}
 import com.advancedtelematic.libtuf_server.repo.server.DataType.SignedRole
 import com.advancedtelematic.tuf.reposerver.Settings
 import com.advancedtelematic.libtuf_server.repo.server.DataType._
@@ -46,6 +47,7 @@ import scala.async.Async._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 import com.advancedtelematic.tuf.reposerver.data.RepoCodecs._
+import eu.timepit.refined.api.Refined
 
 
 class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: NamespaceValidation,
@@ -221,9 +223,9 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
       filenameCommentRepo.find(repoId, filename).map(CommentRequest)
     }
 
-  def findComments(repoId: RepoId): Route =
+  def findComments(repoId: RepoId, nameContains: Option[String] = None): Route =
     complete {
-      filenameCommentRepo.find(repoId).map {
+      filenameCommentRepo.find(repoId, nameContains).map {
         _.map {
           case (filename, comment) => FilenameComment(filename, comment)
         }
@@ -243,6 +245,23 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
       _ <- targetRoleEdit.deleteTargetItem(repoId, filename)
       _ <- tufTargetsPublisher.targetsMetaModified(namespace)
     } yield StatusCodes.NoContent
+  }
+
+  // So i still need a better object for returning all information about a target... ClientTargetItem?
+  //TargetItemToClientTargetItem
+
+  def editTargetItem(namespace: Namespace,
+                     repoId: RepoId,
+                     filename: TargetFilename,
+                    /*
+                    case class ClientTargetItem(hashes: ClientHashes,
+                                                length: Long, custom: Option[Json])
+                     */
+                    //Map[HashMethod, Refined[String, ValidChecksum]]
+                     targetEdit: EditTargetItem): Future[ClientTargetItem] = {
+    targetRoleEdit.editTargetItemCustom(repoId, filename, targetEdit)
+    Future.successful(ClientTargetItem(Map.empty[HashMethod, Refined[String, ValidChecksum]],
+      0, None))
   }
 
   def saveOfflineTargetsRole(repoId: RepoId, namespace: Namespace, signedPayload: SignedPayload[TargetsRole],
@@ -367,6 +386,16 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
           case Invalid(errList) => complete(Errors.InvalidDelegationName(errList))
         }
       } ~
+      pathPrefix("delegations_items") {
+        (get & pathPrefix(TargetFilenamePath)) { filename =>
+          complete(delegations.findTargetByFilename(repoId, filename))
+        } ~
+        (pathEnd & parameter("nameContains".optional)) { nameContains =>
+          val targets = delegations.findTargets(repoId, nameContains)
+            .map(t => PaginationResult(t, t.length, 0, 500))
+          complete( targets )
+        }
+      } ~
       pathPrefix("uploads") {
         (put & path(TargetFilenamePath) & withContentLengthCheck) { (filename, cl) =>
           val f = async {
@@ -399,11 +428,12 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
           }
         }
       } ~
-        pathPrefix("proprietary-custom" / TargetFilenamePath) { filename =>
-          (patch & entity(as[Json])) { proprietaryCustom =>
-            val f = targetRoleEdit.updateTargetProprietaryCustom(repoId, filename, proprietaryCustom)
-            complete(f.map(_ => StatusCodes.NoContent))
-          }
+      // Ben thinks we should just move this under the patch endpoint below at PATCH:user_repo/targets/{targetFileName}
+      pathPrefix("proprietary-custom" / TargetFilenamePath) { filename =>
+        (patch & entity(as[Json])) { proprietaryCustom =>
+          val f = targetRoleEdit.updateTargetProprietaryCustom(repoId, filename, proprietaryCustom)
+          complete(f.map(_ => StatusCodes.NoContent))
+        }
       } ~
       pathPrefix("targets") {
         path("expire" / "not-before") {
@@ -440,6 +470,9 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
           } ~
           delete {
             deleteTargetItem(namespace, repoId, filename)
+          } ~
+          (patch & entity(as[EditTargetItem])) { item =>
+            complete(editTargetItem(namespace, repoId, filename, item))
           }
         } ~
         withRequestTimeout(userRepoUploadRequestTimeout, timeoutResponseHandler) { // For when SignedPayload[TargetsRole] is too big and takes a long time to upload
@@ -457,8 +490,8 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
         }
       } ~
       pathPrefix("comments") {
-        pathEnd {
-          findComments(repoId)
+        (pathEnd & parameter("nameContains".optional)) { nameContains =>
+          findComments(repoId, nameContains)
         } ~
         pathPrefix(TargetFilenamePath) { filename =>
           put {
@@ -469,6 +502,31 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
           get {
             findComment(repoId, filename)
           }
+        }
+      } ~
+      pathPrefix("target_items") {
+        (get & pathPrefix(TargetFilenamePath)) { filename =>
+          val targetItem = targetItemRepo.findByFilename(repoId, filename)
+          .map{ targetItem =>
+            val someClientHashes: ClientHashes = Map[HashMethod, Refined[String, ValidChecksum]](targetItem.checksum.method -> targetItem.checksum.hash)
+            ClientTargetItem(
+              someClientHashes,
+              targetItem.length,
+              Some(targetItem.custom.asJson)
+            )
+          }
+          complete(targetItem)
+        } ~
+        (get & pathEnd & parameter("nameContains".optional)) { nameContains =>
+          val targetItems = targetItemRepo.findFor(repoId, nameContains).map(_.toList)
+          val clientTargetItems = targetItems.map(_.map{targetItem =>
+            val someClientHashes: ClientHashes = Map[HashMethod, Refined[String, ValidChecksum]](targetItem.checksum.method -> targetItem.checksum.hash)
+            ClientTargetItem(
+              someClientHashes,
+              targetItem.length,
+              Some(targetItem.custom.asJson)
+            )})
+          complete(clientTargetItems.map(t => PaginationResult(t, t.length, 0, 500)))
         }
       }
     }
