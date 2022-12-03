@@ -225,11 +225,12 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
 
   def findComments(repoId: RepoId, nameContains: Option[String] = None): Route =
     complete {
-      filenameCommentRepo.find(repoId, nameContains).map {
+      val comments = filenameCommentRepo.find(repoId, nameContains).map {
         _.map {
           case (filename, comment) => FilenameComment(filename, comment)
         }
       }
+      comments.map(c => PaginationResult(c, c.length, 0, 500))
     }
 
   def addComment(repoId: RepoId, filename: TargetFilename, commentRequest: CommentRequest): Route =
@@ -247,21 +248,17 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
     } yield StatusCodes.NoContent
   }
 
-  // So i still need a better object for returning all information about a target... ClientTargetItem?
-  //TargetItemToClientTargetItem
-
   def editTargetItem(namespace: Namespace,
                      repoId: RepoId,
                      filename: TargetFilename,
-                    /*
-                    case class ClientTargetItem(hashes: ClientHashes,
-                                                length: Long, custom: Option[Json])
-                     */
-                    //Map[HashMethod, Refined[String, ValidChecksum]]
                      targetEdit: EditTargetItem): Future[ClientTargetItem] = {
-    targetRoleEdit.editTargetItemCustom(repoId, filename, targetEdit)
-    Future.successful(ClientTargetItem(Map.empty[HashMethod, Refined[String, ValidChecksum]],
-      0, None))
+    for {
+      _ <- targetRoleEdit.editTargetItemCustom(repoId, filename, targetEdit)
+      targetItem <- targetItemRepo.findByFilename(repoId, filename)
+    } yield ClientTargetItem(
+        Seq(targetItem.checksum.method -> targetItem.checksum.hash).toMap,
+        targetItem.length,
+        Some(targetItem.custom.asJson))
   }
 
   def saveOfflineTargetsRole(repoId: RepoId, namespace: Namespace, signedPayload: SignedPayload[TargetsRole],

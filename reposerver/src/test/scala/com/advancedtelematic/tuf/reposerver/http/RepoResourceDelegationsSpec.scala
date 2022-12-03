@@ -11,11 +11,11 @@ import com.advancedtelematic.libats.data
 import com.advancedtelematic.libats.data.DataType.HashMethod
 import com.advancedtelematic.libats.data.DataType.HashMethod.HashMethod
 import com.advancedtelematic.libats.data.ErrorCodes.InvalidEntity
-import com.advancedtelematic.libats.data.{DataType, ErrorRepresentation}
+import com.advancedtelematic.libats.data.{DataType, ErrorRepresentation, PaginationResult}
 import com.advancedtelematic.libtuf.crypt.CanonicalJson._
 import com.advancedtelematic.libtuf.crypt.TufCrypto
 import com.advancedtelematic.libtuf.data.ClientCodecs._
-import com.advancedtelematic.libtuf.data.ClientDataType.{DelegatedPathPattern, DelegatedRoleName, Delegation, DelegationFriendlyName, SnapshotRole, TargetsRole}
+import com.advancedtelematic.libtuf.data.ClientDataType.{DelegatedPathPattern, DelegatedRoleName, Delegation, DelegationClientTargetItem, DelegationFriendlyName, SnapshotRole, TargetsRole}
 import com.advancedtelematic.libtuf.data.TufCodecs._
 import com.advancedtelematic.libtuf.data.{ClientDataType, TufDataType}
 import com.advancedtelematic.libtuf.data.TufDataType.{Ed25519KeyType, RepoId, SignedPayload, TufKey}
@@ -773,18 +773,118 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
 
   test("can fetch single delegations_item") {
     // Create package
+    implicit val repoId = addTargetToRepo()
+    val customDelegationRef = delegation.copy(paths = List("*some*".unsafeApply[DelegatedPathPattern],
+      "*/alpine/*".unsafeApply[DelegatedPathPattern]
+    ))
+    uploadOfflineSignedTargetsRole(delegations.copy(roles = List(customDelegationRef)))
+
+    val testTargets: Map[TufDataType.TargetFilename,
+      ClientDataType.ClientTargetItem] = Map(Refined.unsafeApply("some_hot_target-0.0.1") ->
+      ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None))
+
+    val signedDelegation = buildSignedDelegatedTargets(
+      targets = testTargets
+    )
+    pushSignedDelegatedMetadata(signedDelegation) ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
     // fetch it
-    // verify response
+    Get(apiUri(s"repo/${repoId.show}/delegations_items/some_hot_target-0.0.1")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val targetItem = responseAs[DelegationClientTargetItem]
+      targetItem.targetFilename shouldBe Refined.unsafeApply("some_hot_target-0.0.1")
+      targetItem.delegatedRoleName shouldBe delegatedRoleName
+    }
   }
   test("can fetch all delegations_items when pattern parameter is excluded") {
-    // create packages
+    implicit val repoId = addTargetToRepo()
+    val delegatedRoleName1 = delegatedRoleName
+    val delegatedRoleName2 = "bens-second-delegation".unsafeApply[DelegatedRoleName]
+    val customDelegationRef1 = delegation.copy(name = delegatedRoleName1, paths = List("*".unsafeApply[DelegatedPathPattern]))
+    val customDelegationRef2 = delegation.copy(name = delegatedRoleName2, paths = List("*".unsafeApply[DelegatedPathPattern]))
+    uploadOfflineSignedTargetsRole(delegations.copy(roles = List(customDelegationRef1, customDelegationRef2)))
+
+    val filename1 = "some_hot_target-0.0.1"
+    val filename2 = "hot-dogs-Rus-0.0.2"
+    val filename3 = "smol-dogs-innovations-90.3.4"
+    val filename4 = "true-scoops-ice-cream-334.3.3"
+    val testTargets1: Map[TufDataType.TargetFilename, ClientDataType.ClientTargetItem] =
+      Map(
+        Refined.unsafeApply(filename1) ->
+          ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None),
+        Refined.unsafeApply(filename2) ->
+          ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None)
+      )
+    val testTargets2: Map[TufDataType.TargetFilename, ClientDataType.ClientTargetItem] =
+      Map(
+        Refined.unsafeApply(filename3) ->
+          ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None),
+        Refined.unsafeApply(filename4) ->
+          ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None)
+      )
+    val signedDelegation1 = buildSignedDelegatedTargets(targets = testTargets1)
+    val signedDelegation2 = buildSignedDelegatedTargets(targets = testTargets2)
+    pushSignedDelegatedMetadata(signedDelegation1, delegatedRoleName1) ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+    pushSignedDelegatedMetadata(signedDelegation2, delegatedRoleName2) ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
     // fetch them
-    // verify all packages present and formatted as expected
+    Get(apiUri(s"repo/${repoId.show}/delegations_items")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val delegationClientTargetItems = responseAs[PaginationResult[DelegationClientTargetItem]].values
+      val itemsTuples = delegationClientTargetItems.map(d => d.targetFilename -> d.delegatedRoleName)
+      itemsTuples should contain (Refined.unsafeApply(filename1) -> delegatedRoleName1)
+      itemsTuples should contain (Refined.unsafeApply(filename2) -> delegatedRoleName1)
+      itemsTuples should contain (Refined.unsafeApply(filename3) -> delegatedRoleName2)
+      itemsTuples should contain (Refined.unsafeApply(filename4) -> delegatedRoleName2)
+    }
   }
   test("can search delegations_items with pattern and get expected output") {
-    // create packages with multiple names that can be pattern matched
+    implicit val repoId = addTargetToRepo()
+    val delegatedRoleName1 = delegatedRoleName
+    val delegatedRoleName2 = "bens-second-delegation".unsafeApply[DelegatedRoleName]
+    val customDelegationRef1 = delegation.copy(name = delegatedRoleName1, paths = List("*".unsafeApply[DelegatedPathPattern]))
+    val customDelegationRef2 = delegation.copy(name = delegatedRoleName2, paths = List("*".unsafeApply[DelegatedPathPattern]))
+    uploadOfflineSignedTargetsRole(delegations.copy(roles = List(customDelegationRef1, customDelegationRef2)))
+
+    val filename1 = "some_hot_target-0.0.1"
+    val filename2 = "hot-dogs-Rus-0.0.2"
+    val filename3 = "smol-dogs-innovations-90.3.4"
+    val filename4 = "true-scoops-ice-cream-334.3.3"
+    val testTargets1: Map[TufDataType.TargetFilename, ClientDataType.ClientTargetItem] =
+      Map(
+        Refined.unsafeApply(filename1) ->
+          ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None),
+        Refined.unsafeApply(filename2) ->
+          ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None)
+      )
+    val testTargets2: Map[TufDataType.TargetFilename, ClientDataType.ClientTargetItem] =
+      Map(
+        Refined.unsafeApply(filename3) ->
+          ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None),
+        Refined.unsafeApply(filename4) ->
+          ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None)
+      )
+    val signedDelegation1 = buildSignedDelegatedTargets(targets = testTargets1)
+    val signedDelegation2 = buildSignedDelegatedTargets(targets = testTargets2)
+    pushSignedDelegatedMetadata(signedDelegation1, delegatedRoleName1) ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+    pushSignedDelegatedMetadata(signedDelegation2, delegatedRoleName2) ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
     // fetch them
-    // verify all packages expected are present and those not expected are excluded
-    // output format should be verified
+    Get(apiUri(s"repo/${repoId.show}/delegations_items?nameContains=dogs")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val delegationClientTargetItems = responseAs[PaginationResult[DelegationClientTargetItem]].values
+      val itemsTuples = delegationClientTargetItems.map(d => d.targetFilename -> d.delegatedRoleName)
+      itemsTuples should not contain(Refined.unsafeApply(filename1) -> delegatedRoleName1)
+      itemsTuples should contain(Refined.unsafeApply(filename2) -> delegatedRoleName1)
+      itemsTuples should contain(Refined.unsafeApply(filename3) -> delegatedRoleName2)
+      itemsTuples should not contain(Refined.unsafeApply(filename4) -> delegatedRoleName2)
+    }
   }
 }

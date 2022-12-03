@@ -1,6 +1,7 @@
 package com.advancedtelematic.tuf.reposerver.http
 
-import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RepoId, TargetFilename, ValidTargetFilename}
+import com.advancedtelematic.libtuf.data.ClientDataType
+import com.advancedtelematic.libtuf.data.TufDataType.{HardwareIdentifier, JsonSignedPayload, RepoId, TargetFilename, ValidTargetFilename, validHardwareIdentifier}
 import com.advancedtelematic.libtuf_server.repo.client.ReposerverClient.EditTargetItem
 import com.advancedtelematic.libtuf_server.repo.server.SignedRoleGeneration
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.TargetItem
@@ -8,6 +9,7 @@ import com.advancedtelematic.tuf.reposerver.db.{FilenameCommentRepository, Targe
 import io.circe.Json
 import slick.jdbc.MySQLProfile.api._
 
+import java.net.URI
 import scala.concurrent.{ExecutionContext, Future}
 
 class TargetRoleEdit(signedRoleGeneration: SignedRoleGeneration)
@@ -46,20 +48,35 @@ class TargetRoleEdit(signedRoleGeneration: SignedRoleGeneration)
     _ <- signedRoleGeneration.regenerateAllSignedRoles(repoId)
   } yield ()
 
-  def editTargetItemCustom(repoId: RepoId, filename: TargetFilename, targetEdit: EditTargetItem): Future[Unit] = for {
-    _ <- signedRoleGeneration.ensureTargetsCanBeSigned(repoId)
-    existingTarget <- targetItemRepo.findByFilename(repoId, filename)
-    if (targetEdit.proprietaryCustom.isDefined)
-      // avoid calling updateTargetProprietaryCustom here because it regenerates all roles, which we only want to do once
-      newCustomJson = existingTarget.custom.map { custom => custom.copy(proprietary = mergeCustomJson(custom.proprietary, targetEdit.proprietaryCustom.get)) }
-      _ <- targetItemRepo.setCustom(repoId, filename, newCustomJson)
-    if (targetEdit.uri.isDefined)
-      newCustomJson = existingTarget.custom.map { custom => custom.copy(uri = targetEdit.uri) }
-      _ <- targetItemRepo.setCustom(repoId, filename, newCustomJson)
-    if (targetEdit.hardwareIds.nonEmpty)
-      newCustomJson = existingTarget.custom.map { custom => custom.copy(hardwareIds = targetEdit.hardwareIds) }
-      _ <- targetItemRepo.setCustom(repoId, filename, newCustomJson)
-    _ <- signedRoleGeneration.regenerateAllSignedRoles(repoId)
-  } yield()
 
+  private def upsertHardwareIds(hwIds: Seq[HardwareIdentifier], existing: ClientDataType.TargetCustom): ClientDataType.TargetCustom = {
+    if (hwIds.nonEmpty)
+      existing.copy(hardwareIds = hwIds)
+    else
+      existing
+  }
+  private def upsertProprietaryCustom(pCustom: Option[Json], existing: ClientDataType.TargetCustom): ClientDataType.TargetCustom = {
+    if(pCustom.isDefined)
+      existing.copy(proprietary = pCustom.get)
+    else
+      existing
+  }
+  private def upsertUri(uri: Option[URI], existing: ClientDataType.TargetCustom): ClientDataType.TargetCustom = {
+    if (uri.isDefined)
+      existing.copy(uri = uri)
+    else
+      existing
+  }
+  def editTargetItemCustom(repoId: RepoId, filename: TargetFilename, targetEdit: EditTargetItem): Future[Unit] = {
+    for {
+      _ <- signedRoleGeneration.ensureTargetsCanBeSigned(repoId)
+      existingTarget <- targetItemRepo.findByFilename(repoId, filename)
+      newCustomJson = existingTarget.custom.map { existingCustom =>
+        upsertProprietaryCustom(targetEdit.proprietaryCustom,
+          upsertHardwareIds(targetEdit.hardwareIds,
+            upsertUri(targetEdit.uri, existingCustom)))
+      }
+      _ <- targetItemRepo.setCustom(repoId, filename, newCustomJson)
+    } yield signedRoleGeneration.regenerateAllSignedRoles(repoId)
+  }
 }

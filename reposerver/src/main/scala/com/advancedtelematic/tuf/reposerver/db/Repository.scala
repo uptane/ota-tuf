@@ -12,7 +12,7 @@ import akka.stream.scaladsl.Source
 import com.advancedtelematic.libats.data.DataType.Namespace
 import com.advancedtelematic.libats.data.ErrorCode
 import com.advancedtelematic.libats.http.Errors.{EntityAlreadyExists, MissingEntity, MissingEntityId, RawError}
-import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RepoId, RoleType, TargetFilename}
+import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RepoId, RoleType, TargetFilename, validTargetFilename}
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType._
 import com.advancedtelematic.libtuf_server.repo.server.DataType._
@@ -100,7 +100,7 @@ protected [db] class TargetItemRepository()(implicit db: Database, ec: Execution
 
   def findFor(repoId: RepoId, nameContains: Option[String] = None): Future[Seq[TargetItem]] = db.run {
     if (nameContains.isDefined) {
-      targetItems.filter(_.repoId === repoId).filter(_.filename.c.toString().contains(nameContains):Rep[Boolean]).result
+      targetItems.filter(_.repoId === repoId).filter(_.filename.mappedTo[String].like(s"%${nameContains.getOrElse("")}%")).result
     } else
       targetItems.filter(_.repoId === repoId).result
   }
@@ -314,7 +314,7 @@ protected [db] class FilenameCommentRepository()(implicit db: Database, ec: Exec
   def find(repoId: RepoId, nameContains: Option[String] = None): Future[Seq[(TargetFilename, TargetComment)]] = db.run {
     val allFileNameComments = filenameComments.filter(_.repoId === repoId)
     val comments = if(nameContains.isDefined)
-      allFileNameComments.filter(_.filename.toString().contains(nameContains):Rep[Boolean])
+      allFileNameComments.filter(_.filename.mappedTo[String].like(s"%${nameContains.getOrElse("")}%"))
     else allFileNameComments
     comments.map(filenameComment => (filenameComment.filename, filenameComment.comment))
       .result

@@ -84,10 +84,13 @@ trait ReposerverClient {
                 targetFormat: TargetFormat, name: Option[TargetName] = None, version: Option[TargetVersion] = None,
                 hardwareIds: Seq[HardwareIdentifier] = Seq.empty): Future[Unit]
 
-  def addTargetFromContent(namespace: Namespace, fileName: String, uri: Option[Uri], checksum: Checksum, length: Int,
+  def addTargetFromContent(namespace: Namespace,
+                           fileName: String,
+                           length: Int,
                            targetFormat: TargetFormat,
                            content: Source[ByteString, Any],
-                           name: TargetName, version: TargetVersion,
+                           name: TargetName,
+                           version: TargetVersion,
                            hardwareIds: Seq[HardwareIdentifier] = Seq.empty): Future[Unit]
 
   def targetExists(namespace: Namespace, targetFilename: TargetFilename): Future[Boolean]
@@ -298,9 +301,13 @@ class ReposerverHttpClient(reposerverUri: Uri, httpClient: HttpRequest => Future
                           version: Option[TargetVersion], hardwareIds: Seq[HardwareIdentifier], targetFormat: TargetFormat): Json =
     RequestTargetItem(uri, checksum, Some(targetFormat), name, version, hardwareIds, length).asJson
 
-  override def addTargetFromContent(namespace: Namespace, fileName: String, uri: Option[Uri],
-                                    checksum: Checksum, length: Int, targetFormat: TargetFormat, content: Source[ByteString, Any],
-                                    name: TargetName, version: TargetVersion,
+  override def addTargetFromContent(namespace: Namespace,
+                                    fileName: String,
+                                    length: Int,
+                                    targetFormat: TargetFormat,
+                                    content: Source[ByteString, Any],
+                                    name: TargetName,
+                                    version: TargetVersion,
                                     hardwareIds: Seq[HardwareIdentifier]): Future[Unit] = {
     val params =
       Map(
