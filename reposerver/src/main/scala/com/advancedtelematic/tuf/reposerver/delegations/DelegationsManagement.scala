@@ -115,46 +115,47 @@ class DelegationsManagement()(implicit val db: Database, val ec: ExecutionContex
     (delegation.content, DelegationInfo(delegation.lastFetched, delegation.remoteUri, delegation.friendlyName))
   }
 
-
-  private def GetAllDelegationTargets(repoId: RepoId):  Future[Seq[(DelegatedRoleName, Map[TargetFilename, ClientTargetItem])]] = {
+  private def getAllDelegationTargets(repoId: RepoId): Future[Seq[(DelegatedRoleName, Map[TargetFilename, ClientTargetItem])]] = async{
     val expiresAt = Instant.now().plus(1, ChronoUnit.DAYS)
-    delegationsRepo.findAll(repoId).flatMap { delegations =>
-      Future.sequence {
-        delegations.map { delegation =>
-          SignedRole.withChecksum[TargetsRole](delegation.content, 1, expiresAt)
-            .map(signedRole => (delegation.roleName, signedRole.role.targets))
-        }
-      }
-    }
+    val delegations = await(delegationsRepo.findAll(repoId)).toList
+
+    val f = delegations.map{ delegation =>
+      SignedRole.withChecksum[TargetsRole](delegation.content, 1, expiresAt).map(signedRole => (delegation.roleName, signedRole.role.targets))
+    }.sequence
+    await(f)
   }
 
-  def findTargetByFilename(repoId: RepoId, targetFilename: TargetFilename): Future[DelegationClientTargetItem] = {
-    val delegationItems = GetAllDelegationTargets(repoId).map{delegations =>
+  def findTargetByFilename(repoId: RepoId, targetFilename: TargetFilename): Future[Seq[DelegationClientTargetItem]] = {
+    val delegationItems = getAllDelegationTargets(repoId).map{delegations =>
       delegations.flatMap{ case(delegatedRoleName, targetsMap) =>
         targetsMap.filter(_._1 == targetFilename).map{ case (filename, targetItem) =>
           DelegationClientTargetItem(filename, delegatedRoleName, targetItem)
         }
       }
     }
-    // So having the same named target across delegations is actually ok...
-    // Should we just get rid of this function?
-    delegationItems.map(_.head)
+    // Having the same named target across delegations is possible, so we must return a list
+    delegationItems.flatMap { items =>
+      if (items.isEmpty)
+        Future.failed(Errors.InvalidDelegatedTarget(NonEmptyList[String]("Target Not Found", List.empty[String])))
+      else Future.successful(items)
+    }
   }
   // delegations dont have a database table for targetItems so we must use the json directly
   def findTargets(repoId: RepoId, nameContains: Option[String] = None): Future[List[DelegationClientTargetItem]] = {
-    val allDelegationTargets = GetAllDelegationTargets(repoId)
+    val allDelegationTargets = getAllDelegationTargets(repoId)
     allDelegationTargets.map {
       _.flatMap { case (delegatedRoleName, targetsMap) =>
-        val filteredMap = if(nameContains.isDefined)
-          targetsMap.filter(_._1.value.contains(nameContains.getOrElse("")))
-        else targetsMap
-        filteredMap.map(kv => DelegationClientTargetItem(kv._1, delegatedRoleName, kv._2))
+        val filteredMap = nameContains match {
+          case Some(containsExpr) =>
+            targetsMap.filterKeys(_.value.contains(containsExpr))
+          case None =>
+            targetsMap
+        }
+        filteredMap.map{ case (filename, item) => DelegationClientTargetItem(filename, delegatedRoleName, item)}
       }.toList
     }
   }
 
-  //withChecksum[T : TufRole : Decoder](content: JsonSignedPayload, version: Int, expireAt: Instant)
-  // Only allow setting friendlyName for now, add more here
   def setDelegationInfo(repoId: RepoId, roleName: DelegatedRoleName, delegationInfo: DelegationInfo): Future[Unit] = {
     delegationInfo match {
       case DelegationInfo(Some(_), _, _) =>

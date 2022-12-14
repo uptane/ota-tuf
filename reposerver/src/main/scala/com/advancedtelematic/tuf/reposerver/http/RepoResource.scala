@@ -230,7 +230,7 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
           case (filename, comment) => FilenameComment(filename, comment)
         }
       }
-      comments.map(c => PaginationResult(c, c.length, 0, 500))
+      comments.map(c => PaginationResult(c, c.length, 0, c.length))
     }
 
   def addComment(repoId: RepoId, filename: TargetFilename, commentRequest: CommentRequest): Route =
@@ -389,7 +389,7 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
         } ~
         (pathEnd & parameter("nameContains".optional)) { nameContains =>
           val targets = delegations.findTargets(repoId, nameContains)
-            .map(t => PaginationResult(t, t.length, 0, 500))
+            .map(t => PaginationResult(t, t.length, 0, t.length))
           complete( targets )
         }
       } ~
@@ -523,7 +523,7 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
               targetItem.length,
               Some(targetItem.custom.asJson)
             )})
-          complete(clientTargetItems.map(t => PaginationResult(t, t.length, 0, 500)))
+          complete(clientTargetItems.map(t => PaginationResult(t, t.length, 0, t.length)))
         }
       }
     }

@@ -33,6 +33,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success}
 import io.circe.generic.semiauto._
+import org.slf4j.LoggerFactory
 
 import java.net.URI
 
@@ -110,7 +111,7 @@ trait ReposerverClient {
   def fetchSingleTargetItem(namespace: Namespace, targetFilename: TargetFilename): Future[ClientTargetItem]
   def fetchTargetItems(namespace: Namespace, nameContains: Option[String] = None): Future[PaginationResult[ClientTargetItem]]
   def fetchDelegationTargetItems(namespace: Namespace, nameContains: Option[String] = None): Future[PaginationResult[DelegationClientTargetItem]]
-  def fetchSingleDelegationTargetItem(namespace: Namespace, targetFilename: TargetFilename): Future[DelegationClientTargetItem]
+  def fetchSingleDelegationTargetItem(namespace: Namespace, targetFilename: TargetFilename): Future[Seq[DelegationClientTargetItem]]
 }
 
 object ReposerverHttpClient extends ServiceHttpClientSupport {
@@ -129,6 +130,8 @@ class ReposerverHttpClient(reposerverUri: Uri, httpClient: HttpRequest => Future
   import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
   import io.circe.syntax._
   import ServiceHttpClient._
+
+  val log = LoggerFactory.getLogger(this.getClass)
 
   private def apiUri(path: Path) =
     reposerverUri.withPath(reposerverUri.path / "api" / "v1" ++ Slash(path))
@@ -173,6 +176,11 @@ class ReposerverHttpClient(reposerverUri: Uri, httpClient: HttpRequest => Future
       Future.failed(NotFound)
     case error if error.status == StatusCodes.Locked =>
       Future.failed(KeysNotReady)
+    case error if error.status == StatusCodes.MethodNotAllowed =>
+      // if the parameters are wonky (like the package-id is too long), Akka will match this
+      // to another request where it fails with bad method. Catch it and respond with BadRequest
+      log.warn("Caught http 405 error from reposerver attempting to add target. Converting it to 400")
+      Future.failed(RawError(ErrorCode("bad_request"), StatusCodes.BadRequest, "invalid parameters"))
   }
 
   override def addTarget(namespace: Namespace, fileName: String,
@@ -225,9 +233,9 @@ class ReposerverHttpClient(reposerverUri: Uri, httpClient: HttpRequest => Future
     execHttpUnmarshalledWithNamespace[PaginationResult[ClientTargetItem]](namespace, req).ok
   }
 
-  override def fetchSingleDelegationTargetItem(namespace: Namespace, targetFilename: TargetFilename): Future[DelegationClientTargetItem] = {
+  override def fetchSingleDelegationTargetItem(namespace: Namespace, targetFilename: TargetFilename): Future[Seq[DelegationClientTargetItem]] = {
     val req = HttpRequest(HttpMethods.GET, uri = apiUri(Path(s"user_repo/delegations_items/${targetFilename.value}")))
-    execHttpUnmarshalledWithNamespace[DelegationClientTargetItem](namespace, req).ok
+    execHttpUnmarshalledWithNamespace[Seq[DelegationClientTargetItem]](namespace, req).ok
   }
 
   override def fetchDelegationTargetItems(namespace: Namespace, nameContains: Option[String] = None): Future[PaginationResult[DelegationClientTargetItem]] = {

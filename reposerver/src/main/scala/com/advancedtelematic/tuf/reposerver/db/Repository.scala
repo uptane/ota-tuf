@@ -99,10 +99,12 @@ protected [db] class TargetItemRepository()(implicit db: Database, ec: Execution
   }
 
   def findFor(repoId: RepoId, nameContains: Option[String] = None): Future[Seq[TargetItem]] = db.run {
-    if (nameContains.isDefined) {
-      targetItems.filter(_.repoId === repoId).filter(_.filename.mappedTo[String].like(s"%${nameContains.getOrElse("")}%")).result
-    } else
-      targetItems.filter(_.repoId === repoId).result
+    nameContains match {
+      case Some(substring) =>
+        targetItems.filter(_.repoId === repoId).filter(_.filename.mappedTo[String].like(s"%${substring}%")).result
+      case None =>
+        targetItems.filter(_.repoId === repoId).result
+    }
   }
 
   def exists(repoId: RepoId, filename: TargetFilename): Future[Boolean] = {
@@ -314,7 +316,7 @@ protected [db] class FilenameCommentRepository()(implicit db: Database, ec: Exec
   def find(repoId: RepoId, nameContains: Option[String] = None): Future[Seq[(TargetFilename, TargetComment)]] = db.run {
     val allFileNameComments = filenameComments.filter(_.repoId === repoId)
     val comments = if(nameContains.isDefined)
-      allFileNameComments.filter(_.filename.mappedTo[String].like(s"%${nameContains.getOrElse("")}%"))
+      allFileNameComments.filter(_.filename.mappedTo[String].like(s"%${nameContains.get}%"))
     else allFileNameComments
     comments.map(filenameComment => (filenameComment.filename, filenameComment.comment))
       .result

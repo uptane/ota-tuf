@@ -792,9 +792,9 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     // fetch it
     Get(apiUri(s"repo/${repoId.show}/delegations_items/some_hot_target-0.0.1")) ~> routes ~> check {
       status shouldBe StatusCodes.OK
-      val targetItem = responseAs[DelegationClientTargetItem]
-      targetItem.targetFilename shouldBe Refined.unsafeApply("some_hot_target-0.0.1")
-      targetItem.delegatedRoleName shouldBe delegatedRoleName
+      val targetItem = responseAs[List[DelegationClientTargetItem]]
+      targetItem.head.targetFilename shouldBe Refined.unsafeApply("some_hot_target-0.0.1")
+      targetItem.head.delegatedRoleName shouldBe delegatedRoleName
     }
   }
   test("can fetch all delegations_items when pattern parameter is excluded") {

@@ -48,33 +48,16 @@ class TargetRoleEdit(signedRoleGeneration: SignedRoleGeneration)
     _ <- signedRoleGeneration.regenerateAllSignedRoles(repoId)
   } yield ()
 
-
-  private def upsertHardwareIds(hwIds: Seq[HardwareIdentifier], existing: ClientDataType.TargetCustom): ClientDataType.TargetCustom = {
-    if (hwIds.nonEmpty)
-      existing.copy(hardwareIds = hwIds)
-    else
-      existing
-  }
-  private def upsertProprietaryCustom(pCustom: Option[Json], existing: ClientDataType.TargetCustom): ClientDataType.TargetCustom = {
-    if(pCustom.isDefined)
-      existing.copy(proprietary = pCustom.get)
-    else
-      existing
-  }
-  private def upsertUri(uri: Option[URI], existing: ClientDataType.TargetCustom): ClientDataType.TargetCustom = {
-    if (uri.isDefined)
-      existing.copy(uri = uri)
-    else
-      existing
-  }
   def editTargetItemCustom(repoId: RepoId, filename: TargetFilename, targetEdit: EditTargetItem): Future[Unit] = {
     for {
       _ <- signedRoleGeneration.ensureTargetsCanBeSigned(repoId)
       existingTarget <- targetItemRepo.findByFilename(repoId, filename)
       newCustomJson = existingTarget.custom.map { existingCustom =>
-        upsertProprietaryCustom(targetEdit.proprietaryCustom,
-          upsertHardwareIds(targetEdit.hardwareIds,
-            upsertUri(targetEdit.uri, existingCustom)))
+        existingCustom.copy(
+          uri = if (targetEdit.uri.isDefined) targetEdit.uri else existingCustom.uri,
+          hardwareIds = if (targetEdit.hardwareIds.nonEmpty) targetEdit.hardwareIds else existingCustom.hardwareIds,
+          proprietary = targetEdit.proprietaryCustom.getOrElse(existingCustom.proprietary)
+        )
       }
       _ <- targetItemRepo.setCustom(repoId, filename, newCustomJson)
     } yield signedRoleGeneration.regenerateAllSignedRoles(repoId)
