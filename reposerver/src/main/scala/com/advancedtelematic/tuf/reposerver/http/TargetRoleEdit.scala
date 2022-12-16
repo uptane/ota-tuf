@@ -1,12 +1,15 @@
 package com.advancedtelematic.tuf.reposerver.http
 
-import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RepoId, TargetFilename}
+import com.advancedtelematic.libtuf.data.ClientDataType
+import com.advancedtelematic.libtuf.data.TufDataType.{HardwareIdentifier, JsonSignedPayload, RepoId, TargetFilename, ValidTargetFilename, validHardwareIdentifier}
+import com.advancedtelematic.libtuf_server.repo.client.ReposerverClient.EditTargetItem
 import com.advancedtelematic.libtuf_server.repo.server.SignedRoleGeneration
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.TargetItem
 import com.advancedtelematic.tuf.reposerver.db.{FilenameCommentRepository, TargetItemRepositorySupport}
 import io.circe.Json
 import slick.jdbc.MySQLProfile.api._
 
+import java.net.URI
 import scala.concurrent.{ExecutionContext, Future}
 
 class TargetRoleEdit(signedRoleGeneration: SignedRoleGeneration)
@@ -45,4 +48,18 @@ class TargetRoleEdit(signedRoleGeneration: SignedRoleGeneration)
     _ <- signedRoleGeneration.regenerateAllSignedRoles(repoId)
   } yield ()
 
+  def editTargetItemCustom(repoId: RepoId, filename: TargetFilename, targetEdit: EditTargetItem): Future[Unit] = {
+    for {
+      _ <- signedRoleGeneration.ensureTargetsCanBeSigned(repoId)
+      existingTarget <- targetItemRepo.findByFilename(repoId, filename)
+      newCustomJson = existingTarget.custom.map { existingCustom =>
+        existingCustom.copy(
+          uri = if (targetEdit.uri.isDefined) targetEdit.uri else existingCustom.uri,
+          hardwareIds = if (targetEdit.hardwareIds.nonEmpty) targetEdit.hardwareIds else existingCustom.hardwareIds,
+          proprietary = targetEdit.proprietaryCustom.getOrElse(existingCustom.proprietary)
+        )
+      }
+      _ <- targetItemRepo.setCustom(repoId, filename, newCustomJson)
+    } yield signedRoleGeneration.regenerateAllSignedRoles(repoId)
+  }
 }

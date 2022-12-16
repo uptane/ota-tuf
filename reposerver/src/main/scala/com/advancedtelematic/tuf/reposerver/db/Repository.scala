@@ -12,7 +12,7 @@ import akka.stream.scaladsl.Source
 import com.advancedtelematic.libats.data.DataType.Namespace
 import com.advancedtelematic.libats.data.ErrorCode
 import com.advancedtelematic.libats.http.Errors.{EntityAlreadyExists, MissingEntity, MissingEntityId, RawError}
-import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RepoId, RoleType, TargetFilename}
+import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RepoId, RoleType, TargetFilename, validTargetFilename}
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType._
 import com.advancedtelematic.libtuf_server.repo.server.DataType._
@@ -98,8 +98,13 @@ protected [db] class TargetItemRepository()(implicit db: Database, ec: Execution
     }.transactionally
   }
 
-  def findFor(repoId: RepoId): Future[Seq[TargetItem]] = db.run {
-    targetItems.filter(_.repoId === repoId).result
+  def findFor(repoId: RepoId, nameContains: Option[String] = None): Future[Seq[TargetItem]] = db.run {
+    nameContains match {
+      case Some(substring) =>
+        targetItems.filter(_.repoId === repoId).filter(_.filename.mappedTo[String].like(s"%${substring}%")).result
+      case None =>
+        targetItems.filter(_.repoId === repoId).result
+    }
   }
 
   def exists(repoId: RepoId, filename: TargetFilename): Future[Boolean] = {
@@ -308,10 +313,12 @@ protected [db] class FilenameCommentRepository()(implicit db: Database, ec: Exec
       .failIfNone(CommentNotFound)
   }
 
-  def find(repoId: RepoId): Future[Seq[(TargetFilename, TargetComment)]] = db.run {
-    filenameComments
-      .filter(_.repoId === repoId)
-      .map(filenameComment => (filenameComment.filename, filenameComment.comment))
+  def find(repoId: RepoId, nameContains: Option[String] = None): Future[Seq[(TargetFilename, TargetComment)]] = db.run {
+    val allFileNameComments = filenameComments.filter(_.repoId === repoId)
+    val comments = if(nameContains.isDefined)
+      allFileNameComments.filter(_.filename.mappedTo[String].like(s"%${nameContains.get}%"))
+    else allFileNameComments
+    comments.map(filenameComment => (filenameComment.filename, filenameComment.comment))
       .result
   }
 
@@ -329,7 +336,9 @@ protected [db] class DelegationRepository()(implicit db: Database, ec: Execution
   def find(repoId: RepoId, roleNames: DelegatedRoleName*): Future[DbDelegation] = db.run {
     Schema.delegations.filter(_.repoId === repoId).filter(_.roleName.inSet(roleNames)).result.failIfNotSingle(DelegationNotFound)
   }
-
+  def findAll(repoId: RepoId): Future[Seq[DbDelegation]] = db.run {
+    Schema.delegations.filter(_.repoId === repoId).result
+  }
   def persist(repoId: RepoId, roleName: DelegatedRoleName, content: JsonSignedPayload, remoteUri: Option[Uri], lastFetch: Option[Instant], remoteHeaders: Map[String, String], friendlyName: Option[DelegationFriendlyName]): Future[Unit] = db.run {
     Schema.delegations.insertOrUpdate(DbDelegation(repoId, roleName, content, remoteUri, lastFetch, remoteHeaders, friendlyName)).map(_ => ())
   }

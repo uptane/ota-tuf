@@ -31,6 +31,10 @@ object ClientDataType {
                               length: Long, custom: Option[Json]) {
     def customParsed[T : Decoder]: Option[T] = custom.flatMap(_.as[T].toOption)
   }
+  // is it dumb to have the targetFilename field since this can be formed from clientTargetItem.custom?
+  case class DelegationClientTargetItem(targetFilename: TargetFilename,
+                                        delegatedRoleName: DelegatedRoleName,
+                                        clientTargetItem: ClientTargetItem)
 
   case class RoleKeys(keyids: Seq[KeyId], threshold: Int)
 
