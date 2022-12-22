@@ -1,7 +1,6 @@
 package com.advancedtelematic.tuf.keyserver.daemon
 
 import java.security.Security
-
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
@@ -15,7 +14,7 @@ import com.advancedtelematic.metrics.MetricsSupport
 import com.advancedtelematic.metrics.prometheus.PrometheusMetricsSupport
 import com.codahale.metrics.MetricRegistry
 import com.typesafe.config.Config
-import org.mariadb.jdbc.internal.logging.LoggerFactory
+import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future
 
