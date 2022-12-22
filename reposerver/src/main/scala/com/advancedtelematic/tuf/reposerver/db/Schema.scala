@@ -1,10 +1,9 @@
 package com.advancedtelematic.tuf.reposerver.db
 
 import java.time.Instant
-
 import akka.http.scaladsl.model.Uri
 import com.advancedtelematic.libats.data.DataType.{Checksum, Namespace}
-import com.advancedtelematic.libtuf.data.ClientDataType.{DelegatedRoleName, TargetCustom}
+import com.advancedtelematic.libtuf.data.ClientDataType.{DelegatedRoleName, DelegationFriendlyName, TargetCustom}
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RepoId, TargetFilename}
 import slick.jdbc.MySQLProfile.api._
@@ -91,10 +90,11 @@ object Schema {
     def remoteUri = column[Option[Uri]]("uri")
     def remoteHeaders = column[Map[String, String]]("remote_headers")
     def lastFetched = column[Option[Instant]]("last_fetched_at")
+    def friendlyName = column[Option[DelegationFriendlyName]]("friendly_name")
 
     def pk = primaryKey("delegations_pk", (repoId, roleName))
 
-    override def * = (repoId, roleName, content, remoteUri, lastFetched, remoteHeaders) <> ((DbDelegation.apply _).tupled, DbDelegation.unapply)
+    override def * = (repoId, roleName, content, remoteUri, lastFetched, remoteHeaders, friendlyName) <> ((DbDelegation.apply _).tupled, DbDelegation.unapply)
   }
 
   protected [db] val delegations = TableQuery[DelegationTable]

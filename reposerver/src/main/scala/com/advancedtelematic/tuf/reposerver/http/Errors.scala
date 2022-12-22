@@ -22,12 +22,15 @@ object ErrorCodes {
   val DelegationNotFound = ErrorCode("delegations_not_found")
   val DelegationNotDefined = ErrorCode("delegations_not_defined")
   val InvalidTrustedDelegations = ErrorCode("trusted_delegations_invalid")
+  val InvalidDelegationName = ErrorCode("invalid_delegation_role_name")
   val PayloadSignatureInvalid = ErrorCode("payload_signature_invalid")
   val InvalidOfflineTargets = ErrorCode("invalid_offline_targets")
   val RequestCanceledByUpstream = ErrorCode("request_canceled_by_upstream")
   val DelegationRemoteFetchFailed = ErrorCode("delegation_remote_fetch_failed")
   val DelegationRemoteParseFailed = ErrorCode("delegation_remote_parse_failed")
+  val InvalidDelegatedTarget = ErrorCode("invalid_delegated_target")
   val MissingRemoteDelegationUri = ErrorCode("missing_remote_delegation_uri")
+  val ImmutableFields = ErrorCode("immutable_fields_specified")
 }
 
 object Errors {
@@ -68,6 +71,14 @@ object Errors {
   def InvalidTrustedDelegations(errors: NonEmptyList[String]) =
     JsonError(ErrorCodes.InvalidTrustedDelegations, StatusCodes.BadRequest, errors.asJson, "Invalid trusted delegations")
 
+  def InvalidDelegationName(errors: NonEmptyList[String]) =
+    JsonError(ErrorCodes.InvalidDelegationName, StatusCodes.BadRequest, errors.asJson, "Invalid delegation name")
+
+  def InvalidDelegatedTarget(errors: NonEmptyList[String]) =
+    JsonError(ErrorCodes.InvalidDelegatedTarget, StatusCodes.BadRequest, errors.asJson, "Invalid delegated target filename(s)")
+
+  case class RequestedImmutableFields(mutableFields: Seq[String], immutableFields: Seq[String])
+    extends com.advancedtelematic.libats.http.Errors.Error(ErrorCodes.ImmutableFields, StatusCodes.BadRequest, s"Only allowed to manipulate field(s): ${mutableFields.toString()}, NOT: ${immutableFields.toString()}")
   case class NotImplemented(message: String)
     extends com.advancedtelematic.libats.http.Errors.Error(com.advancedtelematic.libtuf.data.ErrorCodes.Reposerver.NotImplemented, StatusCodes.NotImplemented, message)
 

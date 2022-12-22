@@ -83,7 +83,7 @@ class ReposerverHttpClientSpec extends TufReposerverSpec
     val repoId = client.createRoot(ns, keyType).futureValue
     val content = FileIO.fromPath(tempFile)
 
-    client.addTargetFromContent(ns, "myfilename", None, Sha256Digest.digest("hi".getBytes), text.length, BINARY, content, TargetName("fakename"), TargetVersion("0.0.0")).futureValue shouldBe(())
+    client.addTargetFromContent(ns, "myfilename", text.length, BINARY, content, TargetName("fakename"), TargetVersion("0.0.0")).futureValue shouldBe(())
 
     val bytes = targetStore.retrieve(repoId, "myfilename".refineTry[ValidTargetFilename].get).flatMap {
       _.entity.dataBytes.runWith(Sink.reduce[ByteString](_ ++ _))

@@ -9,25 +9,25 @@ import akka.http.scaladsl.server._
 import akka.http.scaladsl.unmarshalling._
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
+import cats.data.Validated.{Invalid, Valid}
+import com.advancedtelematic.libats.data.DataType.HashMethod.HashMethod
 import com.advancedtelematic.libats.data.RefinedUtils._
 import com.advancedtelematic.libats.http.Errors.{EntityAlreadyExists, MissingEntity}
 import com.advancedtelematic.libats.http.RefinedMarshallingSupport._
 import com.advancedtelematic.libats.http.UUIDKeyAkka._
 import com.advancedtelematic.libtuf.data.ClientCodecs._
-import com.advancedtelematic.libtuf.data.ClientDataType.{DelegatedRoleName, Delegation, RootRole, TargetCustom, TargetsRole}
+import com.advancedtelematic.libtuf.data.ClientDataType.{ClientHashes, ClientTargetItem, DelegatedRoleName, Delegation, DelegationClientTargetItem, RootRole, TargetCustom, TargetsRole}
 import com.advancedtelematic.libtuf.data.TufCodecs._
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 import com.advancedtelematic.libats.http.AnyvalMarshallingSupport._
-import com.advancedtelematic.libtuf.data.TufCodecs._
-import com.advancedtelematic.libtuf.data.ClientCodecs._
-import com.advancedtelematic.libats.data.DataType.Namespace
-import com.advancedtelematic.libats.data.ErrorRepresentation
+import com.advancedtelematic.libats.data.DataType.{Namespace, ValidChecksum}
+import com.advancedtelematic.libats.data.{ErrorRepresentation, PaginationResult}
 import com.advancedtelematic.libtuf.data.TufDataType._
 import com.advancedtelematic.libtuf_server.data.Marshalling._
 import com.advancedtelematic.libtuf_server.data.Requests.{CommentRequest, CreateRepositoryRequest, _}
 import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient
 import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient.RootRoleNotFound
-import com.advancedtelematic.libtuf_server.repo.client.ReposerverClient.RequestTargetItem
+import com.advancedtelematic.libtuf_server.repo.client.ReposerverClient.{EditTargetItem, RequestTargetItem}
 import com.advancedtelematic.libtuf_server.repo.server.DataType.SignedRole
 import com.advancedtelematic.tuf.reposerver.Settings
 import com.advancedtelematic.libtuf_server.repo.server.DataType._
@@ -35,7 +35,7 @@ import com.advancedtelematic.libtuf_server.repo.server.RepoRoleRefresh
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType._
 import com.advancedtelematic.tuf.reposerver.db._
 import com.advancedtelematic.tuf.reposerver.delegations.{DelegationsManagement, RemoteDelegationClient}
-import com.advancedtelematic.tuf.reposerver.http.Errors.{NoRepoForNamespace, RequestCanceledByUpstream}
+import com.advancedtelematic.tuf.reposerver.http.Errors.{DelegationNotFound, NoRepoForNamespace, RequestCanceledByUpstream}
 import com.advancedtelematic.tuf.reposerver.http.RoleChecksumHeader._
 import com.advancedtelematic.tuf.reposerver.target_store.TargetStore
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
@@ -47,6 +47,7 @@ import scala.async.Async._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 import com.advancedtelematic.tuf.reposerver.data.RepoCodecs._
+import eu.timepit.refined.api.Refined
 
 
 class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: NamespaceValidation,
@@ -222,13 +223,14 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
       filenameCommentRepo.find(repoId, filename).map(CommentRequest)
     }
 
-  def findComments(repoId: RepoId): Route =
+  def findComments(repoId: RepoId, nameContains: Option[String] = None): Route =
     complete {
-      filenameCommentRepo.find(repoId).map {
+      val comments = filenameCommentRepo.find(repoId, nameContains).map {
         _.map {
           case (filename, comment) => FilenameComment(filename, comment)
         }
       }
+      comments.map(c => PaginationResult(c, c.length, 0, c.length))
     }
 
   def addComment(repoId: RepoId, filename: TargetFilename, commentRequest: CommentRequest): Route =
@@ -244,6 +246,19 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
       _ <- targetRoleEdit.deleteTargetItem(repoId, filename)
       _ <- tufTargetsPublisher.targetsMetaModified(namespace)
     } yield StatusCodes.NoContent
+  }
+
+  def editTargetItem(namespace: Namespace,
+                     repoId: RepoId,
+                     filename: TargetFilename,
+                     targetEdit: EditTargetItem): Future[ClientTargetItem] = {
+    for {
+      _ <- targetRoleEdit.editTargetItemCustom(repoId, filename, targetEdit)
+      targetItem <- targetItemRepo.findByFilename(repoId, filename)
+    } yield ClientTargetItem(
+        Seq(targetItem.checksum.method -> targetItem.checksum.hash).toMap,
+        targetItem.length,
+        Some(targetItem.custom.asJson))
   }
 
   def saveOfflineTargetsRole(repoId: RepoId, namespace: Namespace, signedPayload: SignedPayload[TargetsRole],
@@ -279,6 +294,16 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
       (get & path(JsonRoleTypeMetaPath)) { roleType =>
         findRole(repoId, roleType)
       } ~
+      /*
+      Welp, delegations and their respective API endpoints (and the surrounding vernacular) are a bit confusing.
+        Trusted-Delegations refer to the references that must exist in a user's targets metadata in order to 'delegate' signing authority to a third party
+        Delegations refer to the actual delegated metadata, that is, the json files signed with a third party key containing delegated targets
+        We also made Trusted-Delegations the toplevel api endpoint for a collection of "api actions" that interact with delegations.
+        These actions are:
+         - creation of delegations by fetching the delegated metadata via a remote-uri (known as a remote delegation)
+         - refreshing a remote-delegation using the saved remote-uri
+         - setting and retrieving delegation info. Info being things like friendlyName, remoteUri, lastFetched, etc.
+       */
       pathPrefix("trusted-delegations" ) {
         (pathEnd & put & entity(as[List[Delegation]])) { payload =>
           val f = trustedDelegations.add(repoId, payload)(signedRoleGeneration).map(_ => StatusCodes.NoContent)
@@ -299,6 +324,31 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
           }
           complete(f)
         } ~
+        (put & path(DelegatedRoleNamePath / "remote") & pathEnd & entity(as[AddDelegationFromRemoteRequest])) { (delegatedRoleName, req) =>
+          onSuccess(delegations.createFromRemote(repoId, req.uri, delegatedRoleName, req.remoteHeaders.getOrElse(Map.empty), req.friendlyName)) {
+            complete(StatusCodes.Created)
+          }
+        } ~
+        (put & path(DelegatedRoleNamePath / "remote" / "refresh")) { delegatedRoleName =>
+          complete(delegations.updateFromRemote(repoId, delegatedRoleName))
+        } ~
+        (get & path(DelegatedRoleNamePath / "info")) { delegatedRoleName =>
+          onSuccess(delegations.find(repoId, delegatedRoleName)) { (_, delegationInfo) =>
+            complete(StatusCodes.OK, delegationInfo)
+          }
+        } ~
+        (patch & path(DelegatedRoleNamePath / "info") & entity(as[DelegationInfo])) { (delegatedRoleName, delegationInfo) =>
+          onSuccess(delegations.setDelegationInfo(repoId, delegatedRoleName, delegationInfo)) {
+            complete(StatusCodes.OK)
+          }
+        } ~
+        (get & path("info") & pathEnd) {
+          val infos: Future[Map[String, DelegationInfo]] = for {
+            trustedDelegations <- trustedDelegations.get(repoId)
+            delegationInfos <- Future.sequence(trustedDelegations.map(td => delegations.find(repoId, td.name).map(d => td.name.value -> d._2)))
+          } yield (delegationInfos.toMap)
+          complete(StatusCodes.OK, infos )
+        } ~
         path("keys") {
           (put & entity(as[List[TufKey]])) { keys =>
             val f = trustedDelegations.addKeys(repoId, keys)(signedRoleGeneration).map(_ => StatusCodes.NoContent)
@@ -313,27 +363,34 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
           }
         }
       } ~
-      pathPrefix("remote-delegations") {
-        (put & pathEnd & entity(as[AddDelegationFromRemoteRequest])) { req =>
-          onSuccess(delegations.createFromRemote(repoId, req.uri, req.delegationName, req.remoteHeaders.getOrElse(Map.empty))) {
-            complete(StatusCodes.Created)
+      path("delegations" / DelegatedRoleUriPath) { roleName =>
+        DelegatedRoleName.delegatedRoleNameValidation(roleName) match {
+          case Valid(delegatedRoleName) => {
+            (put & entity(as[SignedPayload[TargetsRole]]) & pathEnd) { payload =>
+              complete(delegations.create(repoId, delegatedRoleName, payload).map(_ => StatusCodes.NoContent))
+            } ~
+            get {
+              onSuccess(delegations.find(repoId, delegatedRoleName)) { (delegation, delegationInfo) =>
+                delegationInfo match {
+                  case DelegationInfo(Some(lastFetched), _, _) =>
+                    complete(StatusCodes.OK, List(RawHeader("x-ats-delegation-last-fetched-at", lastFetched.toString)), delegation)
+                  case DelegationInfo(_, _, _) =>
+                    complete(StatusCodes.OK -> delegation)
+                }
+              }
+            }
           }
-        } ~
-          (path(DelegatedRoleNamePath / "refresh") & put) { delegatedRoleName =>
-            complete(delegations.updateFromRemote(repoId, delegatedRoleName))
-          }
+          case Invalid(errList) => complete(Errors.InvalidDelegationName(errList))
+        }
       } ~
-      path("delegations" / DelegatedRoleUriPath) { delegatedRoleName =>
-        (put & entity(as[SignedPayload[TargetsRole]])) { payload =>
-          complete(delegations.create(repoId, delegatedRoleName, payload).map(_ => StatusCodes.NoContent))
+      pathPrefix("delegations_items") {
+        (get & pathPrefix(TargetFilenamePath)) { filename =>
+          complete(delegations.findTargetByFilename(repoId, filename))
         } ~
-        get {
-          onSuccess(delegations.find(repoId, delegatedRoleName)) {
-            case (delegation, Some(lastFetched)) =>
-              complete(StatusCodes.OK, List(RawHeader("x-ats-delegation-last-fetched-at", lastFetched.toString)), delegation)
-            case (delegation, _) =>
-              complete(StatusCodes.OK -> delegation)
-          }
+        (pathEnd & parameter("nameContains".optional)) { nameContains =>
+          val targets = delegations.findTargets(repoId, nameContains)
+            .map(t => PaginationResult(t, t.length, 0, t.length))
+          complete( targets )
         }
       } ~
       pathPrefix("uploads") {
@@ -368,11 +425,12 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
           }
         }
       } ~
-        pathPrefix("proprietary-custom" / TargetFilenamePath) { filename =>
-          (patch & entity(as[Json])) { proprietaryCustom =>
-            val f = targetRoleEdit.updateTargetProprietaryCustom(repoId, filename, proprietaryCustom)
-            complete(f.map(_ => StatusCodes.NoContent))
-          }
+      // Ben thinks we should just move this under the patch endpoint below at PATCH:user_repo/targets/{targetFileName}
+      pathPrefix("proprietary-custom" / TargetFilenamePath) { filename =>
+        (patch & entity(as[Json])) { proprietaryCustom =>
+          val f = targetRoleEdit.updateTargetProprietaryCustom(repoId, filename, proprietaryCustom)
+          complete(f.map(_ => StatusCodes.NoContent))
+        }
       } ~
       pathPrefix("targets") {
         path("expire" / "not-before") {
@@ -409,6 +467,9 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
           } ~
           delete {
             deleteTargetItem(namespace, repoId, filename)
+          } ~
+          (patch & entity(as[EditTargetItem])) { item =>
+            complete(editTargetItem(namespace, repoId, filename, item))
           }
         } ~
         withRequestTimeout(userRepoUploadRequestTimeout, timeoutResponseHandler) { // For when SignedPayload[TargetsRole] is too big and takes a long time to upload
@@ -426,8 +487,8 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
         }
       } ~
       pathPrefix("comments") {
-        pathEnd {
-          findComments(repoId)
+        (pathEnd & parameter("nameContains".optional)) { nameContains =>
+          findComments(repoId, nameContains)
         } ~
         pathPrefix(TargetFilenamePath) { filename =>
           put {
@@ -438,6 +499,31 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
           get {
             findComment(repoId, filename)
           }
+        }
+      } ~
+      pathPrefix("target_items") {
+        (get & pathPrefix(TargetFilenamePath)) { filename =>
+          val targetItem = targetItemRepo.findByFilename(repoId, filename)
+          .map{ targetItem =>
+            val someClientHashes: ClientHashes = Map[HashMethod, Refined[String, ValidChecksum]](targetItem.checksum.method -> targetItem.checksum.hash)
+            ClientTargetItem(
+              someClientHashes,
+              targetItem.length,
+              Some(targetItem.custom.asJson)
+            )
+          }
+          complete(targetItem)
+        } ~
+        (get & pathEnd & parameter("nameContains".optional)) { nameContains =>
+          val targetItems = targetItemRepo.findFor(repoId, nameContains).map(_.toList)
+          val clientTargetItems = targetItems.map(_.map{targetItem =>
+            val someClientHashes: ClientHashes = Map[HashMethod, Refined[String, ValidChecksum]](targetItem.checksum.method -> targetItem.checksum.hash)
+            ClientTargetItem(
+              someClientHashes,
+              targetItem.length,
+              Some(targetItem.custom.asJson)
+            )})
+          complete(clientTargetItems.map(t => PaginationResult(t, t.length, 0, t.length)))
         }
       }
     }

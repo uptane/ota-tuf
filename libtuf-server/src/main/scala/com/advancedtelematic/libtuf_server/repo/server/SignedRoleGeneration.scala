@@ -10,8 +10,7 @@ import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RepoId, RoleType}
 import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient
 import com.advancedtelematic.libtuf_server.repo.server.DataType.SignedRole
-import io.circe.{Codec, Decoder, Encoder}
-import io.circe.syntax._
+import io.circe.Codec
 import org.slf4j.LoggerFactory
 
 import scala.async.Async._
@@ -84,13 +83,13 @@ class SignedRoleGeneration(keyserverClient: KeyserverClient,
       SignedRole.withChecksum[RootRole](rootRole.asJsonSignedPayload, rootRole.signed.version, rootRole.signed.expires)
     }
 
-  private def findFreshRole[T](repoId: RepoId)(refreshFn: => Future[SignedRole[T]])(implicit tufRole: TufRole[T]): Future[SignedRole[T]] = {
+  private def findFreshRole[T](repoId: RepoId, repoRoleRefresh: RepoRoleRefresh)(implicit tufRole: TufRole[T]): Future[SignedRole[T]] = {
     val f = for {
       notBefore <- signedRoleProvider.expireNotBefore(repoId)
       existingRole <- signedRoleProvider.find[T](repoId)
       signedRole <- if (existingRole.expiresAt.isBefore(Instant.now.plus(1, ChronoUnit.HOURS)) ||
         existingRole.expiresAt.isBefore(notBefore.getOrElse(existingRole.expiresAt))) {
-        refreshFn.recoverWith {
+        repoRoleRefresh.refreshRole(repoId).recoverWith {
           case KeyserverClient.RoleKeyNotFound =>
             log.info(s"Could not update ${tufRole.roleType} (for $repoId) because the keys are missing, returning expired version")
             FastFuture.successful(existingRole)
@@ -120,14 +119,11 @@ class SignedRoleGeneration(keyserverClient: KeyserverClient,
       case RoleType.ROOT =>
         fetchRootRole(repoId)
       case RoleType.TARGETS =>
-        findFreshRole[TargetsRole](repoId)(refresher.refreshTargets(repoId))
+        findFreshRole[TargetsRole](repoId, refresher)
       case RoleType.SNAPSHOT =>
-        for {
-          _ <- findFreshRole[TargetsRole](repoId)(refresher.refreshTargets(repoId)) // Getting a fresh targets before will ensure the returned snapshots will include the latest
-          snapshotRole <- findFreshRole[SnapshotRole](repoId)(refresher.refreshSnapshots(repoId))
-        } yield snapshotRole
+        findRoleAfterFreshTargets[SnapshotRole](repoId, refresher)
       case RoleType.TIMESTAMP =>
-        findFreshRole[TimestampRole](repoId)(refresher.refreshTimestamp(repoId))
+        findRoleAfterFreshTargets[TimestampRole](repoId, refresher)
       case r =>
         throw new IllegalArgumentException(s"Unknown role type $r")
     }
@@ -140,6 +136,12 @@ class SignedRoleGeneration(keyserverClient: KeyserverClient,
       .recover {
         case _: MissingEntityId[_] => 1
       }
+
+  private def findRoleAfterFreshTargets[T: TufRole](repoId: RepoId, repoRoleRefresh: RepoRoleRefresh): Future[SignedRole[_]] =
+    for {
+      _ <- findFreshRole[TargetsRole](repoId, repoRoleRefresh) // Getting a fresh targets before will ensure the returned snapshots will include the latest
+      role <- findFreshRole[T](repoId, repoRoleRefresh)
+    } yield role
 
   private def genSnapshotRole(root: SignedRole[RootRole], target: SignedRole[TargetsRole],
                               delegations: Map[MetaPath, MetaItem], expireAt: Instant, version: Int): SnapshotRole = {
