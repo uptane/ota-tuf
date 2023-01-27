@@ -170,7 +170,7 @@ class FakeKeyserverClient extends KeyserverClient {
     keys.asScala.get(repoId).flatMap(_.values.find(_.pubkey.id == keyId)).getOrElse(throw KeyPairNotFound)
   } }
 
-  override def addOfflineUpdatesRole(repoId: RepoId): Future[Unit] = async {
+  private def addRoles(repoId: RepoId, roles: RoleType*): Future[Unit] = async {
     val rootRole = await(fetchUnsignedRoot(repoId))
 
     val rootKeyType = for {
@@ -182,17 +182,30 @@ class FakeKeyserverClient extends KeyserverClient {
     val keyType = rootKeyType.getOrElse(KeyType.default)
 
     val keyPair = keyType.crypto.generateKeyPair()
-    updateRepoKeys(repoId, RoleType.OFFLINE_UPDATES, keyPair)
-    updateRepoKeys(repoId, RoleType.OFFLINE_SNAPSHOT, keyPair)
-    val roleKeys = RoleKeys(Seq(keyPair.pubkey.id), 1)
 
-    val newRoles = rootRole.roles + (RoleType.OFFLINE_UPDATES -> roleKeys, RoleType.OFFLINE_UPDATES -> roleKeys)
+    val keys = roles.map { role => role -> keyPair }
+
+    keys.foreach { case (role, key) =>
+      updateRepoKeys(repoId, role, key)
+    }
+
+    val roleKeys = keys.map { case (role, key) =>
+      role -> RoleKeys(Seq(key.pubkey.id), 1)
+    }.toMap
+
+    val newRoles = rootRole.roles ++ roleKeys
     val newKeys = rootRole.keys + (keyPair.pubkey.id -> keyPair.pubkey)
 
     val newRootRole = RootRole(roles = newRoles, keys = newKeys, version = rootRole.version + 1, expires = rootRole.expires.plus(1, ChronoUnit.DAYS))
     val signed = await(sign(repoId, newRootRole))
     rootRoles.put(repoId, signed)
   }
+
+  override def addOfflineUpdatesRole(repoId: RepoId): Future[Unit] =
+    addRoles(repoId, RoleType.OFFLINE_UPDATES, RoleType.OFFLINE_SNAPSHOT)
+
+  override def addRemoteSessionsRole(repoId: RepoId): Future[Unit] =
+    addRoles(repoId, RoleType.REMOTE_SESSIONS)
 }
 
 trait LongHttpRequest {
