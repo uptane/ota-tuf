@@ -110,9 +110,8 @@ class SignedRoleGeneration(keyserverClient: KeyserverClient,
       .flatMap(_ => signedRoleProvider.find[T](repoId))
   }
 
-  def findRole[T](repoId: RepoId)(implicit tufRole: TufRole[T], refresher: RepoRoleRefresh): Future[SignedRole[T]] = {
+  def findRole[T](repoId: RepoId)(implicit tufRole: TufRole[T], refresher: RepoRoleRefresh): Future[SignedRole[T]] =
     findRole(repoId, tufRole.roleType, refresher).asInstanceOf[Future[SignedRole[T]]]
-  }
 
   def findRole(repoId: RepoId, roleType: RoleType, refresher: RepoRoleRefresh): Future[SignedRole[_]] = {
     roleType match {
@@ -124,6 +123,8 @@ class SignedRoleGeneration(keyserverClient: KeyserverClient,
         findRoleAfterFreshTargets[SnapshotRole](repoId, refresher)
       case RoleType.TIMESTAMP =>
         findRoleAfterFreshTargets[TimestampRole](repoId, refresher)
+      case RoleType.REMOTE_SESSIONS =>
+        findRoleAfterFreshTargets[RemoteSessionsRole](repoId, refresher)
       case r =>
         throw new IllegalArgumentException(s"Unknown role type $r")
     }

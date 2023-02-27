@@ -879,6 +879,25 @@ class RootRoleResourceSpec extends TufKeyserverSpec
     newRoot2 shouldBe newRoot
   }
 
+  test("adds remote-session role if does not exist") {
+    val repoId = RepoId.generate()
+    generateRootRole(repoId, Ed25519KeyType).futureValue
+
+    val oldRoot = fetchLatestRootOk(repoId).signed
+
+    Put(apiUri(s"root/${repoId.show}/roles/remote-sessions")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+    }
+
+    val newRoot = fetchLatestRootOk(repoId).signed
+    newRoot.version shouldBe oldRoot.version + 1
+
+    val offlineTargetsKeys = newRoot.roles.get(RoleType.REMOTE_SESSIONS).value
+
+    offlineTargetsKeys.keyids shouldNot be(empty)
+    offlineTargetsKeys.threshold shouldBe 1
+  }
+
   def fetchLatestRootOk(repoId: RepoId): SignedPayload[RootRole] = {
     Get(apiUri(s"root/${repoId.show}")) ~> routes ~> check {
       status shouldBe StatusCodes.OK
