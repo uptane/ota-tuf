@@ -63,8 +63,9 @@ object TufDataType {
     val ROOT, SNAPSHOT, TARGETS, TIMESTAMP = Value
     val OFFLINE_UPDATES = Value("OFFLINE-UPDATES")
     val OFFLINE_SNAPSHOT = Value("OFFLINE-SNAPSHOT")
+    val REMOTE_SESSIONS = Value("REMOTE-SESSIONS")
 
-    // TUF_ALL does not include OFFLINE_TARGETS and OFFLINE_SNAPSHOT which are only used in UPTANE, not TUF
+    // TUF_ALL does not include OFFLINE_TARGETS, OFFLINE_SNAPSHOT and REMOTE_SESSIONS which are only used in UPTANE, not TUF
     val TUF_ALL = List(ROOT, SNAPSHOT, TARGETS, TIMESTAMP)
 
     implicit val show = Show.show[Value](_.toString.toLowerCase)

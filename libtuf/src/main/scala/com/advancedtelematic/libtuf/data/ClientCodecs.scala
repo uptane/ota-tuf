@@ -108,6 +108,9 @@ object ClientCodecs {
   implicit val offlineSnapshotRoleDecoder: Decoder[OfflineSnapshotRole] = deriveDecoder[OfflineSnapshotRole].validateRoleType
   implicit val offlineSnapshotRoleCodec: Codec[OfflineSnapshotRole] = Codec.from(offlineSnapshotRoleDecoder, offlineSnapshotRoleEncoder)
 
+  implicit val remoteSessionssRoleEncoder: Encoder[RemoteSessionsRole] = deriveEncoder[RemoteSessionsRole].encodeRoleType
+  implicit val remoteSessionsRoleDecoder: Decoder[RemoteSessionsRole] = deriveDecoder[RemoteSessionsRole].validateRoleType
+  implicit val remoteSessionsRoleCodec: Codec[RemoteSessionsRole] = Codec.from(remoteSessionsRoleDecoder, remoteSessionssRoleEncoder)  
 
   implicit val snapshotRoleEncoder: Encoder[SnapshotRole] = deriveEncoder[SnapshotRole].encodeRoleType
   implicit val snapshotRoleDecoder: Decoder[SnapshotRole] = deriveDecoder[SnapshotRole].validateRoleType

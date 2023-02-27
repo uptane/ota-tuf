@@ -26,7 +26,6 @@ object KeyserverClient {
   val RootRoleNotFound = RawError(ErrorCode("root_role_not_found"), StatusCodes.FailedDependency, "root role was not found in upstream key store")
   val RootRoleConflict = RawError(ErrorCode("root_role_conflict"), StatusCodes.Conflict, "root role already exists")
   val RoleKeyNotFound = RawError(ErrorCode("role_key_not_found"), StatusCodes.PreconditionFailed, s"can't sign since role was not found in upstream key store")
-  val KeyError = RawError(ErrorCode("key_error"), StatusCodes.BadRequest, "key cannot be processed")
   val KeyPairNotFound = RawError(ErrorCode("keypair_not_found"), StatusCodes.NotFound, "keypair not found in keyserver")
 }
 
@@ -50,6 +49,8 @@ trait KeyserverClient {
   def fetchTargetKeyPairs(repoId: RepoId): Future[Seq[TufKeyPair]]
 
   def addOfflineUpdatesRole(repoId: RepoId): Future[Unit]
+
+  def addRemoteSessionsRole(repoId: RepoId): Future[Unit]
 }
 
 object KeyserverHttpClient extends ServiceHttpClientSupport {
@@ -145,6 +146,11 @@ class KeyserverHttpClient(uri: Uri, httpClient: HttpRequest => Future[HttpRespon
 
   override def addOfflineUpdatesRole(repoId: RepoId): Future[Unit] = {
     val req = HttpRequest(HttpMethods.PUT, uri = apiUri(Path("root") / repoId.show / "roles" / "offline-updates"))
+    execHttpUnmarshalled[Unit](req).ok
+  }
+
+  override def addRemoteSessionsRole(repoId: RepoId): Future[Unit] = {
+    val req = HttpRequest(HttpMethods.PUT, uri = apiUri(Path("root") / repoId.show / "roles" / "remote-sessions"))
     execHttpUnmarshalled[Unit](req).ok
   }
 }

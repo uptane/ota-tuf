@@ -132,6 +132,13 @@ class RootRoleResource()
 
         complete(f)
       } ~
+      (path("roles" / "remote-sessions") & put) {
+        val f = for {
+          _ <- signedRootRoles.addRolesIfNotPresent(repoId, RoleType.REMOTE_SESSIONS)
+        } yield StatusCodes.OK
+
+        complete(f)
+      } ~
       path("unsigned") {
         get {
           val f = signedRootRoles.findForSign(repoId)
