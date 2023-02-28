@@ -104,6 +104,7 @@ object ClientDataType {
     implicit val rootTufRole = apply[RootRole](RoleType.ROOT)((r, v, e) => r.copy(version = v, expires = e))
     implicit val offlineUpdatesRole = apply[OfflineUpdatesRole](RoleType.OFFLINE_UPDATES)((r, v, e) => r.copy(version = v, expires = e))
     implicit val offlineSnapshotRole = apply[OfflineSnapshotRole](RoleType.OFFLINE_SNAPSHOT)((r, v, e) => r.copy(version = v, expires = e))
+    implicit val remoteSessionsRole = apply[RemoteSessionsRole](RoleType.REMOTE_SESSIONS)((r, v, e) => r.copy(version = v, expires = e))
   }
 
   case class RootRole(keys: Map[KeyId, TufKey],
@@ -134,6 +135,9 @@ object ClientDataType {
                                  expires: Instant,
                                  version: Int) extends VersionedRole
 
+  case class RemoteSessionsRole(remote_sessions: Json,
+                                expires: Instant,
+                                version: Int) extends VersionedRole
   final class DelegatedPathPattern private (val value: String) extends ValidatedString
 
   object DelegatedPathPattern {
