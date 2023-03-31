@@ -37,6 +37,7 @@ class S3TargetStoreEngine(credentials: S3Credentials)(implicit val system: Actor
   private lazy val s3client = AmazonS3ClientBuilder.standard()
     .withCredentials(credentials)
     .withRegion(credentials.region)
+    .withDualstackEnabled(true)
     .build()
 
   override def store(repoId: RepoId, filename: TargetFilename, fileData: Source[ByteString, Any]): Future[TargetStoreResult] = {
