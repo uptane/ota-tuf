@@ -1,9 +1,9 @@
 libraryDependencies ++= {
-  val bouncyCastleV = "1.70"
+  val bouncyCastleV = "1.73"
 
   Seq(
-    "org.bouncycastle" % "bcprov-jdk15on" % bouncyCastleV,
-    "org.bouncycastle" % "bcpkix-jdk15on" % bouncyCastleV,
+    "org.bouncycastle" % "bcprov-jdk18on" % bouncyCastleV,
+    "org.bouncycastle" % "bcpkix-jdk18on" % bouncyCastleV,
     "net.i2p" % "i2p" % "2.2.0",
     "com.softwaremill.sttp.client" %% "core" % "2.3.0",
     "com.softwaremill.sttp.client" %% "slf4j-backend" % "2.3.0",
