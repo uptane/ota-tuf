@@ -37,7 +37,7 @@ class ReposerverHttpClientSpec extends TufReposerverSpec
   keyTypeTest("fetches a root") { keyType =>
     val ns = genNs
     client.createRoot(ns, keyType).futureValue
-    val (repoId, signedRoot)  = client.fetchRoot(ns).futureValue
+    val (repoId, signedRoot)  = client.fetchRoot(ns, None).futureValue
     repoId shouldBe a[RepoId]
     signedRoot.signed shouldBe a[RootRole]
     signedRoot.signed.keys.head._2.keytype shouldBe keyType
@@ -47,7 +47,7 @@ class ReposerverHttpClientSpec extends TufReposerverSpec
     val ns = genNs
     val repoId = client.createRoot(ns, keyType).futureValue
     fakeKeyserverClient.deleteRepo(repoId)
-    client.fetchRoot(ns).failed.futureValue shouldBe ReposerverClient.RootNotInKeyserver
+    client.fetchRoot(ns, None).failed.futureValue shouldBe ReposerverClient.RootNotInKeyserver
     client.repoExists(ns).futureValue shouldBe false
   }
 
@@ -55,7 +55,7 @@ class ReposerverHttpClientSpec extends TufReposerverSpec
     val ns = genNs
     val repoId = client.createRoot(ns, keyType).futureValue
     fakeKeyserverClient.forceKeyGenerationPending(repoId)
-    client.fetchRoot(ns).failed.futureValue shouldBe ReposerverClient.KeysNotReady
+    client.fetchRoot(ns, None).failed.futureValue shouldBe ReposerverClient.KeysNotReady
   }
 
   keyTypeTest("can add target") { keyType =>
