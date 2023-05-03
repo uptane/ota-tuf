@@ -21,7 +21,7 @@ import com.advancedtelematic.libats.http.ServiceHttpClientSupport
 import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.libtuf.data.TufCodecs._
 import com.advancedtelematic.libtuf.data.TufDataType.TargetFormat.TargetFormat
-import com.advancedtelematic.libtuf.data.TufDataType.{HardwareIdentifier, KeyType, RepoId, SignedPayload, TargetFilename, TargetName, TargetVersion}
+import com.advancedtelematic.libtuf.data.TufDataType.{HardwareIdentifier, JsonSignedPayload, KeyType, RepoId, SignedPayload, TargetFilename, TargetName, TargetVersion}
 import com.advancedtelematic.libtuf_server.data.Requests.{CommentRequest, CreateRepositoryRequest, FilenameComment, TargetComment}
 import com.advancedtelematic.libtuf_server.repo.client.ReposerverClient.{KeysNotReady, NotFound, RootNotInKeyserver}
 import io.circe.{Decoder, Encoder, Json}
@@ -72,10 +72,10 @@ trait ReposerverClient {
 
   def createRoot(namespace: Namespace, keyType: KeyType): Future[RepoId]
 
-  def fetchRoot(namespace: Namespace): Future[(RepoId, SignedPayload[RootRole])]
+  def fetchRoot(namespace: Namespace, version: Option[Int]): Future[(RepoId, SignedPayload[RootRole])]
 
   def repoExists(namespace: Namespace)(implicit ec: ExecutionContext): Future[Boolean] =
-    fetchRoot(namespace).transform {
+    fetchRoot(namespace, None).transform {
       case Success(_) | Failure(KeysNotReady) => Success(true)
       case Failure(NotFound) | Failure(RootNotInKeyserver) => Success(false)
       case Failure(t) => Failure(t)
@@ -96,6 +96,10 @@ trait ReposerverClient {
 
   def targetExists(namespace: Namespace, targetFilename: TargetFilename): Future[Boolean]
 
+  def fetchSnapshotMetadata(namespace: Namespace): Future[JsonSignedPayload]
+
+  def fetchTimestampMetadata(namespace: Namespace): Future[JsonSignedPayload]
+
   def fetchTargets(namespace: Namespace): Future[SignedPayload[TargetsRole]]
 
   def setTargetComments(namespace: Namespace, targetFilename: TargetFilename, comment: String): Future[Unit]
@@ -110,6 +114,7 @@ trait ReposerverClient {
                  proprietaryMeta: Option[Json] = None) : Future[ClientTargetItem]
   def fetchSingleTargetItem(namespace: Namespace, targetFilename: TargetFilename): Future[ClientTargetItem]
   def fetchTargetItems(namespace: Namespace, nameContains: Option[String] = None): Future[PaginationResult[ClientTargetItem]]
+  def fetchDelegationMetadata(namespace: Namespace, roleName: String): Future[JsonSignedPayload]
   def fetchDelegationTargetItems(namespace: Namespace, nameContains: Option[String] = None): Future[PaginationResult[DelegationClientTargetItem]]
   def fetchSingleDelegationTargetItem(namespace: Namespace, targetFilename: TargetFilename): Future[Seq[DelegationClientTargetItem]]
 }
@@ -149,8 +154,10 @@ class ReposerverHttpClient(reposerverUri: Uri, httpClient: HttpRequest => Future
       }
     }
 
-  override def fetchRoot(namespace: Namespace): Future[(RepoId, SignedPayload[RootRole])] = {
-    val req = HttpRequest(HttpMethods.GET, uri = apiUri(Path("user_repo/root.json")))
+  override def fetchRoot(namespace: Namespace, version: Option[Int]): Future[(RepoId, SignedPayload[RootRole])] = {
+    val req =
+      if(version.nonEmpty) HttpRequest(HttpMethods.GET, uri = apiUri(Path(s"user_repo/${version.get}.root.json")))
+      else  HttpRequest(HttpMethods.GET, uri = apiUri(Path(s"user_repo/root.json")))
 
     execHttpFullWithNamespace[SignedPayload[RootRole]](namespace, req).flatMap {
       case Left(error) if error.status == StatusCodes.NotFound =>
@@ -209,6 +216,15 @@ class ReposerverHttpClient(reposerverUri: Uri, httpClient: HttpRequest => Future
       case Right(_) => FastFuture.successful(true)
     }
   }
+  override def fetchSnapshotMetadata(namespace: Namespace): Future[JsonSignedPayload] = {
+    val req = HttpRequest(HttpMethods.GET, uri = apiUri(Path(s"user_repo/snapshot.json")))
+    execHttpUnmarshalledWithNamespace[JsonSignedPayload](namespace, req).ok
+  }
+
+  override def fetchTimestampMetadata(namespace: Namespace): Future[JsonSignedPayload] = {
+    val req = HttpRequest(HttpMethods.GET, uri = apiUri(Path(s"user_repo/timestamp.json")))
+    execHttpUnmarshalledWithNamespace[JsonSignedPayload](namespace, req).ok
+  }
 
   override def fetchTargets(namespace: Namespace): Future[SignedPayload[TargetsRole]] = {
     val req = HttpRequest(HttpMethods.GET, uri = apiUri(Path("user_repo/targets.json")))
@@ -231,6 +247,11 @@ class ReposerverHttpClient(reposerverUri: Uri, httpClient: HttpRequest => Future
       apiUri(Path(s"user_repo/target_items"))
     val req = HttpRequest(HttpMethods.GET, uri = reqUri)
     execHttpUnmarshalledWithNamespace[PaginationResult[ClientTargetItem]](namespace, req).ok
+  }
+
+  override def fetchDelegationMetadata(namespace: Namespace, roleName: String): Future[JsonSignedPayload] = {
+    val req = HttpRequest(HttpMethods.GET, uri = apiUri(Path(s"user_repo/delegations/${roleName}")))
+    execHttpUnmarshalledWithNamespace[JsonSignedPayload](namespace, req).ok
   }
 
   override def fetchSingleDelegationTargetItem(namespace: Namespace, targetFilename: TargetFilename): Future[Seq[DelegationClientTargetItem]] = {
