@@ -1,6 +1,6 @@
-import com.typesafe.sbt.SbtGit._
-import com.typesafe.sbt.GitVersioning
-import com.typesafe.sbt.git.ConsoleGitRunner
+import com.github.sbt.git.SbtGit._
+import com.github.sbt.git.GitVersioning
+import com.github.sbt.git.ConsoleGitRunner
 
 import sbt._
 
