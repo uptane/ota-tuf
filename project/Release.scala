@@ -1,5 +1,5 @@
 
-import com.typesafe.sbt.SbtGit.GitKeys._
+import com.github.sbt.git.SbtGit.GitKeys._
 import com.typesafe.sbt.packager.SettingsHelper._
 import sbtrelease._
 import sbtrelease.ReleaseStateTransformations.{setReleaseVersion => _, _}
