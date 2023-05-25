@@ -4,7 +4,7 @@
 // needs the environment variables DB_ENCRYPTION_PASSWORD and DB_ENCRYPTION_SALT from key server,
 // see https://confluence.in.here.com/pages/viewpage.action?pageId=972552231.
 
-import $ivy.`org.bouncycastle:bcprov-jdk15on:1.66`
+import $ivy.`org.bouncycastle:bcprov-jdk18on:1.66`
 
 import java.security.Security
 import java.util.Base64
