@@ -57,7 +57,7 @@ object Schema {
 
   class SignedRootRoleTable(tag: Tag) extends Table[SignedRootRole](tag, "signed_root_roles") {
     def repoId = column[RepoId]("repo_id")
-    def expiresAt = column[Instant]("expires_at")
+    def expiresAt = column[Instant]("expires_at")(javaInstantMapping)
     def version = column[Int]("version")
     def content = column[JsonSignedPayload]("signed_payload")
 

@@ -24,10 +24,9 @@ lazy val commonDeps = libraryDependencies ++= {
 }
 
 lazy val serverDependencies = libraryDependencies ++= {
-  lazy val akkaV = "2.6.18"
-  lazy val akkaHttpV = "10.2.7"
+  lazy val akkaV = "2.6.20"
+  lazy val akkaHttpV = "10.2.10"
   lazy val libatsV = libatsVersion.value
-  lazy val slickV = "3.2.3"
 
   Seq(
     "com.typesafe.akka" %% "akka-actor" % akkaV,
@@ -45,9 +44,7 @@ lazy val serverDependencies = libraryDependencies ++= {
     "io.github.uptane" %% "libats-metrics-prometheus" % libatsV,
     "io.github.uptane" %% "libats-slick" % libatsV,
     "io.github.uptane" %% "libats-logging" % libatsV,
-    "com.typesafe.slick" %% "slick" % slickV,
-    "com.typesafe.slick" %% "slick-hikaricp" % slickV,
-    "org.mariadb.jdbc" % "mariadb-java-client" % "3.1.2"
+    "org.mariadb.jdbc" % "mariadb-java-client" % "3.1.4"
   )
 }
 
@@ -61,7 +58,7 @@ lazy val commonSettings = Seq(
   Compile / console / scalacOptions ~= (_.filterNot(_ == "-Ywarn-unused-import")),
   resolvers += "sonatype-snapshots" at "https://s01.oss.sonatype.org/content/repositories/snapshots",
   resolvers += "sonatype-releases" at "https://s01.oss.sonatype.org/content/repositories/releases",
-  libatsVersion := "2.0.10",
+  libatsVersion := "2.1.1",
   licenses += ("MPL-2.0", url("http://mozilla.org/MPL/2.0/")),
   description := "scala tuf implementation support",
   buildInfoOptions += BuildInfoOption.ToMap,
