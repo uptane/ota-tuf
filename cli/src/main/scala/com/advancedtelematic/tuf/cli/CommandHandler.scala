@@ -70,7 +70,7 @@ object CommandHandler {
                                    config: Config)
                                   (implicit ec: ExecutionContext): Future[Unit] = config.command match {
     case Help =>
-      Cli.parser.showUsage()
+      config.outputPath.streamOrStdout.write(Cli.parser.usage.getBytes)
       Future.successful(())
 
     case InitRepo =>
