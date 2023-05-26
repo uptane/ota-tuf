@@ -46,7 +46,7 @@ object Schema {
     def checksum = column[Checksum]("checksum")
     def length = column[Long]("length")
     def version = column[Int]("version")
-    def expiresAt = column[Instant]("expires_at")
+    def expiresAt = column[Instant]("expires_at")(javaInstantMapping)
 
     def pk = primaryKey("signed_role_pk", (repoId, roleType))
 
@@ -58,7 +58,7 @@ object Schema {
   class RepoNamespaceTable(tag: Tag) extends Table[(RepoId, Namespace, Option[Instant])](tag, "repo_namespaces") {
     def repoId = column[RepoId]("repo_id")
     def namespace = column[Namespace]("namespace")
-    def expiresNotBefore = column[Option[Instant]]("expires_not_before")
+    def expiresNotBefore = column[Option[Instant]]("expires_not_before")(javaInstantMapping.optionType)
 
     def pk = primaryKey("repo_namespaces_pk", namespace)
 
@@ -89,7 +89,7 @@ object Schema {
     def content = column[JsonSignedPayload]("content")
     def remoteUri = column[Option[Uri]]("uri")
     def remoteHeaders = column[Map[String, String]]("remote_headers")
-    def lastFetched = column[Option[Instant]]("last_fetched_at")
+    def lastFetched = column[Option[Instant]]("last_fetched_at")(javaInstantMapping.optionType)
     def friendlyName = column[Option[DelegationFriendlyName]]("friendly_name")
 
     def pk = primaryKey("delegations_pk", (repoId, roleName))

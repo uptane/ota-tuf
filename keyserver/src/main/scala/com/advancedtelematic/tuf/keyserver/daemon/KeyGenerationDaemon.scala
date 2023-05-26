@@ -11,7 +11,7 @@ import com.advancedtelematic.libats.slick.db.{BootMigrations, DatabaseSupport, S
 import com.advancedtelematic.libats.http.{BootApp, BootAppDatabaseConfig, BootAppDefaultConfig}
 import com.advancedtelematic.libats.slick.monitoring.{DatabaseMetrics, DbHealthResource}
 import com.advancedtelematic.metrics.MetricsSupport
-import com.advancedtelematic.metrics.prometheus.PrometheusMetricsSupport
+import com.advancedtelematic.metrics.prometheus.metrics.prometheus.PrometheusMetricsSupport
 import com.codahale.metrics.MetricRegistry
 import com.typesafe.config.Config
 import org.slf4j.LoggerFactory
