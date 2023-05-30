@@ -4,7 +4,7 @@ import sbt.Keys._
 import sbt._
 import com.typesafe.sbt.SbtNativePackager.Docker
 import DockerPlugin.autoImport._
-import com.typesafe.sbt.SbtGit.git
+import com.github.sbt.git.SbtGit.git
 import com.typesafe.sbt.SbtNativePackager.autoImport._
 import com.typesafe.sbt.packager.linux.LinuxPlugin.autoImport._
 
