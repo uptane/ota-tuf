@@ -16,7 +16,8 @@ lazy val commonDeps = libraryDependencies ++= {
   lazy val catsV = "2.9.0"
 
   Seq(
-    "org.scala-lang.modules" %% "scala-async" % "0.9.6",
+    "org.scala-lang.modules" %% "scala-async" % "1.0.1",
+    "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided,
     "io.github.uptane" %% "libats" % libatsV,
     "org.scalatest" %% "scalatest" % scalaTestV % "test",
     "org.typelevel" %% "cats-core" % catsV,
@@ -54,7 +55,7 @@ lazy val commonSettings = Seq(
   scalaVersion := "2.12.17",
   organizationName := "uptane",
   organizationHomepage := Some(url("https://uptane.github.io/")),
-  scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8", "-Xexperimental", "-Ypartial-unification"),
+  scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8", "-Xexperimental", "-Ypartial-unification", "-Xasync"),
   Compile / console / scalacOptions ~= (_.filterNot(_ == "-Ywarn-unused-import")),
   resolvers += "sonatype-snapshots" at "https://s01.oss.sonatype.org/content/repositories/snapshots",
   resolvers += "sonatype-releases" at "https://s01.oss.sonatype.org/content/repositories/releases",
