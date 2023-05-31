@@ -19,10 +19,10 @@ object TargetCustomParameterExtractors {
 
   val all: Directive1[TargetCustom] =
     parameters(
-      'name.as[TargetName],
-      'version.as[TargetVersion],
-      'hardwareIds.as(CsvSeq[HardwareIdentifier]).?(immutable.Seq.empty[HardwareIdentifier]),
-      'targetFormat.as[TargetFormat].?,
+      Symbol("name").as[TargetName],
+      Symbol("version").as[TargetVersion],
+      Symbol("hardwareIds").as(CsvSeq[HardwareIdentifier]).?(immutable.Seq.empty[HardwareIdentifier]),
+      Symbol("targetFormat").as[TargetFormat].?,
     ).tmap { case (name, version, hardwareIds, targetFormat) =>
       TargetCustom(name, version, hardwareIds, targetFormat.orElse(Some(TargetFormat.BINARY)))
     }

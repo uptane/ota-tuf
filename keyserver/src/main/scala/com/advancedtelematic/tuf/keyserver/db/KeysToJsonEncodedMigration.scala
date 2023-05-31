@@ -3,7 +3,6 @@ package com.advancedtelematic.tuf.keyserver.db
 import java.security.PublicKey
 
 import akka.actor.ActorSystem
-import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import akka.{Done, NotUsed}
 import com.advancedtelematic.libats.slick.codecs.SlickRefined._

@@ -11,7 +11,6 @@ import io.circe.syntax._
 import cats.data.StateT
 import io.circe._
 import io.circe.{ACursor, Decoder, Json}
-import cats.implicits._
 
 object ClientCodecs {
   import TufCodecs._

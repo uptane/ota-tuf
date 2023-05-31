@@ -8,7 +8,6 @@ import com.advancedtelematic.tuf.keyserver.db._
 import com.advancedtelematic.tuf.keyserver.http.Errors
 import io.circe.Json
 import slick.jdbc.MySQLProfile.api._
-import io.circe.syntax._
 
 import scala.async.Async._
 import scala.concurrent.{ExecutionContext, Future}

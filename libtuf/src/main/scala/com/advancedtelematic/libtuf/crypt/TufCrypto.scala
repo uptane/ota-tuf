@@ -50,8 +50,8 @@ trait TufCrypto[T <: KeyType] {
 
   def parseKeyPair(publicKey: String, privateKey: String): Try[TufKeyPair] =
     for {
-      priv ← parsePrivate(privateKey)
-      pub ← parsePublic(publicKey)
+      priv <- parsePrivate(privateKey)
+      pub <- parsePublic(publicKey)
     } yield toKeyPair(pub, priv)
 
   def signer: security.Signature
@@ -108,9 +108,9 @@ object TufCrypto {
   // Director is catching this exception, make this safe for director instead
   def isValid(signature: Signature, publicKey: TufKey, data: Array[Byte]): Boolean = {
     val signer = signature.method match {
-      case SignatureMethod.RSASSA_PSS_SHA256 ⇒ rsaCrypto.signer
-      case SignatureMethod.ED25519 ⇒ ed25519Crypto.signer
-      case other ⇒ throw new IllegalArgumentException(s"Unsupported signature method: $other")
+      case SignatureMethod.RSASSA_PSS_SHA256 => rsaCrypto.signer
+      case SignatureMethod.ED25519 => ed25519Crypto.signer
+      case other => throw new IllegalArgumentException(s"Unsupported signature method: $other")
     }
     try {
       val decodedSig = Base64.decode(signature.sig.value)
@@ -154,9 +154,9 @@ object TufCrypto {
 
   def payloadSignatureIsValid[T : Encoder](rootRole: RootRole, signedPayload: SignedPayload[T])
                                           (implicit tufRole: TufRole[T]): ValidatedNel[String, SignedPayload[T]] = {
-    val publicKeys = rootRole.keys.filterKeys(keyId => rootRole.roles(tufRole.roleType).keyids.contains(keyId))
+    val publicKeys = rootRole.keys.view.filterKeys(keyId => rootRole.roles(tufRole.roleType).keyids.contains(keyId))
     val threshold = rootRole.roles(tufRole.roleType).threshold
-    payloadSignatureIsValid(publicKeys, threshold, signedPayload)
+    payloadSignatureIsValid(publicKeys.toMap, threshold, signedPayload)
   }
 
   def payloadSignatureIsValid[T : Encoder](pubKeys: Map[KeyId, TufKey],
@@ -167,7 +167,7 @@ object TufCrypto {
     import cats.syntax.either._
 
     val validSignatures: List[ValidatedNel[String, KeyId]] =
-      sigsByKeyId.par.map { case (keyId, sig) =>
+      sigsByKeyId.map { case (keyId, sig) =>
         pubKeys.get(keyId)
           .toRight(s"key ${sig.keyid} required for role validation not found in authoritative role")
           .ensure(s"Invalid signature for key ${sig.keyid}") { key => signedPayload.isValidFor(key) }

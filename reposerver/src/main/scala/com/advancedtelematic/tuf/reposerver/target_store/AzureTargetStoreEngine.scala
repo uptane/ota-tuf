@@ -60,11 +60,11 @@ class AzureTargetStoreEngine(private val settings: BlobStorageSettings)(implicit
       .mapAsync(1)(uploadBlock(blobClient))
       .fold(ListBuffer.empty[String])((xs, x) => xs += x)
       .mapAsync(1) { xs =>
-        import scala.collection.JavaConverters._
+        import scala.jdk.CollectionConverters._
         blobClient.commitBlockList(xs.asJava).toFuture.toScala
       }.toMat(Sink.head)(Keep.right)
 
-    val combinedSink = Sink.fromGraph(GraphDSL.create(checksumSink, lengthSink, uploadSink)(Tuple3.apply) {
+    val combinedSink = Sink.fromGraph(GraphDSL.createGraph(checksumSink, lengthSink, uploadSink)(Tuple3.apply) {
       implicit builder =>
         (checksumS, lengthS, uploadS) =>
           import GraphDSL.Implicits._

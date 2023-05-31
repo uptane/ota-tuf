@@ -116,7 +116,7 @@ class ReposerverHttpClientSpec extends TufReposerverSpec
     val ns = genNs
     client.createRoot(ns, keyType).futureValue shouldBe a[RepoId]
 
-    client.fetchTargets(ns).futureValue.signed.targets shouldBe 'empty
+    client.fetchTargets(ns).futureValue.signed.targets shouldBe Symbol("empty")
   }
 
 }

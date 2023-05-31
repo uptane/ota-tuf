@@ -13,11 +13,9 @@ import com.advancedtelematic.libtuf.crypt.TufCrypto
 import scala.async.Async._
 import scala.concurrent.duration._
 import akka.pattern.pipe
-import com.advancedtelematic.libats.slick.db.SlickEncryptedColumn.EncryptedColumn
 import com.advancedtelematic.tuf.keyserver.daemon.KeyGenerationOp.KeyGenerationOp
 import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType.KeyGenRequestStatus
 import com.advancedtelematic.tuf.keyserver.db.{KeyGenRequestSupport, KeyRepositorySupport}
-import com.advancedtelematic.tuf.keyserver.roles.SignedRootRoles
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -151,6 +149,6 @@ class KeyGeneratorWorker(keyGenerationOp: KeyGenRequest => Future[Seq[Key]])(imp
             keyGenRepo
               .setStatus(kgr.id, KeyGenRequestStatus.ERROR, Option(ex))
               .map(_ => Failure(ex))
-        }.pipeTo(sender)
+        }.pipeTo(sender())
   }
 }

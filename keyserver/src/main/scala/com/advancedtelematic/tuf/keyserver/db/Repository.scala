@@ -138,8 +138,8 @@ trait SignedRootRoleSupport extends DatabaseSupport {
 }
 
 object SignedRootRoleRepository {
-  val MissingSignedRole = MissingEntity[RootRole]
-  val RootRoleExists = EntityAlreadyExists[RootRole]
+  val MissingSignedRole = MissingEntity[RootRole]()
+  val RootRoleExists = EntityAlreadyExists[RootRole]()
 }
 
 protected[db] class SignedRootRoleRepository()(implicit db: Database, ec: ExecutionContext) {

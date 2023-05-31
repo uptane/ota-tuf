@@ -147,7 +147,7 @@ class DelegationsManagement()(implicit val db: Database, val ec: ExecutionContex
       _.flatMap { case (delegatedRoleName, targetsMap) =>
         val filteredMap = nameContains match {
           case Some(containsExpr) =>
-            targetsMap.filterKeys(_.value.contains(containsExpr))
+            targetsMap.view.filterKeys(_.value.contains(containsExpr))
           case None =>
             targetsMap
         }
@@ -175,7 +175,7 @@ class DelegationsManagement()(implicit val db: Database, val ec: ExecutionContex
   private def validateDelegationMetadataSignatures(targetsRole: TargetsRole,
                                                    delegation: Delegation,
                                                    delegationMetadata: SignedPayload[TargetsRole]): ValidatedNel[String, SignedPayload[TargetsRole]] = {
-    val publicKeys = targetsRole.delegations.map(_.keys).getOrElse(Map.empty).filterKeys(delegation.keyids.contains)
+    val publicKeys = targetsRole.delegations.map(_.keys).getOrElse(Map.empty).view.filterKeys(delegation.keyids.contains).toMap
     TufCrypto.payloadSignatureIsValid(publicKeys, delegation.threshold, delegationMetadata)
   }
 
@@ -183,10 +183,10 @@ class DelegationsManagement()(implicit val db: Database, val ec: ExecutionContex
                                             delegatedRoleName: DelegatedRoleName,
                                             delegationMetadata: SignedPayload[TargetsRole]): ValidatedNel[String, SignedPayload[TargetsRole]] = {
     val delegationRef = findDelegationMetadataByName(targetsRole, delegatedRoleName)
-    val matcher = FileSystems.getDefault().getPathMatcher(s"glob:${}")
+
     // Find invalid targets by running all targetNames (map keys) through the pathPattern regexes in trusted delegations
-    val invalidTargets: List[TargetFilename] = delegationMetadata.signed.targets.filterKeys{ target =>
-      val matchedPaths = delegationRef.paths.filter{pathPattern =>
+    val invalidTargets: List[TargetFilename] = delegationMetadata.signed.targets.view.filterKeys { target =>
+      val matchedPaths = delegationRef.paths.filter { pathPattern =>
       /*
          So Aktualizr uses glob patterns on a regular string (not a file-path) via this function without any flags: https://man7.org/linux/man-pages/man3/fnmatch.3.html
          Here we are using java's path matcher which is different because it assumes we are operating on a path and naturally implies directory boundaries!
@@ -201,7 +201,7 @@ class DelegationsManagement()(implicit val db: Database, val ec: ExecutionContex
       }
       // if no delegation paths matched targetName, we return true, which designates this targetName as invalid
       matchedPaths.length < 1
-    }.toList.map(_._1)
+    }.keys.toList
 
     Right(delegationMetadata).ensure(s"Target(s): ${invalidTargets} does not match any registered path patterns of this delegation: ${delegationRef.paths.map(_.value)}") {
       _ => invalidTargets.length < 1

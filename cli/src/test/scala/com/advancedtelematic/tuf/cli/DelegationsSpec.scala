@@ -55,10 +55,10 @@ class DelegationsSpec extends CliSpec {
 
     Delegations.signPayload(List(pair.pubkey -> pair.privkey), in, outOutput).get
 
-    val filename = refineV[ValidTargetFilename]("test-0.0.1").right.get
+    val filename = refineV[ValidTargetFilename]("test-0.0.1").toOption.get
 
     val item = ClientTargetItem(
-      Map(HashMethod.SHA256 -> refineV[ValidChecksum]("4c89194898360ebba34059bb8a5dd47a0650ca66b37c0143c32f7e70416e29e0").right.get),
+      Map(HashMethod.SHA256 -> refineV[ValidChecksum]("4c89194898360ebba34059bb8a5dd47a0650ca66b37c0143c32f7e70416e29e0").toOption.get),
       1024,
       custom = None
     )
@@ -72,10 +72,10 @@ class DelegationsSpec extends CliSpec {
     val in = Files.createTempFile("payload", ".json")
     Delegations.writeNew(new FileOutputStream(in.toFile)).get
 
-    val filename = refineV[ValidTargetFilename]("test-0.0.1").right.get
+    val filename = refineV[ValidTargetFilename]("test-0.0.1").toOption.get
 
     val item = ClientTargetItem(
-      Map(HashMethod.SHA256 -> refineV[ValidChecksum]("4c89194898360ebba34059bb8a5dd47a0650ca66b37c0143c32f7e70416e29e0").right.get),
+      Map(HashMethod.SHA256 -> refineV[ValidChecksum]("4c89194898360ebba34059bb8a5dd47a0650ca66b37c0143c32f7e70416e29e0").toOption.get),
       1024,
       custom = None
     )
@@ -110,10 +110,10 @@ class DelegationsSpec extends CliSpec {
         |
       """.stripMargin.getBytes)
 
-    val filename = refineV[ValidTargetFilename]("test-0.0.1").right.get
+    val filename = refineV[ValidTargetFilename]("test-0.0.1").toOption.get
 
     val item = ClientTargetItem(
-      Map(HashMethod.SHA256 -> refineV[ValidChecksum]("4c89194898360ebba34059bb8a5dd47a0650ca66b37c0143c32f7e70416e29e0").right.get),
+      Map(HashMethod.SHA256 -> refineV[ValidChecksum]("4c89194898360ebba34059bb8a5dd47a0650ca66b37c0143c32f7e70416e29e0").toOption.get),
       1024,
       custom = None
     )

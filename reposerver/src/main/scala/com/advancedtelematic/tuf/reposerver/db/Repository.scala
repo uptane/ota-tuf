@@ -130,7 +130,7 @@ protected [db] class TargetItemRepository()(implicit db: Database, ec: Execution
         .filter(_.repoId === repoId)
         .map(_.length)
         .sum
-        .getOrElse(0l)
+        .getOrElse(0L)
         .result
 
       val ns =

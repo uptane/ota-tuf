@@ -1,19 +1,14 @@
 package com.advancedtelematic.tuf.keyserver.data
 
-import java.security.PublicKey
 import java.time.Instant
 import java.util.UUID
 
 import com.advancedtelematic.libats.data.UUIDKey.{UUIDKey, UUIDKeyObj}
-import com.advancedtelematic.libats.slick.db.SlickEncryptedColumn.EncryptedColumn
 import com.advancedtelematic.libtuf.data.ClientDataType.RootRole
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
-import com.advancedtelematic.libtuf.data.TufDataType.{KeyId, KeyType, RepoId, JsonSignedPayload, SignedPayload, TufKey, TufKeyPair, TufPrivateKey}
+import com.advancedtelematic.libtuf.data.TufDataType.{KeyId, KeyType, RepoId, SignedPayload, TufKey, TufKeyPair, TufPrivateKey}
 import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType.KeyGenRequestStatus.KeyGenRequestStatus
-import com.advancedtelematic.tuf.keyserver.http.Errors
-import io.circe.{Decoder, Json}
 
-import scala.concurrent.Future
 import scala.util.Try
 
 object KeyServerDataType {

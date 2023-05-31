@@ -22,6 +22,6 @@ object Sha256FileDigest {
 
     val checksumStr = Hex.toHexString(digest.digest())
 
-    Checksum(HashMethod.SHA256, refineV[ValidChecksum](checksumStr).right.get)
+    Checksum(HashMethod.SHA256, refineV[ValidChecksum](checksumStr).toOption.get)
   }
 }

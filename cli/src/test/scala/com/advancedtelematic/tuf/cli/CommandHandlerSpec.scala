@@ -166,7 +166,7 @@ class CommandHandlerSpec extends CliSpec with KeyTypeSpecSupport with Inspectors
       inputPath = in.some,
       targetName = TargetName("mytarget").some,
       targetVersion = TargetVersion("0.1.1").some,
-      checksum = Checksum(HashMethod.SHA256, refineV[ValidChecksum]("66bad8889a5193362cbe4c89d21688cf79310bfeb7eff67fe0f79c6c11c86d67").right.get).some,
+      checksum = Checksum(HashMethod.SHA256, refineV[ValidChecksum]("66bad8889a5193362cbe4c89d21688cf79310bfeb7eff67fe0f79c6c11c86d67").toOption.get).some,
       inplace = true
     )
 

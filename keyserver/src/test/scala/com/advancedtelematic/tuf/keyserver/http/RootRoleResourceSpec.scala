@@ -25,12 +25,9 @@ import com.advancedtelematic.tuf.keyserver.db.{KeyGenRequestSupport, KeyReposito
 import eu.timepit.refined.api.Refined
 import org.scalatest.time.{Millis, Seconds, Span}
 import com.advancedtelematic.libtuf.data.RootManipulationOps._
-import KeyRepository.KeyNotFound
 import cats.syntax.either._
-import com.advancedtelematic.libtuf_server.repo.server.DataType.SignedRole
 import com.advancedtelematic.tuf.keyserver.roles.SignedRootRoles
 
-import scala.async.Async.await
 import scala.concurrent.{ExecutionContext, Future}
 import org.scalatest.OptionValues._
 
@@ -121,7 +118,7 @@ class RootRoleResourceSpec extends TufKeyserverSpec
 
       rootRole.keys should have size RoleType.TUF_ALL.size
 
-      forAll(rootRole.keys.values) { key ⇒
+      forAll(rootRole.keys.values) { key =>
         key.keytype shouldBe keyType
       }
     }
@@ -820,7 +817,7 @@ class RootRoleResourceSpec extends TufKeyserverSpec
       status shouldBe StatusCodes.NoContent
     }
 
-    val newRoot = signedPayload.signed.as[RootRole].right.get
+    val newRoot = signedPayload.signed.as[RootRole].toOption.get
 
     val snapshotKeyId = newRoot.roleKeys(RoleType.SNAPSHOT).head.id
     keyRepo.find(snapshotKeyId).futureValue shouldBe a[Key]
@@ -930,7 +927,7 @@ class RootRoleResourceSpec extends TufKeyserverSpec
   }
 
   def generateRootRole(repoId: RepoId, keyType: KeyType, threshold: Int = 1): Future[Seq[Key]] = {
-    generateRepoKeys(repoId, keyType, threshold).map { keys ⇒
+    generateRepoKeys(repoId, keyType, threshold).map { keys =>
       Get(apiUri(s"root/${repoId.show}")) ~> routes ~> check {
         status shouldBe StatusCodes.OK
         responseAs[SignedPayload[RootRole]]

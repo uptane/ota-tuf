@@ -26,7 +26,7 @@ protected [db] object DBDataType {
       SignedRole[T](value.content, value.checksum, value.length, value.version, value.expireAt)
   }
 
-  protected [db] implicit class SignedRoleAsDbSignedRoleOps[_](value: SignedRole[_]) {
+  protected [db] implicit class SignedRoleAsDbSignedRoleOps(value: SignedRole[_]) {
     def asDbSignedRole(repoId: RepoId): DbSignedRole =
       DbSignedRole(repoId, value.tufRole.roleType, value.content, value.checksum, value.length, value.version, value.expiresAt)
   }
