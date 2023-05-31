@@ -6,7 +6,7 @@ import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 import com.advancedtelematic.libtuf.data.TufDataType.{RepoId, _}
 import com.advancedtelematic.tuf.keyserver.db._
 import com.advancedtelematic.tuf.keyserver.http.Errors
-import io.circe.Json
+import io.circe.{Encoder, Json}
 import slick.jdbc.MySQLProfile.api._
 import io.circe.syntax._
 
@@ -44,6 +44,17 @@ class RoleSigning()(implicit val db: Database, val ec: ExecutionContext)
       val signature = TufCrypto.signPayload(privateKey, payload)
       ClientSignature(key.id, signature.method, signature.sig)
     }
+  }
+
+  protected [roles] def signWithPrivateKeys[T : Encoder](payload: T, privateKeys: Seq[TufKeyPair]): SignedPayload[T] = {
+    val payloadJson = payload.asJson
+
+    val signatures = privateKeys.toList.map { key =>
+      val signature = TufCrypto.signPayload(key.privkey, payloadJson)
+      ClientSignature(key.pubkey.id, signature.method, signature.sig)
+    }
+
+    SignedPayload(signatures, payload, payloadJson)
   }
 
   private def fetchPrivateKey(key: TufKey): Future[TufPrivateKey] =

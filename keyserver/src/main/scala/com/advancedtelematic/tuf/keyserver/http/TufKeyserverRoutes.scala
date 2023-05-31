@@ -15,7 +15,7 @@ import slick.jdbc.MySQLProfile.api._
 
 class TufKeyserverRoutes(dependencyChecks: Seq[HealthCheck] = Seq.empty, metricsRoutes: Route = Directives.reject,
                          metricRegistry: MetricRegistry = MetricsSupport.metricRegistry)
-                        (implicit val db: Database, val ec: ExecutionContext, system: ActorSystem, mat: Materializer)
+                        (implicit val db: Database, val ec: ExecutionContext, mat: Materializer)
   extends VersionInfo {
 
   import Directives._

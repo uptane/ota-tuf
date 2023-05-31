@@ -25,7 +25,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 class RootRoleResource()
-                      (implicit val db: Database, val ec: ExecutionContext, mat: Materializer)
+                      (implicit val db: Database, val ec: ExecutionContext)
   extends KeyGenRequestSupport with Settings {
   import ClientRootGenRequest._
   import akka.http.scaladsl.server.Directives._
@@ -75,6 +75,11 @@ class RootRoleResource()
         get {
           val f = signedRootRoles.findFreshAndPersist(repoId)
           complete(f)
+        }
+      } ~
+      (path("rotate") & put) {
+        onSuccess(rootRoleKeyEdit.rotate(repoId)) {
+          complete(StatusCodes.OK)
         }
       } ~
       path("1") {

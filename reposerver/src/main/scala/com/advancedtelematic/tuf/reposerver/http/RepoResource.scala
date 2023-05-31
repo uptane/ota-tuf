@@ -7,6 +7,7 @@ import akka.http.scaladsl.model.headers.{RawHeader, `Content-Length`}
 import akka.http.scaladsl.model.{EntityStreamException, HttpEntity, HttpHeader, HttpRequest, HttpResponse, ParsingException, StatusCode, StatusCodes, Uri}
 import akka.http.scaladsl.server._
 import akka.http.scaladsl.unmarshalling._
+import akka.http.scaladsl.util.FastFuture
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import cats.data.Validated.{Invalid, Valid}
@@ -267,9 +268,26 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
     _ <- tufTargetsPublisher.newTargetsAdded(namespace, signedPayload.signed.targets, newItems)
   } yield newSignedRole
 
+  private def rotateRoot(repoId: RepoId): Future[StatusCode] = async {
+    await(keyserverClient.rotateRoot(repoId))
+    await {
+      signedRoleGeneration.regenerateAllSignedRoles(repoId)
+        .recoverWith {
+          case err =>
+            log.error("root.json was rotated, but signing targets.json failed", err)
+            FastFuture.successful(())
+        }
+    }
+
+    StatusCodes.OK
+  }
+
   private def modifyRepoRoutes(repoId: RepoId): Route =
     (namespaceValidation(repoId) & withRepoIdHeader(repoId)){ namespace =>
       pathPrefix("root") {
+        (path("rotate") & put) {
+          complete(rotateRoot(repoId))
+        } ~
         pathEnd {
           get {
             complete(keyserverClient.fetchUnsignedRoot(repoId))

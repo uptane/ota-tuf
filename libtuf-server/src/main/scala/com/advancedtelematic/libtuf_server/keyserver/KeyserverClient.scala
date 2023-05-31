@@ -40,6 +40,8 @@ trait KeyserverClient {
 
   def fetchUnsignedRoot(repoId: RepoId): Future[RootRole]
 
+  def rotateRoot(repoId: RepoId): Future[Unit]
+
   def updateRoot(repoId: RepoId, signedPayload: SignedPayload[RootRole]): Future[Unit]
 
   def deletePrivateKey(repoId: RepoId, keyId: KeyId): Future[Unit]
@@ -151,6 +153,11 @@ class KeyserverHttpClient(uri: Uri, httpClient: HttpRequest => Future[HttpRespon
 
   override def addRemoteSessionsRole(repoId: RepoId): Future[Unit] = {
     val req = HttpRequest(HttpMethods.PUT, uri = apiUri(Path("root") / repoId.show / "roles" / "remote-sessions"))
+    execHttpUnmarshalled[Unit](req).ok
+  }
+
+  override def rotateRoot(repoId: RepoId): Future[Unit] = {
+    val req = HttpRequest(HttpMethods.PUT, uri = apiUri(Path("root") / repoId.show / "rotate"))
     execHttpUnmarshalled[Unit](req).ok
   }
 }
