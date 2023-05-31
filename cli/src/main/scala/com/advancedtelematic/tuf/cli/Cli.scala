@@ -101,7 +101,7 @@ object Cli extends App with VersionInfo {
   lazy val keysPathOpt: OptionParser[Config] => OptionDef[Path, Config] = { parser =>
     parser
       .opt[Path]("keys-path").abbr("p")
-      .toConfigOptionParam('userKeysPath)
+      .toConfigOptionParam(Symbol("userKeysPath"))
       .text("The path where this executable will look for keys. By default, it is the `user-keys` directory in the directory that you specified with the `--home-dir` command.")
   }
 
@@ -109,10 +109,10 @@ object Cli extends App with VersionInfo {
     Seq(
       parser.opt[Instant]("expires")
         .text("The metadata expiry date. It is a UTC instant, such as `2020-01-01T00:01:00Z`.")
-        .toConfigOptionParam('expireOn),
+        .toConfigOptionParam(Symbol("expireOn")),
       parser.opt[Period]("expire-after")
         .text("The expiration delay in years, months, and days (each optional, but in that order), such as `1Y3M5D`.")
-        .toConfigOptionParam('expireAfter),
+        .toConfigOptionParam(Symbol("expireAfter")),
       parser.opt[Unit]("force")
         .action { (_, c) => c.copy(force = true) }
         .text("Skips sanity checking. For example, allows to set a date in the past."))
@@ -121,7 +121,7 @@ object Cli extends App with VersionInfo {
   lazy val customMetaOpts: OptionParser[Config] => OptionDef[_, Config] = { parser =>
     parser.opt[Json]("customMeta")
       .required()
-      .toConfigParam('customMeta)
+      .toConfigParam(Symbol("customMeta"))
       .validate { json =>
         val badFields = List("name", "version", "hardwareIds", "targetFormat", "uri", "cliUploaded")
 
@@ -137,30 +137,30 @@ object Cli extends App with VersionInfo {
     Seq(
       parser.opt[Long]("length")
         .required()
-        .toConfigParam('length)
+        .toConfigParam(Symbol("length"))
         .text("The length of the target, in bytes."),
       parser.opt[TargetName]("name")
         .required()
-        .toConfigOptionParam('targetName)
+        .toConfigOptionParam(Symbol("targetName"))
         .text("The name of the target."),
       parser.opt[TargetVersion]("version")
         .required()
-        .toConfigOptionParam('targetVersion)
+        .toConfigOptionParam(Symbol("targetVersion"))
         .text("The version string of the target."),
       parser.opt[TargetFormat]("format")
         .optional()
         .text("The format of the target: [ostree|binary].")
-        .toConfigParam('targetFormat),
+        .toConfigParam(Symbol("targetFormat")),
       parser.opt[Checksum]("sha256")
         .required()
-        .toConfigOptionParam('checksum)
+        .toConfigOptionParam(Symbol("checksum"))
         .text("The hash of the binary. For OSTree images, it is the root hash of the target commit."),
       parser.opt[List[HardwareIdentifier]]("hardwareids")
         .required()
-        .toConfigParam('hardwareIds)
+        .toConfigParam(Symbol("hardwareIds"))
         .text("The types of hardware with which this image is compatible."),
       parser.opt[URI]("url")
-        .toConfigOptionParam('targetUri)
+        .toConfigOptionParam(Symbol("targetUri"))
         .text("(Optional) An external URL where the binary can be downloaded.")
     )
   }
@@ -172,7 +172,7 @@ object Cli extends App with VersionInfo {
 
     version("version").text("Prints the current binary version.")
 
-    opt[Path]("home-dir").abbr("h").toConfigParam('home).text("The directory that you want to work with. By default, it is your current working directory.")
+    opt[Path]("home-dir").abbr("h").toConfigParam(Symbol("home")).text("The directory that you want to work with. By default, it is your current working directory.")
 
     opt[Unit]("verbose").text("Prints the verbose information for the execution.").action { (_, c) =>
       c.copy(verbose = true)
@@ -191,8 +191,8 @@ object Cli extends App with VersionInfo {
           .action { (arg, c) => c.copy(keyPaths = arg :: c.keyPaths) },
         opt[Path]("pub-key").abbr("p")
           .text("The path to the public key to use to sign json")
-          .toConfigOptionParam('pubKeyPath),
-        opt[Path]('i', "input").toConfigOptionParam('inputPath)
+          .toConfigOptionParam(Symbol("pubKeyPath")),
+        opt[Path]('i', "input").toConfigOptionParam(Symbol("inputPath"))
           .text("path to input json")
       )
 
@@ -204,9 +204,9 @@ object Cli extends App with VersionInfo {
         .toCommand(GenUserKey)
         .text("Creates a key pair and stores it in a configurable location.")
         .children(
-          opt[KeyType]("type").abbr("t").toConfigParam('keyType)
+          opt[KeyType]("type").abbr("t").toConfigParam(Symbol("keyType"))
             .text("The type of key that you want to create: Ed25519 or RSA."),
-          opt[Int]("keysize").toConfigOptionParam('keySize)
+          opt[Int]("keysize").toConfigOptionParam(Symbol("keySize"))
             .text("The length of the key that you want to create, in bits. RSA 2048/4096 and Ed25519 are supported."),
           manyKeyNamesOpt(this).maxOccurs(1)
         ),
@@ -214,7 +214,7 @@ object Cli extends App with VersionInfo {
         .text("Calculates the Uptane key ID for a given public key.")
         .toCommand(IdUserKey)
         .children(
-          opt[Path]("input").abbr("i").required().toConfigOptionParam('inputPath).text("The path to the file with your public key.")
+          opt[Path]("input").abbr("i").required().toConfigOptionParam(Symbol("inputPath")).text("The path to the file with your public key.")
         ),
       cmd("importpub")
         .toCommand(ImportPublicKey)
@@ -225,7 +225,7 @@ object Cli extends App with VersionInfo {
           opt[Path]("input")
             .abbr("i")
             .required()
-            .toConfigOptionParam('inputPath)
+            .toConfigOptionParam(Symbol("inputPath"))
             .text("The path to the file with your public key.")
         )
     ).text("Manages keys stored outside of a specific repository’s directory.")
@@ -241,28 +241,28 @@ object Cli extends App with VersionInfo {
         .children(
           manyKeyNamesOpt(this).text("The base name of the key to use for signing."),
           keysPathOpt(this),
-          opt[Path]("input").abbr("i").required().toConfigOptionParam('inputPath).text("The path to the delegated Targets metadata file that you want to sign."),
+          opt[Path]("input").abbr("i").required().toConfigOptionParam(Symbol("inputPath")).text("The path to the delegated Targets metadata file that you want to sign."),
           opt[Unit]("inplace").abbr("e").optional().action { case (_, c) => c.copy(inplace = true) }.text("Modifies the input .json file directly. If this option is not specified, it outputs the signed metadata to stdout.")
         ).text("Signs delegation metadata."),
       cmd("push")
         .toCommand(PushDelegation)
         .children(
           repoNameOpt(this),
-          opt[DelegatedRoleName]("name").abbr("n").required().toConfigParam('delegationName).text("The name of the delegation."),
-          opt[Path]("input").abbr("i").required().toConfigOptionParam('inputPath).text("The path to the signed .json file with delegations.")
+          opt[DelegatedRoleName]("name").abbr("n").required().toConfigParam(Symbol("delegationName")).text("The name of the delegation."),
+          opt[Path]("input").abbr("i").required().toConfigOptionParam(Symbol("inputPath")).text("The path to the signed .json file with delegations.")
         ).text("Pushes delegation metadata to the server. Requires an initialized `tuf` repository."),
       cmd("pull")
         .toCommand(PullDelegation)
         .children(
           repoNameOpt(this),
-          opt[DelegatedRoleName]("name").abbr("n").required().toConfigParam('delegationName).text("The name of the delegation."),
-          opt[Path]("output").abbr("o").toConfigOptionParam('outputPath).text("The name of the file to which you want to save the delegation.")
+          opt[DelegatedRoleName]("name").abbr("n").required().toConfigParam(Symbol("delegationName")).text("The name of the delegation."),
+          opt[Path]("output").abbr("o").toConfigOptionParam(Symbol("outputPath")).text("The name of the file to which you want to save the delegation.")
         ).text("Pulls a delegated Targets metadata file from the server. Requires an initialized `tuf` repository."),
       cmd("add-target")
         .toCommand(AddTargetToDelegation)
         .children(addTargetOptions(this):_*)
         .children(
-          opt[Path]("input").abbr("i").required().toConfigOptionParam('inputPath).text("The path to the delegated Targets metadata file that you want to modify."),
+          opt[Path]("input").abbr("i").required().toConfigOptionParam(Symbol("inputPath")).text("The path to the delegated Targets metadata file that you want to modify."),
           opt[Unit]("inplace").abbr("e").optional().action { case (_, c) => c.copy(inplace = true) }.text("Modifies the input .json file directly. If this option is not specified, it outputs the signed metadata to stdout.")
         ).text("Adds a new target to a delegated Targets metadata file.")
     ).text("Manages delegation metadata.")
@@ -274,16 +274,16 @@ object Cli extends App with VersionInfo {
       .text("Creates an empty local repository.")
       .children(
         repoNameOpt(this).text("The name of the local repository that you want to create. This repository should be a directory in your `tuf` repository."),
-        opt[URI]("reposerver").toConfigOptionParam('reposerverUrl).text("The repo server URL. By default, reads the URL from the .zip file with your provisioning credentials."),
+        opt[URI]("reposerver").toConfigOptionParam(Symbol("reposerverUrl")).text("The repo server URL. By default, reads the URL from the .zip file with your provisioning credentials."),
         opt[Path]("credentials")
           .abbr("c")
-          .toConfigParam('credentialsPath)
+          .toConfigParam(Symbol("credentialsPath"))
           .text("The path to the .zip file with your provisioning credentials.")
           .required(),
         opt[TufServerType]("servertype")
           .abbr("t")
           .text("The repo server type: `reposerver` (default) or `director`.")
-          .toConfigOptionParam('repoType)
+          .toConfigOptionParam(Symbol("repoType"))
           .optional()
       )
 
@@ -296,14 +296,14 @@ object Cli extends App with VersionInfo {
         .children(
           repoNameOpt(this),
           opt[KeyName]("name").abbr("n").required()
-            .toConfigOptionParam('rootKey)
+            .toConfigOptionParam(Symbol("rootKey"))
             .text("The base filename for your keys. Generated files will be named `<key-name>.sec` and `<key-name>.pub`."),
           opt[KeyType]("type")
             .abbr("t")
-            .toConfigParam('keyType)
+            .toConfigParam(Symbol("keyType"))
             .text("The type of key that you want to create: Ed25519 or RSA."),
           opt[Int]("keysize")
-            .toConfigOptionParam('keySize)
+            .toConfigOptionParam(Symbol("keySize"))
             .text("The length of the key that you want to create, in bits. RSA 2048/4096 and Ed25519 are supported.")
         )
     ).text("Manages keys stored in a specific local repository’s directory.")
@@ -317,17 +317,17 @@ object Cli extends App with VersionInfo {
         repoNameOpt(this),
         opt[KeyName]("new-root")
           .text("(Optional) The new Root key that you want to add to the `root.json` file. If not provided, you'll have to manually sign and push it with `root sign` and `root push`.")
-          .toConfigOptionParam('rootKey),
+          .toConfigOptionParam(Symbol("rootKey")),
         opt[KeyName]("new-targets")
           .text("(Only for the repo server) The new Targets key that you want to add to the `root.json` file (should already exist).")
           .action { (keyName: KeyName, c) => c.copy(keyNames = List(keyName)) },
         opt[KeyName]("old-root-alias")
           .text("The alias of the old Root key. The old Root key will be saved under this name.")
           .required()
-          .toConfigOptionParam('oldRootKey),
+          .toConfigOptionParam(Symbol("oldRootKey")),
         opt[KeyId]("old-keyid")
           .text("(Optional) The ID of the key that you want to remove from the `root.json` file. This app will try to use the last key defined in the current `root.json` file.")
-          .toConfigOptionParam('keyId)
+          .toConfigOptionParam(Symbol("keyId"))
       )
 
     note(" " + sys.props("line.separator"))
@@ -387,15 +387,15 @@ object Cli extends App with VersionInfo {
         cmd("sign")
           .toCommand(SignRoot)
           .text("Signs your root-of-trust metadata with a specific key and sets the expiry.")
-          .children(manyKeyNamesOpt(this).optional.text("The path to the public key to use for signing."))
+          .children(manyKeyNamesOpt(this).optional().text("The path to the public key to use for signing."))
           .children(expirationOpts(this):_*)
           .children(
             opt[KeyName]("old-root-alias")
-              .optional
-              .toConfigOptionParam('oldRootKey)
+              .optional()
+              .toConfigOptionParam(Symbol("oldRootKey"))
               .text("The alias of the old root key."),
             opt[Map[KeyName, ValidSignatureType]]("signatures")
-              .toConfigOptionParam('signatures)
+              .toConfigOptionParam(Symbol("signatures"))
               .text("The external signatures to add to root.json.")
           ),
         cmd("increment-version")
@@ -416,12 +416,12 @@ object Cli extends App with VersionInfo {
           .toCommand(InitTargets)
           .children(
             opt[Int]("version")
-              .toConfigOptionParam('version)
+              .toConfigOptionParam(Symbol("version"))
               .required()
               .text("""The version of the `targets.json` file.
                           |Versions are integers, normally starting at 1. They must always increase in each successive `targets.json` version.""".stripMargin),
             opt[Instant]("expires")
-              .toConfigOptionParam('expireOn)
+              .toConfigOptionParam(Symbol("expireOn"))
               .text("The metadata expiry date. It is a UTC instant, such as `2020-01-01T00:01:00Z`.")
               .required()
           ).text("Creates a new top-level (non-delegated) `targets.json` file."),
@@ -435,19 +435,19 @@ object Cli extends App with VersionInfo {
           .children(
             opt[Path]('i', "input")
               .required()
-              .toConfigOptionParam('inputPath)
+              .toConfigOptionParam(Symbol("inputPath"))
               .text("The path to the binary file."),
             opt[TargetName]("name")
               .required()
-              .toConfigOptionParam('targetName)
+              .toConfigOptionParam(Symbol("targetName"))
               .text("The name of the target."),
             opt[TargetVersion]("version")
               .required()
-              .toConfigOptionParam('targetVersion)
+              .toConfigOptionParam(Symbol("targetVersion"))
               .text("The version string of the target."),
             opt[List[HardwareIdentifier]]("hardwareids")
               .required()
-              .toConfigParam('hardwareIds)
+              .toConfigParam(Symbol("hardwareIds"))
               .text("The types of hardware with which this image is compatible."),
             customMetaOpts(this)
           ).text("Adds a target that you previously uploaded to OTA Connect using the `targets upload` command."),
@@ -457,7 +457,7 @@ object Cli extends App with VersionInfo {
           .children(
             opt[TargetFilename]("filename")
               .required()
-              .toConfigOptionParam('targetFilename)
+              .toConfigOptionParam(Symbol("targetFilename"))
               .text("""The exact name of the target to remove.
                           |Should be in one of the following forms: `<name>_<version>` for OSTree images, or `<name>-<version>` for binary images.""".stripMargin)
           ),
@@ -473,7 +473,7 @@ object Cli extends App with VersionInfo {
               .text("The path to the public key to use for signing."),
             opt[Int]("version")
               .text("The version number to use for the signed metadata. Overrides the version in the unsigned `targets.json` file.")
-              .toConfigOptionParam('version),
+              .toConfigOptionParam(Symbol("version")),
             opt[Map[KeyName, ValidSignatureType]]("signatures")
               .action { (m, c) => if (m.isEmpty) c.copy(signatures = None) else c.copy(signatures = Some(m)) }
               .text("The external rsassa-pss-sha256 signatures to add (after being verified)")
@@ -493,20 +493,20 @@ object Cli extends App with VersionInfo {
           .children(
             opt[Path]('i', "input")
               .required()
-              .toConfigOptionParam('inputPath)
+              .toConfigOptionParam(Symbol("inputPath"))
               .text("The path to the file that you want to upload."),
             opt[TargetName]("name")
               .required()
-              .toConfigOptionParam('targetName)
+              .toConfigOptionParam(Symbol("targetName"))
               .text("The name of the target."),
             opt[TargetVersion]("version")
               .required()
-              .toConfigOptionParam('targetVersion)
+              .toConfigOptionParam(Symbol("targetVersion"))
               .text("The version string of the target."),
             opt[Long]("timeout")
               .optional()
               .text("The timeout for the HTTP request of the upload, in seconds.")
-              .toConfigParam('timeout),
+              .toConfigParam(Symbol("timeout")),
           )
           .text("""Uploads a binary to the repository.
                   |Note that this will not make the binary available on its own.
@@ -521,7 +521,7 @@ object Cli extends App with VersionInfo {
               .text("Adds a new delegation to the existing `targets.json` file.")
               .children(
                 opt[DelegatedRoleName]("name").abbr("n").required()
-                    .toConfigParam('delegationName).text("The name of the target."),
+                    .toConfigParam(Symbol("delegationName")).text("The name of the target."),
                 opt[DelegatedPathPattern]("prefix").abbr("p").unbounded().minOccurs(1)
                   .action { (arg, c) => c.copy(delegatedPaths = arg :: c.delegatedPaths) }
                   .text("The path prefix of the image that you want to delegate."),
@@ -546,7 +546,7 @@ object Cli extends App with VersionInfo {
         opt[Path]("output")
           .abbr("o")
           .text("The name of the file to which you want to export our credentials.")
-          .required().toConfigOptionParam('outputPath)
+          .required().toConfigOptionParam(Symbol("outputPath"))
       )
 
     note(" " + sys.props("line.separator"))
@@ -563,7 +563,7 @@ object Cli extends App with VersionInfo {
       .hidden()
       .children(
         repoNameOpt(this),
-        opt[Path]('i', "input").toConfigOptionParam('inputPath)
+        opt[Path]('i', "input").toConfigOptionParam(Symbol("inputPath"))
       )
 
     cmd("import-client-cert")
@@ -574,10 +574,10 @@ object Cli extends App with VersionInfo {
         opt[Path]('c', "client-cert")
           .text("The path to the valid PKCS#12 file that can be used to authenticate to a remote tuf repository.")
           .required()
-          .toConfigOptionParam('inputPath),
+          .toConfigOptionParam(Symbol("inputPath")),
         opt[Path]('s', "server-cert")
           .text("The path to the valid PKCS# file that can be used as a trust store to validate a remote `tuf` repository certificate.")
-          .toConfigOptionParam('serverCertPath),
+          .toConfigOptionParam(Symbol("serverCertPath")),
       )
 
     checkConfig { c =>

@@ -36,6 +36,6 @@ class CliCodecsSpec extends AnyFunSuite {
                }
         }""").value
 
-    assert(repoConfigCodec.decodeJson(missingRepoServerType).right.get.repoServerType == RepoServer)
+    assert(repoConfigCodec.decodeJson(missingRepoServerType).toOption.get.repoServerType == RepoServer)
   }
 }

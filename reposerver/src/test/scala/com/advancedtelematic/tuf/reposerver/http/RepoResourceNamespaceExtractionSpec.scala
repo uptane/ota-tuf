@@ -21,7 +21,7 @@ import com.advancedtelematic.tuf.reposerver.util._
 class RepoResourceNamespaceExtractionSpec extends TufReposerverSpec
   with ResourceSpec with BeforeAndAfterAll with Inspectors with Whenever with PatienceConfiguration with RepoNamespaceRepositorySupport {
 
-  implicit val ec = ExecutionContext.global
+  override val ec = this.executor
 
   val dbValidation = new DatabaseNamespaceValidation(NamespaceDirectives.defaultNamespaceExtractor)
 

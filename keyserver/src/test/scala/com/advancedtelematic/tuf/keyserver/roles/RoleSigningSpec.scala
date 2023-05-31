@@ -1,6 +1,5 @@
 package com.advancedtelematic.tuf.keyserver.roles
 
-import com.advancedtelematic.libtuf.crypt.CanonicalJson._
 import com.advancedtelematic.libtuf.data.TufDataType.{KeyType, RepoId, RoleType, Signature, TufKeyPair}
 import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType._
 import com.advancedtelematic.tuf.util.{KeyTypeSpecSupport, TufKeyserverSpec}

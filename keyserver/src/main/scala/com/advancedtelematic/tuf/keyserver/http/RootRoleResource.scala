@@ -14,6 +14,7 @@ import com.advancedtelematic.libtuf_server.data.Marshalling._
 import com.advancedtelematic.tuf.keyserver.Settings
 import com.advancedtelematic.tuf.keyserver.daemon.DefaultKeyGenerationOp
 import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType.KeyGenRequestStatus
+import com.advancedtelematic.tuf.keyserver.db.SignedRootRoleRepository.MissingSignedRole
 import com.advancedtelematic.tuf.keyserver.db.{KeyGenRequestSupport, SignedRootRoleRepository}
 import com.advancedtelematic.tuf.keyserver.roles._
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
@@ -92,13 +93,13 @@ class RootRoleResource()
           case Success(role) =>
             complete(role)
 
-          case Failure(notFoundErr @ SignedRootRoleRepository.MissingSignedRole) =>
+          case Failure(err) if err ==  MissingSignedRole =>
             onSuccess(signedRootRoles.findFreshAndPersist(repoId)) { latestRoot =>
               if(latestRoot.signed.version == version)
                 complete(latestRoot)
               else {
-                val notFoundErrRepr = ErrorRepresentation(notFoundErr.code, notFoundErr.msg, None, Option(notFoundErr.errorId)).asJson
-                val refreshErr = ErrorRepresentation(notFoundErr.code, "Root role not found and role not refreshed", Option(notFoundErrRepr), Option(notFoundErr.errorId))
+                val notFoundErrRepr = ErrorRepresentation(MissingSignedRole.code, MissingSignedRole.msg, None, Option(MissingSignedRole.errorId)).asJson
+                val refreshErr = ErrorRepresentation(MissingSignedRole.code, "Root role not found and role not refreshed", Option(notFoundErrRepr), Option(MissingSignedRole.errorId))
                 complete(StatusCodes.NotFound -> refreshErr.asJson) // Avoids logging error by returning ready respond instead of using failWith
               }
             }
@@ -157,7 +158,7 @@ class RootRoleResource()
         }
       } ~
       pathPrefix("keys") {
-        (get & path(KeyIdPath)) { keyId ⇒
+        (get & path(KeyIdPath)) { keyId =>
           complete(rootRoleKeyEdit.findKeyPair(repoId, keyId))
         } ~
         pathPrefix("targets") { // TODO: This should be param roleType=targets

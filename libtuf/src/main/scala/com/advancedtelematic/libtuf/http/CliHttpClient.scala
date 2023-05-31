@@ -10,8 +10,8 @@ import sttp.client.SttpClientException.{ConnectException, ReadException}
 import sttp.client.{Request, Response, SttpBackend}
 import sttp.model.{MediaType, StatusCode}
 
-import java.io.{BufferedInputStream, BufferedOutputStream, BufferedWriter, ByteArrayInputStream, ByteArrayOutputStream, OutputStreamWriter, PipedInputStream, PipedOutputStream}
-import java.util.zip.{GZIPInputStream, GZIPOutputStream}
+import java.io.ByteArrayOutputStream
+import java.util.zip.GZIPOutputStream
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag

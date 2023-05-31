@@ -58,14 +58,7 @@ class LocalTargetStoreEngine(root: File)(implicit val system: ActorSystem, val m
     else {
       val size = storePath.toFile.length()
 
-      val source = FileIO.fromPath(storePath).mapMaterializedValue {
-        _.flatMap { ioResult =>
-          if (ioResult.wasSuccessful)
-            FastFuture.successful(Done)
-          else
-            FastFuture.failed(ioResult.getError)
-        }
-      }
+      val source = FileIO.fromPath(storePath).mapMaterializedValue(_ => FastFuture.successful(Done))
 
       Future.successful(TargetBytes(source, size))
     }
@@ -91,11 +84,8 @@ class LocalTargetStoreEngine(root: File)(implicit val system: ActorSystem, val m
     catch { case _: FileAlreadyExistsException => () }
 
     FileIO.toPath(storePath).mapMaterializedValue {
-      _.flatMap { result =>
-        if(result.wasSuccessful)
-          Future.successful((uri, result.count))
-        else
-          Future.failed(result.getError)
+      _.map { result =>
+        uri -> result.count
       }
     }
   }

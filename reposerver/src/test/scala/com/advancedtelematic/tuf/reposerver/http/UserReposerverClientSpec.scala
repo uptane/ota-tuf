@@ -145,7 +145,7 @@ class UserReposerverClientSpec extends TufReposerverSpec
     f.setLength(3 * Math.pow(10, 9).toLong + 1)
 
     try {
-      val targetFilename = eu.timepit.refined.refineV[ValidTargetFilename]("filesizetest-0.0.1").right.get
+      val targetFilename = eu.timepit.refined.refineV[ValidTargetFilename]("filesizetest-0.0.1").toOption.get
 
       val err = client.uploadTarget(targetFilename, uploadFilePath, 10.seconds).failed.futureValue
 

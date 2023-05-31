@@ -26,13 +26,13 @@ protected class OAuth2Client(val config: OAuthConfig, httpBackend: CliHttpBacken
     http
       .post(Uri(URI.create(config.server.toString)))
       .auth.basic(config.client_id, config.client_secret)
-      .body("grant_type" → "client_credentials", "scope" -> config.scope)
+      .body("grant_type" -> "client_credentials", "scope" -> config.scope)
 
   private def authPlusTokenRequest =
     http
       .post(Uri(URI.create(config.server.toString + "/token")))
       .auth.basic(config.client_id, config.client_secret)
-      .body("grant_type" → "client_credentials")
+      .body("grant_type" -> "client_credentials")
 
   private val tokenResponseDecoder =
     Decoder.decodeString.prepare(_.downField("access_token")).map(OAuth2Token.apply)

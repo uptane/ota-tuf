@@ -15,12 +15,12 @@ import scala.concurrent.{ExecutionContext, Future}
 import SlickMappings._
 
 trait DatabaseSupport {
-  implicit val ec: ExecutionContext
-  implicit val db: Database
+  val ec: ExecutionContext
+  val db: Database
 }
 
 trait KeyGenRequestSupport extends DatabaseSupport {
-  lazy val keyGenRepo = new KeyGenRequestRepository()
+  lazy val keyGenRepo = new KeyGenRequestRepository()(db, ec)
 }
 
 protected [db] class KeyGenRequestRepository()(implicit db: Database, ec: ExecutionContext) {
@@ -90,7 +90,7 @@ protected [db] class KeyGenRequestRepository()(implicit db: Database, ec: Execut
 }
 
 trait KeyRepositorySupport extends DatabaseSupport {
-  lazy val keyRepo = new KeyRepository()
+  lazy val keyRepo = new KeyRepository()(db, ec)
 }
 
 object KeyRepository {
@@ -134,12 +134,12 @@ protected [db] class KeyRepository()(implicit db: Database, ec: ExecutionContext
 
 
 trait SignedRootRoleSupport extends DatabaseSupport {
-  lazy val signedRootRoleRepo = new SignedRootRoleRepository()
+  lazy val signedRootRoleRepo = new SignedRootRoleRepository()(db, ec)
 }
 
 object SignedRootRoleRepository {
-  val MissingSignedRole = MissingEntity[RootRole]
-  val RootRoleExists = EntityAlreadyExists[RootRole]
+  val MissingSignedRole = MissingEntity[RootRole]()
+  val RootRoleExists = EntityAlreadyExists[RootRole]()
 }
 
 protected[db] class SignedRootRoleRepository()(implicit db: Database, ec: ExecutionContext) {

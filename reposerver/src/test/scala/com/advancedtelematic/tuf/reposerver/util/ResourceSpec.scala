@@ -35,7 +35,7 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.NoSuchElementException
 import java.util.concurrent.ConcurrentHashMap
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.concurrent.duration._
@@ -245,7 +245,7 @@ object ResourceSpec {
 
   object TargetInfo {
     def generate(name: TargetName, version: TargetVersion): TargetInfo = {
-      val targetFilename = eu.timepit.refined.refineV[ValidTargetFilename](s"${name.value}-${version.value}").right.get
+      val targetFilename = eu.timepit.refined.refineV[ValidTargetFilename](s"${name.value}-${version.value}").toOption.get
 
       val uploadFilePath = Files.createTempFile("s3upload", "txt")
       Files.write(uploadFilePath, "“Como todos los hombres de la Biblioteca, he viajado en mi juventud“".getBytes(StandardCharsets.UTF_8))
@@ -353,7 +353,7 @@ trait ResourceSpec extends TufReposerverSpec
 
     Get(apiUri(s"repo/${repoId.show}/targets/" + targetInfo.targetFilename.value)) ~> routes ~> check {
       status shouldBe StatusCodes.Found
-      val uri = Uri.parse(header("Location").value.value()).right.get
+      val uri = Uri.parse(header("Location").value.value()).toOption.get
       uri.host should include(redirectEndpointSuyffix)
 
       val downloadPath = Files.createTempFile("s3download", "txt")

@@ -18,7 +18,7 @@ import eu.timepit.refined._
 import eu.timepit.refined.api.Refined
 import org.slf4j.LoggerFactory
 import sttp.client._
-import sttp.model.{Header, HeaderNames, Headers, StatusCode, Uri}
+import sttp.model.{Header, HeaderNames, StatusCode, Uri}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, _}
@@ -72,7 +72,7 @@ abstract class TufServerHttpClient(uri: URI, httpBackend: CliHttpBackend)
 
   def root(version: Option[Int] = None): Future[SignedPayload[RootRole]] = {
     val filename = version match {
-      case Some(v) => v + ".root.json"
+      case Some(v) => s"$v.root.json"
       case None => "root.json"
     }
 

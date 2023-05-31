@@ -1,7 +1,7 @@
 package com.advancedtelematic.tuf.keyserver.roles
 
 import com.advancedtelematic.libtuf.data.TufDataType.{KeyId, RepoId, TufKeyPair}
-import com.advancedtelematic.tuf.keyserver.db.{KeyRepository, KeyRepositorySupport}
+import com.advancedtelematic.tuf.keyserver.db.KeyRepositorySupport
 
 import scala.async.Async.{async, await}
 import scala.concurrent.{ExecutionContext, Future}
@@ -35,7 +35,7 @@ class RootRoleKeyEdit()
     for {
       _ <- ensureIsRepoKey(repoId, keyId)
       key <- keyRepo.find(keyId)
-      keyPair ← Future.fromTry(key.toTufKeyPair)
+      keyPair <- Future.fromTry(key.toTufKeyPair)
     } yield keyPair
   }
 

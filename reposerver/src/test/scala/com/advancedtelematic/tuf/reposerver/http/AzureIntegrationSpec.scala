@@ -81,12 +81,11 @@ class AzureIntegrationSpec extends TufReposerverSpec
     val chunkSize = 2000000
     val fileGenResult = Source(1.to(5)).map(_ => ByteString(Random.nextString(chunkSize)))
       .concat(Source.single(ByteString(Random.nextString(Random.nextInt(chunkSize))))).runWith(FileIO.toPath(uploadFilePath)).futureValue
-    fileGenResult.status should matchPattern { case Success(Done) => }
     val uploadedFileChecksum = com.advancedtelematic.libtuf.crypt.Sha256FileDigest.from(uploadFilePath)
     println(s"File generated: ${fileGenResult.count} bytes, checksum: ${uploadedFileChecksum}")
 
     val source = FileIO.fromPath(uploadFilePath, 2048000)
-    val targetFilename = eu.timepit.refined.refineV[ValidTargetFilename](uploadFilePath.getFileName.toString).right.get
+    val targetFilename = eu.timepit.refined.refineV[ValidTargetFilename](uploadFilePath.getFileName.toString).toOption.get
     val storeResult = storeEngine.store(repoId, targetFilename, source).futureValue
     storeResult.checksum should equal(uploadedFileChecksum)
   }

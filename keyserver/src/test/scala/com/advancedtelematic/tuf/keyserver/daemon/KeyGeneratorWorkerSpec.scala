@@ -48,7 +48,7 @@ class KeyGeneratorWorkerSpec extends TufKeyserverSpec with TestKitBase with Mysq
 
     val key = expectMsgPF(timeout) {
       case Status.Success(t: Seq[Key]@unchecked) => t.head
-      case Status.Failure(ex) ⇒ throw ex
+      case Status.Failure(ex) => throw ex
     }
 
     keyGenRepo.find(keyGenReq.id).futureValue.status shouldBe KeyGenRequestStatus.GENERATED

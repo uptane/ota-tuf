@@ -1,8 +1,7 @@
 package com.advancedtelematic.libtuf_server.repo.server
 
 import cats.Show
-import com.advancedtelematic.libats.http.Errors.{MissingEntity, MissingEntityId}
-import com.advancedtelematic.libtuf.data.ClientDataType.TufRole
+import com.advancedtelematic.libats.http.Errors.MissingEntityId
 import com.advancedtelematic.libtuf.data.TufDataType.RepoId
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 
