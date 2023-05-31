@@ -39,8 +39,8 @@ import slick.jdbc.MySQLProfile.api._
 import slick.lifted.AbstractTable
 
 trait DatabaseSupport {
-  implicit val ec: ExecutionContext
-  implicit val db: Database
+  val ec: ExecutionContext
+  val db: Database
 }
 
 object TargetItemRepositorySupport {
@@ -48,7 +48,7 @@ object TargetItemRepositorySupport {
 }
 
 trait TargetItemRepositorySupport extends DatabaseSupport {
-  lazy val targetItemRepo = new TargetItemRepository()
+  lazy val targetItemRepo = new TargetItemRepository()(db, ec)
 }
 
 protected [db] class TargetItemRepository()(implicit db: Database, ec: ExecutionContext) {
@@ -145,7 +145,7 @@ protected [db] class TargetItemRepository()(implicit db: Database, ec: Execution
 }
 
 trait SignedRoleRepositorySupport extends DatabaseSupport {
-  lazy val signedRoleRepository = new SignedRoleRepository()
+  lazy val signedRoleRepository = new SignedRoleRepository()(db, ec)
 }
 
 protected [db] class SignedRoleRepository()(implicit val db: Database, val ec: ExecutionContext) {
@@ -231,7 +231,7 @@ protected[db] class DbSignedRoleRepository()(implicit val db: Database, val ec: 
 }
 
 trait RepoNamespaceRepositorySupport extends DatabaseSupport {
-  lazy val repoNamespaceRepo = new RepoNamespaceRepository()
+  lazy val repoNamespaceRepo = new RepoNamespaceRepository()(db, ec)
 }
 
 protected[db] class RepoNamespaceRepository()(implicit db: Database, ec: ExecutionContext) {
@@ -286,7 +286,7 @@ protected[db] class RepoNamespaceRepository()(implicit db: Database, ec: Executi
 
 object FilenameCommentRepository {
   trait Support extends DatabaseSupport {
-    lazy val filenameCommentRepo = new FilenameCommentRepository()
+    lazy val filenameCommentRepo = new FilenameCommentRepository()(db, ec)
   }
 
   val CommentNotFound = MissingEntity[TargetComment]()
@@ -328,7 +328,7 @@ protected [db] class FilenameCommentRepository()(implicit db: Database, ec: Exec
 }
 
 trait DelegationRepositorySupport extends DatabaseSupport {
-  lazy val delegationsRepo = new DelegationRepository()
+  lazy val delegationsRepo = new DelegationRepository()(db, ec)
 }
 
 protected [db] class DelegationRepository()(implicit db: Database, ec: ExecutionContext) {

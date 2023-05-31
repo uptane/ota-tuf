@@ -55,7 +55,7 @@ lazy val commonSettings = Seq(
   scalaVersion := "2.13.10",
   organizationName := "uptane",
   organizationHomepage := Some(url("https://uptane.github.io/")),
-  scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8", "-Xasync"),
+  scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8", "-Xasync", "-Xsource:3"),
   Compile / console / scalacOptions ~= (_.filterNot(_ == "-Ywarn-unused-import")),
   resolvers += "sonatype-snapshots" at "https://s01.oss.sonatype.org/content/repositories/snapshots",
   resolvers += "sonatype-releases" at "https://s01.oss.sonatype.org/content/repositories/releases",

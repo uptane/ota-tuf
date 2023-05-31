@@ -42,7 +42,7 @@ class RootRoleResourceSpec extends TufKeyserverSpec
   with SignedRootRoleSupport
   with Inspectors {
 
-  implicit val ec = ExecutionContext.global
+  override val ec = this.executor
 
   override implicit def patienceConfig = PatienceConfig(timeout = Span(20, Seconds), interval = Span(500, Millis))
 

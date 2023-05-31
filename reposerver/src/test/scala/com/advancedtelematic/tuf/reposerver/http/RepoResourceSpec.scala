@@ -52,6 +52,8 @@ import java.net.URI
 class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
   with ResourceSpec with BeforeAndAfterAll with Inspectors with Whenever with PatienceConfiguration with SignedRoleRepositorySupport {
 
+  override val ec = this.executor
+
   val repoId = RepoId.generate()
 
   override implicit def patienceConfig: PatienceConfig = PatienceConfig().copy(timeout = Span(5, Seconds))
