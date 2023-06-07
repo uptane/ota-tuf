@@ -40,7 +40,8 @@ object TufCodecs {
 
   implicit def signedPayloadCodec[T : Encoder : Decoder]: Codec[SignedPayload[T]] = io.circe.Codec.from(signedPayloadDecoder, signedPayloadEncoder)
 
-  implicit val jsonSignedPayloadEncoder: Encoder[JsonSignedPayload] = deriveEncoder
+  // This encoder is not implicit to force custom http marshallers to be used instead, to marshall responses as canonical json
+  val jsonSignedPayloadEncoder: Encoder[JsonSignedPayload] = deriveEncoder
   implicit val jsonSignedPayloadDecoder: Decoder[JsonSignedPayload] = deriveDecoder
 
   implicit val rsaKeyTypeEncoder: Encoder[RsaKeyType.type] = Encoder[String].contramap(_ => "RSA")
