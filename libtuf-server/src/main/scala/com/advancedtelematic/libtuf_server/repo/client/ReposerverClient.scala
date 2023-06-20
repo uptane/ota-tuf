@@ -26,7 +26,7 @@ import com.advancedtelematic.libtuf_server.repo.client.ReposerverClient.{KeysNot
 import io.circe.{Decoder, Encoder, Json}
 import com.advancedtelematic.libats.codecs.CirceCodecs._
 import com.advancedtelematic.libtuf.data.ClientCodecs._
-import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, DelegationClientTargetItem, RootRole, TargetsRole}
+import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, DelegatedRoleName, DelegationClientTargetItem, RootRole, TargetCustom, TargetsRole}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
@@ -116,6 +116,7 @@ trait ReposerverClient {
   def fetchDelegationMetadata(namespace: Namespace, roleName: String): Future[JsonSignedPayload]
   def fetchDelegationTargetItems(namespace: Namespace, nameContains: Option[String] = None): Future[PaginationResult[DelegationClientTargetItem]]
   def fetchSingleDelegationTargetItem(namespace: Namespace, targetFilename: TargetFilename): Future[Seq[DelegationClientTargetItem]]
+  def refreshDelegatedRole(namespace: Namespace, fileName: DelegatedRoleName): Future[Unit]
 }
 
 object ReposerverHttpClient extends ServiceHttpClientSupport {
@@ -360,5 +361,11 @@ class ReposerverHttpClient(reposerverUri: Uri, httpClient: HttpRequest => Future
       val req = HttpRequest(HttpMethods.PUT, uri, entity = form)
       execHttpUnmarshalledWithNamespace[Unit](namespace, req).handleErrors(addTargetErrorHandler)
     }
+  }
+
+  override def refreshDelegatedRole(namespace: Namespace, fileName: DelegatedRoleName): Future[Unit] = {
+    val uri = apiUri(Path("user_repo") / "trusted-delegations" / fileName.value / "remote"/ "refresh")
+    val req = HttpRequest(HttpMethods.PUT, uri)
+    execHttpUnmarshalledWithNamespace[Unit](namespace, req).ok
   }
 }
