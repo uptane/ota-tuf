@@ -158,6 +158,9 @@ class KeyserverHttpClient(uri: Uri, httpClient: HttpRequest => Future[HttpRespon
 
   override def rotateRoot(repoId: RepoId): Future[Unit] = {
     val req = HttpRequest(HttpMethods.PUT, uri = apiUri(Path("root") / repoId.show / "rotate"))
-    execHttpUnmarshalled[Unit](req).ok
+    execHttpUnmarshalled[Unit](req).handleErrors {
+      case RemoteServiceError(_, StatusCodes.PreconditionFailed, _, _, _, _) =>
+        Future.failed(RoleKeyNotFound)
+    }
   }
 }

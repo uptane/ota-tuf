@@ -1576,6 +1576,20 @@ class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
     }
   }
 
+  test("rotate returns 412 when key is offline") {
+    val repoId = RepoId.generate()
+    fakeKeyserverClient.createRoot(repoId).futureValue
+
+    val root = fakeKeyserverClient.fetchRootRole(repoId).futureValue
+
+    fakeKeyserverClient.deletePrivateKey(repoId, root.signed.roles(RoleType.ROOT).keyids.head).futureValue
+
+    Put(apiUri(s"repo/${repoId.show}/root/rotate")) ~> routes ~> check {
+      status shouldBe StatusCodes.PreconditionFailed
+    }
+  }
+
+
   implicit class ErrorRepresentationOps(value: ErrorRepresentation) {
     def firstErrorCause: Option[String] =
       value.cause.flatMap(_.as[NonEmptyList[String]].toOption).map(_.head)
