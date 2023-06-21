@@ -1,6 +1,6 @@
 #!/usr/bin/env amm
 
-import $ivy.`io.github.uptane::libtuf:1.0.0`
+import $ivy.`io.github.uptane::libtuf:3.0.0`
 
 import io.circe.{Json, JsonObject}
 import io.circe.syntax._
