@@ -9,6 +9,7 @@ import com.advancedtelematic.tuf.reposerver.data.RepoDataType.StorageMethod
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.StorageMethod.StorageMethod
 import slick.jdbc.MySQLProfile.api._
 
+import scala.annotation.nowarn
 import scala.reflect.ClassTag
 
 object SlickMappings {
@@ -33,7 +34,9 @@ object SlickMappings {
     SlickCirceMapper.circeMapper[W]
   }
 
+  @nowarn
   implicit val delegatedRoleNameMapper = validatedStringMapper[DelegatedRoleName]
+  @nowarn
   implicit val delegationFriendlyNameMapper = validatedStringMapper[DelegationFriendlyName]
 
   val remoteHeadersMapper = SlickCirceMapper.circeMapper[Map[String, String]]

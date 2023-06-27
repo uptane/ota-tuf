@@ -6,7 +6,6 @@ import com.advancedtelematic.libtuf.crypt.TufCrypto
 import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.libtuf.data.ClientDataType.RootRole
 import com.advancedtelematic.libtuf.data.TufDataType.{KeyId, RoleType, JsonSignedPayload, SignedPayload, TufKey}
-import cats.implicits._
 import io.circe.syntax._
 import com.advancedtelematic.libtuf.crypt.CanonicalJson._
 import cats.implicits._
@@ -49,7 +48,7 @@ object RootRoleValidation {
       .toValidNel(s"root.json version ${roleForValidation.version} does not contain keys for ROOT")
 
     roleRootKeys.andThen { roleKeys =>
-      val publicKeys = roleForValidation.keys.filterKeys(roleKeys.keyids.contains)
+      val publicKeys = roleForValidation.keys.view.filterKeys(roleKeys.keyids.contains).toMap
       val sigs = validateSignatures(newSignedRoot, publicKeys)
       thresholdIsSatisfied(newSignedRoot.signed.version, roleForValidation.version, roleKeys.threshold, sigs)
     }

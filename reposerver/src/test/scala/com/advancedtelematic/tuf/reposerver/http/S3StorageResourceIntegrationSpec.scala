@@ -124,8 +124,10 @@ class S3StorageResourceIntegrationSpec
       override def send[T](request: Request[T, Nothing]): Future[Response[T]] = {
         responseMonad.flatMap(testBackend.send(request.followRedirects(false))) {
           case resp if resp.code == StatusCode.Found =>
-            val location = Uri.parse(resp.header("Location").get).right.get
+            val location = Uri.parse(resp.header("Location").get).toOption.get
             realClient.send(request.copy(uri = location: Identity[Uri]))
+          case resp => 
+            fail(s"invalid response: $resp")
         }
       }
 

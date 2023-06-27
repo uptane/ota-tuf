@@ -36,7 +36,7 @@ import com.advancedtelematic.libtuf_server.repo.server.RepoRoleRefresh
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType._
 import com.advancedtelematic.tuf.reposerver.db._
 import com.advancedtelematic.tuf.reposerver.delegations.{DelegationsManagement, RemoteDelegationClient}
-import com.advancedtelematic.tuf.reposerver.http.Errors.{DelegationNotFound, NoRepoForNamespace, RequestCanceledByUpstream}
+import com.advancedtelematic.tuf.reposerver.http.Errors.{DelegationNotFound, NoRepoForNamespace, RequestCanceledByUpstream, TargetNotFoundError}
 import com.advancedtelematic.tuf.reposerver.http.RoleChecksumHeader._
 import com.advancedtelematic.tuf.reposerver.target_store.TargetStore
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
@@ -90,14 +90,14 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
       }
 
   private val withMultipartUploadFileSizeCheck: Directive1[Long] =
-    parameter('fileSize.as[Long]).flatMap { fileSize =>
+    parameter(Symbol("fileSize").as[Long]).flatMap { fileSize =>
       if (fileSize > outOfBandUploadLimit)
         failWith(Errors.PayloadTooLarge(fileSize, outOfBandUploadLimit))
       else provide(fileSize)
     }
 
   private val withMultipartUploadPartSizeCheck: Directive1[Long] =
-    parameters('contentLength.as[Int], 'part.as[Int])
+    parameters(Symbol("contentLength").as[Int], Symbol("part").as[Int])
       .tmap { case (partContentLength, partNumber) =>
         val totalFileSize = multipartUploadPartSize * (partNumber - 1) + partContentLength
         (partContentLength, totalFileSize)
@@ -185,7 +185,7 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
             case _ => reject(MissingHeaderRejection("Content-Length"))
           }
         },
-        parameter('fileUri) { fileUri =>
+        parameter(Symbol("fileUri")) { fileUri =>
           complete {
             for {
               item <- targetStore.storeFromUri(repoId, filename, Uri(fileUri), custom)
@@ -201,10 +201,10 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
   private def findRootByVersion(repoId: RepoId, version: Int): Route =
     onComplete(keyserverClient.fetchRootRole(repoId, version)) {
       case Success(root) => complete(root)
-      case Failure(ex @ RootRoleNotFound)  =>
+      case Failure(err) if err == RootRoleNotFound  =>
         // Devices always request current version + 1 to see if it exists, so this is a normal response, do not log an error and instead just log a debug message
         log.debug(s"Root role not found in keyserver for $repoId, version=$version")
-        val err = ErrorRepresentation(ex.code, ex.desc, None, Option(ex.errorId))
+        val err = ErrorRepresentation(RootRoleNotFound.code, RootRoleNotFound.desc, None, Option(RootRoleNotFound.errorId))
         complete(StatusCodes.NotFound -> err.asJson)
       case Failure(err) => failWith(err)
     }
@@ -306,7 +306,7 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
            }
          }
       } ~
-      (get & path(IntNumber ~ ".root.json")) { version ⇒
+      (get & path(IntNumber ~ ".root.json")) { version =>
         findRootByVersion(repoId, version)
       } ~
       (get & path(JsonRoleTypeMetaPath)) { roleType =>
@@ -431,7 +431,7 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
           } yield result
           complete(rs)
         } ~
-        (get & path("url" / TargetFilenamePath) & parameters('part, 'uploadId.as[MultipartUploadId], 'md5, 'contentLength.as[Int])) {
+        (get & path("url" / TargetFilenamePath) & parameters(Symbol("part"), Symbol("uploadId").as[MultipartUploadId], Symbol("md5"), Symbol("contentLength").as[Int])) {
           (filename, partId, uploadId, md5, contentLength) =>
             withMultipartUploadPartSizeCheck { _ =>
               complete(targetStore.buildSignedURL(repoId, filename, uploadId, partId, md5, contentLength))
@@ -476,7 +476,7 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
           head {
             onComplete(targetStore.find(repoId, filename)) {
               case Success(_) => complete((StatusCodes.OK, HttpEntity.Empty))
-              case Failure(e@Errors.TargetNotFoundError) => complete((e.responseCode, HttpEntity.Empty))
+              case Failure(e) if e == TargetNotFoundError => complete((TargetNotFoundError.responseCode, HttpEntity.Empty))
               case Failure(e) => failWith(e)
             }
           } ~

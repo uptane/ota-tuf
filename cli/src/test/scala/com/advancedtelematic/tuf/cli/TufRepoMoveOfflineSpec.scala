@@ -3,7 +3,7 @@ package com.advancedtelematic.tuf.cli
 import java.nio.file.{Files, Paths}
 import java.time.Instant
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import com.advancedtelematic.libtuf.data.ClientDataType.{RootRole, TargetsRole, TufRole}
 import com.advancedtelematic.libtuf.data.TufDataType.{KeyType, RoleType, SignedPayload, TufKey, TufPrivateKey}
 import com.advancedtelematic.libtuf.http.{DirectorClient, ReposerverClient, TufServerClient}

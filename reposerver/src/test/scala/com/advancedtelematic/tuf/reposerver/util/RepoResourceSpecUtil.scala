@@ -23,8 +23,9 @@ import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
 import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.libats.http.HttpCodecs._
 
-trait RepoResourceSpecUtil extends ResourceSpec with SignedRoleRepositorySupport with ScalaFutures with ScalatestRouteTest { this: Suite ⇒
-  implicit val ec = executor
+trait RepoResourceSpecUtil extends ResourceSpec with SignedRoleRepositorySupport with ScalaFutures with ScalatestRouteTest { this: Suite =>
+
+  override val ec = this.executor
 
   def makeRoleChecksumHeader(repoId: RepoId) =
     RoleChecksumHeader(signedRoleRepository.find[TargetsRole](repoId).futureValue.checksum.hash)

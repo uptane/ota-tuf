@@ -7,7 +7,7 @@ import sttp.client.akkahttp.{AkkaHttpBackend, AkkaHttpClient}
 import scala.concurrent.Future
 
 trait FakeCliHttpClient {
-  self: ResourceSpec ⇒
+  self: ResourceSpec =>
 
   val testBackend: SttpBackend[Future, Nothing, Nothing] = {
     AkkaHttpBackend.usingClient(system, http = AkkaHttpClient.stubFromRoute(Route.seal(routes)))

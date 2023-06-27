@@ -14,9 +14,8 @@ import sttp.client.logging.slf4j.{Slf4jCurlBackend, Slf4jLoggingBackend}
 import sttp.client.monad.MonadError
 import sttp.client.ws.WebSocketResponse
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.Future
-import scala.language.higherKinds
 
 protected class AuthPlusCliHttpBackend[F[_], S, WS_HANDLER[_]](token: OAuth2Token, delegate: SttpBackend[F, S, WS_HANDLER]) extends SttpBackend[F, S, WS_HANDLER] {
   override def send[T](request: Request[T, S]): F[Response[T]] = {
@@ -76,9 +75,9 @@ object AuthenticatedHttpBackend {
     val trustManager = trustManagers.flatMap(_.headOption).map(_.asInstanceOf[X509TrustManager]).orNull
 
     val sslContext = SslContextBuilder.forClient.startTls(true)
-      .ciphers(context.getDefaultSSLParameters.getCipherSuites.toIterable.asJava, SupportedCipherSuiteFilter.INSTANCE)
+      .ciphers(context.getDefaultSSLParameters.getCipherSuites.toList.asJava, SupportedCipherSuiteFilter.INSTANCE)
       .trustManager(trustManager)
-      .protocols(context.getDefaultSSLParameters.getProtocols.toIterable.asJava)
+      .protocols(context.getDefaultSSLParameters.getProtocols.toList.asJava)
       .keyManager(keyManagerFactory)
       .build()
 

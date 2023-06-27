@@ -1,18 +1,14 @@
 package com.advancedtelematic.tuf.keyserver.db
 
-import java.security.PublicKey
 import java.time.Instant
 
 import com.advancedtelematic.libats.slick.db.SlickEncryptedColumn.EncryptedColumn
-import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.libtuf.data.ClientDataType.RootRole
 import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, KeyId, KeyType, RepoId, SignedPayload, TufKey, TufPrivateKey}
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType._
 import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType.KeyGenRequestStatus.KeyGenRequestStatus
 import slick.jdbc.MySQLProfile.api._
-import com.advancedtelematic.libtuf.data.TufCodecs._
-import io.circe.Json
 import cats.syntax.either._
 import com.advancedtelematic.libtuf.data.ClientCodecs._
 

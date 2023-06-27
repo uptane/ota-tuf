@@ -2,6 +2,7 @@ package com.advancedtelematic.tuf.keyserver.roles
 
 import akka.http.scaladsl.util.FastFuture
 import cats.implicits._
+import com.advancedtelematic.tuf.keyserver.db.KeyRepositorySupport
 import com.advancedtelematic.libtuf.crypt.TufCrypto
 import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.libtuf.data.RootManipulationOps._

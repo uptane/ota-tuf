@@ -18,7 +18,7 @@ import io.circe.{Decoder, Encoder}
 import org.slf4j.LoggerFactory
 import cats.implicits._
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.ExecutionContext
 import scala.io.Source
 import scala.util.{Failure, Success, Try}
@@ -41,7 +41,7 @@ object RepoManagement {
       Success(())
   }
 
-  def export(repo: TufRepo[_], targetKey: KeyName, exportPath: Path): Try[Unit] = {
+  def `export`(repo: TufRepo[_], targetKey: KeyName, exportPath: Path): Try[Unit] = {
     def copyTreehubConfig(src: ZipFile, dest: ZipOutputStream): Try[Unit] = {
       for {
         _ <- Try(dest.putNextEntry(new ZipEntry("treehub.json")))
@@ -114,7 +114,7 @@ object RepoManagement {
       }
     }
 
-    Try(new ZipOutputStream(new FileOutputStream(exportPath.toFile))).flatMap { zipExportStream ⇒
+    Try(new ZipOutputStream(new FileOutputStream(exportPath.toFile))).flatMap { zipExportStream =>
       ensureSourceZipExists(repo.repoPath).flatMap { sourceZip =>
         val t = for {
           (pubKey, privKey) <- repo.keyStorage.readKeyPair(targetKey)
@@ -125,7 +125,7 @@ object RepoManagement {
             case ex =>
               _log.warn(s"Could not copy RootRole: ${ex.getMessage}")
           }
-          _ ← copyEntries(sourceZip, zipExportStream)
+          _ <- copyEntries(sourceZip, zipExportStream)
         } yield ()
 
         Try(sourceZip.close())
@@ -139,7 +139,7 @@ object RepoManagement {
 
   private def toByteArray(is: InputStream): Array[Byte] = {
     val baos = new ByteArrayOutputStream()
-    Stream.continually(is.read).takeWhile(_ != -1).foreach(baos.write)
+    LazyList.continually(is.read).takeWhile(_ != -1).foreach(baos.write)
     baos.toByteArray
   }
 }
@@ -178,7 +178,7 @@ protected object ZipRepoInitialization {
       for {
         entry <- Try(src.getEntry(filename)).filter(_ != null).orElse(Failure(MissingCredentialsZipFile(filename)))
         is <- Try(src.getInputStream(entry))
-        uri ← Try(new URI(Source.fromInputStream(is).mkString.trim))
+        uri <- Try(new URI(Source.fromInputStream(is).mkString.trim))
       } yield uri
     }
 
@@ -225,7 +225,7 @@ protected object ZipRepoInitialization {
     }
 
     for {
-      src ← Try(new ZipFile(initFilePath.toFile))
+      src <- Try(new ZipFile(initFilePath.toFile))
       treehubConfig <- readTreehubConfig(src)
       clientCertPath <- writeTlsCerts(src)
       auth <- if(clientCertPath.isDefined) Success(clientCertPath) else buildOauth(treehubConfig)

@@ -10,7 +10,7 @@ import com.advancedtelematic.tuf.cli.repo.CliKeyStorage
 import com.advancedtelematic.tuf.cli.util.{CliSpec, KeyTypeSpecSupport}
 import org.scalatest.TryValues
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 class CliKeyStorageSpec extends CliSpec with KeyTypeSpecSupport with TryValues {
   val tempDir = Files.createTempDirectory("tuf-keys")

@@ -5,7 +5,6 @@ import java.time.{Duration, Instant}
 import akka.http.scaladsl.util.FastFuture
 import cats.data.Validated.{Invalid, Valid}
 import cats.data.ValidatedNel
-import com.advancedtelematic.libtuf.crypt.TufCrypto
 import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.libtuf.data.ClientDataType.{RoleKeys, RootRole}
 import com.advancedtelematic.libtuf.data.RootManipulationOps._
@@ -13,7 +12,6 @@ import com.advancedtelematic.libtuf.data.RootRoleValidation
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 import com.advancedtelematic.libtuf.data.TufDataType._
 import com.advancedtelematic.tuf.keyserver.daemon.DefaultKeyGenerationOp
-import com.advancedtelematic.tuf.keyserver.daemon.KeyGenerationOp.KeyGenerationOp
 import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType.KeyGenRequestStatus.KeyGenRequestStatus
 import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType._
 import com.advancedtelematic.tuf.keyserver.db._
@@ -24,7 +22,6 @@ import slick.jdbc.MySQLProfile.api._
 
 import scala.async.Async._
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
 
 class SignedRootRoles(defaultRoleExpire: Duration = Duration.ofDays(365))
                      (implicit val db: Database, val ec: ExecutionContext)
@@ -159,10 +156,10 @@ extends KeyRepositorySupport with SignedRootRoleSupport {
 
     val clientKeys = repoKeys.map { key => key.id -> key.publicKey }.toMap
 
-    val roleTypeToKeyIds = repoKeys.groupBy(_.roleType).mapValues(_.map(_.id).toSeq)
+    val roleTypeToKeyIds = repoKeys.groupBy(_.roleType).view.mapValues(_.map(_.id).toSeq)
 
     val roles = keyGenRequests.map { genRequest =>
-      genRequest.roleType → RoleKeys(roleTypeToKeyIds(genRequest.roleType), genRequest.threshold)
+      genRequest.roleType -> RoleKeys(roleTypeToKeyIds(genRequest.roleType), genRequest.threshold)
     }.toMap
 
     assert(clientKeys.nonEmpty, "no keys for new default root")

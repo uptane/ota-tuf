@@ -36,14 +36,14 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
     keyTypeTest(name) { keyType => fn(initRepo[RepoServerRepo](keyType), new FakeReposerverTufServerClient(keyType)) }
   }
 
-  val fakeTargetFilename = refineV[ValidTargetFilename]("fake-one-1.2.3").right.get
+  val fakeTargetFilename = refineV[ValidTargetFilename]("fake-one-1.2.3").toOption.get
 
   val fakeTargetItem: ClientTargetItem = {
     val name = TargetName("fake-one")
     val version = TargetVersion("1.2.3")
 
     val custom = TargetCustom(name, version, Seq.empty, Option(TargetFormat.BINARY), Option(URI.create("https://ats.com")))
-    val clientHashes = Map(HashMethod.SHA256 -> refineV[ValidChecksum]("03aa3f5e2779b625a455651b54866447f995a2970d164581b4073044435359ed").right.get)
+    val clientHashes = Map(HashMethod.SHA256 -> refineV[ValidChecksum]("03aa3f5e2779b625a455651b54866447f995a2970d164581b4073044435359ed").toOption.get)
 
     ClientTargetItem(clientHashes, length = 100, custom = Option(custom.asJson))
   }
@@ -55,7 +55,7 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
 
   test("initTargets creates an empty target") {
     val now = Instant.now
-    val repo = initRepo[RepoServerRepo]
+    val repo = initRepo[RepoServerRepo]()
 
     val path = repo.initTargets(20, now.plusSeconds(1)).get
     val role = parseFile(path.toFile).flatMap(_.as[TargetsRole]).valueOr(throw _)
@@ -69,7 +69,7 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
   test("fails if target does not exist") {
     val repo = initRepo[RepoServerRepo]()
 
-    val targetFilename = refineV[ValidTargetFilename]("fake-one-1.2.3").right.get
+    val targetFilename = refineV[ValidTargetFilename]("fake-one-1.2.3").toOption.get
 
     val path = repo.deleteTarget(targetFilename)
 
@@ -77,13 +77,13 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
   }
 
   test("deletes an existing target targets") {
-    val repo = initRepo[RepoServerRepo]
+    val repo = initRepo[RepoServerRepo]()
 
     repo.addTarget(fakeTargetFilename, fakeTargetItem).get
 
     val path = repo.deleteTarget(fakeTargetFilename).get
 
-    val role = parseFile(path.toFile).flatMap(_.as[TargetsRole]).right.value
+    val role = parseFile(path.toFile).flatMap(_.as[TargetsRole]).value
 
     role.targets.keys shouldNot contain(fakeTargetFilename)
   }
@@ -143,7 +143,7 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
     val pub = repo.genKeys(targetsKeyName, keyType).get.pubkey
 
     val path = repo.signTargets(Seq(targetsKeyName), defaultExpiration).get
-    val payload = parseFile(path.toFile).flatMap(_.as[SignedPayload[TargetsRole]]).right.value
+    val payload = parseFile(path.toFile).flatMap(_.as[SignedPayload[TargetsRole]]).value
 
     payload.signatures.map(_.keyid) should contain(pub.id)
 
@@ -192,7 +192,7 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
     repo.genKeys(targetsKeyName, RsaKeyType).success.value
 
     val path = repo.signTargets(Seq(targetsKeyName), defaultExpiration).get
-    val targetsJson = parseFile(path.toFile).flatMap(_.as[SignedPayload[TargetsRole]]).right.value
+    val targetsJson = parseFile(path.toFile).flatMap(_.as[SignedPayload[TargetsRole]]).value
     // signing has bumped the version, so update the unsigned targets.json
     repo.writeUnsignedRole[TargetsRole](targetsJson.signed)
 
@@ -205,7 +205,7 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
 
     val newPath = repo.signTargets(Seq.empty, defaultExpiration, signatures = Some(Map(targetsKeyName -> signature))).get
     newPath shouldBe path
-    val newTargetsJson = parseFile(path.toFile).flatMap(_.as[SignedPayload[TargetsRole]]).right.value
+    val newTargetsJson = parseFile(path.toFile).flatMap(_.as[SignedPayload[TargetsRole]]).value
     newTargetsJson shouldBe targetsJson
   }
 
@@ -230,7 +230,7 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
   }
 
   test("get canonical unsigned root") {
-    val repo = initRepo[RepoServerRepo]
+    val repo = initRepo[RepoServerRepo]()
     val unsignedJson = repo.canonicalRoot
 
     import com.advancedtelematic.libtuf.crypt.CanonicalJson._
@@ -239,14 +239,14 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
   }
 
   test("canonical unsigned root doesn't end with new line") {
-    val repo = initRepo[RepoServerRepo]
+    val repo = initRepo[RepoServerRepo]()
     val unsignedJson = repo.canonicalRoot
 
     unsignedJson.get shouldNot endWith ("\n")
   }
 
   test("get canonical unsigned targets") {
-    val repo = initRepo[RepoServerRepo]
+    val repo = initRepo[RepoServerRepo]()
     val unsignedJson = repo.canonicalTargets
 
     import com.advancedtelematic.libtuf.crypt.CanonicalJson._
@@ -271,7 +271,7 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
     val rootKeyName = KeyName("root")
 
     val path = repo.signRoot(Seq(rootKeyName), defaultExpiration).success.value
-    val rootJson = parseFile(path.toFile).flatMap(_.as[SignedPayload[RootRole]]).right.value
+    val rootJson = parseFile(path.toFile).flatMap(_.as[SignedPayload[RootRole]]).value
 
     rootJson.signatures.length shouldBe 1
 
@@ -284,7 +284,7 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
 
     newPath shouldBe path
 
-    val newRootJson = parseFile(path.toFile).flatMap(_.as[SignedPayload[RootRole]]).right.value
+    val newRootJson = parseFile(path.toFile).flatMap(_.as[SignedPayload[RootRole]]).value
 
     newRootJson shouldBe rootJson
   }
@@ -294,7 +294,7 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
     val rootKeyName = KeyName("root")
 
     val path = repo.signRoot(Seq(rootKeyName), defaultExpiration).success.value
-    val rootJson = parseFile(path.toFile).flatMap(_.as[SignedPayload[RootRole]]).right.value
+    val rootJson = parseFile(path.toFile).flatMap(_.as[SignedPayload[RootRole]]).value
 
     rootJson.signatures.length shouldBe 1
 
@@ -306,7 +306,7 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
 
     newPath shouldBe path
 
-    val newRootJson = parseFile(path.toFile).flatMap(_.as[SignedPayload[RootRole]]).right.value
+    val newRootJson = parseFile(path.toFile).flatMap(_.as[SignedPayload[RootRole]]).value
     newRootJson.signatures.length shouldBe 2
 
     val publicKeyPath = repo.repoPath.resolve("keys").resolve(rootKeyName.publicKeyName)
@@ -505,7 +505,7 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
     val pub02 = repo.genKeys(keyname02, keyType).get.pubkey
 
     val path = repo.signRoot(Seq(keyname, keyname02), defaultExpiration).get
-    val payload = parseFile(path.toFile).flatMap(_.as[SignedPayload[RootRole]]).right.value
+    val payload = parseFile(path.toFile).flatMap(_.as[SignedPayload[RootRole]]).value
 
     payload.isValidFor(pub) shouldBe true
     payload.isValidFor(pub02) shouldBe true
@@ -516,7 +516,7 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
     val _ = repo.genKeys(keyname, KeyType.default).get.pubkey
 
     val path = repo.signRoot(Seq(keyname), defaultExpiration).get
-    val payload = parseFile(path.toFile).flatMap(_.as[SignedPayload[RootRole]]).right.value
+    val payload = parseFile(path.toFile).flatMap(_.as[SignedPayload[RootRole]]).value
 
     payload.signed.version shouldBe 2
   }

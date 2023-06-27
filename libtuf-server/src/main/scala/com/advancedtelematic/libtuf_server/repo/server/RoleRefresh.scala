@@ -9,10 +9,10 @@ import com.advancedtelematic.libtuf.data.ClientDataType.{MetaItem, MetaPath, Sna
 import com.advancedtelematic.libtuf.data.TufDataType.{RepoId, RoleType}
 import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient
 import com.advancedtelematic.libtuf_server.repo.server.DataType.SignedRole
-import io.circe.syntax._
-import io.circe.{Codec, Decoder, Encoder}
+import io.circe.{Codec, Decoder}
 import slick.jdbc.MySQLProfile.api._
 
+import scala.annotation.unused
 import scala.async.Async.{async, await}
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -26,7 +26,8 @@ class RepoRoleRefresh(keyserverClient: KeyserverClient,
     signedRoleProvider.find[T](repoId)
   }
 
-  private def commitRefresh[T : TufRole](repoId: RepoId, refreshedRole: SignedRole[T], dependencies: List[SignedRole[_]]): Future[SignedRole[T]] = async {
+  private def commitRefresh[T](repoId: RepoId, refreshedRole: SignedRole[T], dependencies: List[SignedRole[_]])
+                              (implicit @unused _tf: TufRole[T]): Future[SignedRole[T]] = async {
     await(signedRoleProvider.persistAll(repoId, refreshedRole :: dependencies))
     refreshedRole
   }
@@ -38,7 +39,7 @@ class RepoRoleRefresh(keyserverClient: KeyserverClient,
   }
 
   def refreshRole[T](repoId: RepoId)(implicit tufRole: TufRole[T]): Future[SignedRole[T]] = {
-    def ensureSafeDowncast[U : TufRole](role: SignedRole[U]): Future[SignedRole[T]] =
+    def ensureSafeDowncast[U](role: SignedRole[U]): Future[SignedRole[T]] =
       if(tufRole != role.tufRole)
         FastFuture.failed(new IllegalArgumentException(s"Error refreshing role, Cannot cast ${role.tufRole} to ${tufRole}"))
       else
