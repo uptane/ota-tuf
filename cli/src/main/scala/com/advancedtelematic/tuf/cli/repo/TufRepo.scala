@@ -40,7 +40,7 @@ import org.slf4j.LoggerFactory
 import shapeless.{:: => _, Path => _}
 
 import scala.async.Async._
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NoStackTrace
@@ -298,8 +298,8 @@ abstract class TufRepo[S <: TufServerClient](val repoPath: Path)(implicit ec: Ex
       log.info("Could not read old private key locally, fetching before deleting from server")
 
       for {
-        keyPair ← reposerverClient.fetchKeyPair(keyId)
-        _ ← reposerverClient.deleteKey(keyId)
+        keyPair <- reposerverClient.fetchKeyPair(keyId)
+        _ <- reposerverClient.deleteKey(keyId)
       } yield keyPair.privkey
     }
   }

@@ -18,7 +18,6 @@ import com.advancedtelematic.libats.http.HttpCodecs._
 import com.advancedtelematic.libats.http.tracing.Tracing.ServerRequestTracing
 import com.advancedtelematic.libats.http.tracing.TracingHttpClient
 import com.advancedtelematic.libats.http.ServiceHttpClientSupport
-import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.libtuf.data.TufCodecs._
 import com.advancedtelematic.libtuf.data.TufDataType.TargetFormat.TargetFormat
 import com.advancedtelematic.libtuf.data.TufDataType.{HardwareIdentifier, JsonSignedPayload, KeyType, RepoId, SignedPayload, TargetFilename, TargetName, TargetVersion}
@@ -27,7 +26,7 @@ import com.advancedtelematic.libtuf_server.repo.client.ReposerverClient.{KeysNot
 import io.circe.{Decoder, Encoder, Json}
 import com.advancedtelematic.libats.codecs.CirceCodecs._
 import com.advancedtelematic.libtuf.data.ClientCodecs._
-import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, DelegationClientTargetItem, RootRole, TargetCustom, TargetsRole}
+import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, DelegationClientTargetItem, RootRole, TargetsRole}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
@@ -127,7 +126,7 @@ object ReposerverHttpClient extends ServiceHttpClientSupport {
 
 
 class ReposerverHttpClient(reposerverUri: Uri, httpClient: HttpRequest => Future[HttpResponse], authHeaders: Option[HttpHeader] = None)
-                          (implicit ec: ExecutionContext, system: ActorSystem, mat: Materializer, tracing: ServerRequestTracing)
+                          (implicit ec: ExecutionContext, system: ActorSystem, tracing: ServerRequestTracing)
   extends TracingHttpClient(httpClient, "reposerver") with ReposerverClient {
 
   import ReposerverClient._
@@ -166,6 +165,8 @@ class ReposerverHttpClient(reposerverUri: Uri, httpClient: HttpRequest => Future
         FastFuture.failed(KeysNotReady)
       case Left(error) if error.status == StatusCodes.FailedDependency =>
         FastFuture.failed(RootNotInKeyserver)
+      case Left(error) =>
+        FastFuture.failed(error)
       case Right(r) =>
         r.httpResponse.headers.find(_.is("x-ats-tuf-repo-id")) match {
           case Some(repoIdHeader) =>

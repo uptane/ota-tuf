@@ -2,7 +2,6 @@ package com.advancedtelematic.libtuf.crypt
 
 import com.advancedtelematic.libtuf.data.TufDataType.{SignedPayload, TufKey}
 import io.circe.Encoder
-import org.slf4j.LoggerFactory
 
 
 object SignedPayloadSignatureOps  {

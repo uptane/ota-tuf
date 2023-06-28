@@ -9,9 +9,9 @@ import com.advancedtelematic.libats.http.LogDirectives._
 import com.advancedtelematic.libats.http.VersionDirectives._
 import com.advancedtelematic.libats.http.tracing.Tracing
 import com.advancedtelematic.libats.http.{BootApp, BootAppDatabaseConfig, BootAppDefaultConfig}
-import com.advancedtelematic.libats.slick.db.{BootMigrations, CheckMigrations, DatabaseSupport, SlickEncryptionConfig}
+import com.advancedtelematic.libats.slick.db.{BootMigrations, DatabaseSupport, SlickEncryptionConfig}
 import com.advancedtelematic.libats.slick.monitoring.DatabaseMetrics
-import com.advancedtelematic.metrics.prometheus.metrics.prometheus.PrometheusMetricsSupport
+import com.advancedtelematic.metrics.prometheus.PrometheusMetricsSupport
 import com.advancedtelematic.metrics.{AkkaHttpConnectionMetrics, AkkaHttpRequestMetrics, MetricsSupport}
 import com.advancedtelematic.tuf.keyserver.http.TufKeyserverRoutes
 import com.codahale.metrics.MetricRegistry

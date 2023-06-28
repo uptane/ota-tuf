@@ -11,12 +11,13 @@ lazy val UnitTest = config("ut").extend(Test)
 lazy val commonConfigs = Seq(ItTest, UnitTest)
 
 lazy val commonDeps = libraryDependencies ++= {
-  val scalaTestV = "3.2.15"
+  val scalaTestV = "3.2.16"
   lazy val libatsV = libatsVersion.value
   lazy val catsV = "2.9.0"
 
   Seq(
-    "org.scala-lang.modules" %% "scala-async" % "0.9.6",
+    "org.scala-lang.modules" %% "scala-async" % "1.0.1",
+    "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided,
     "io.github.uptane" %% "libats" % libatsV,
     "org.scalatest" %% "scalatest" % scalaTestV % "test",
     "org.typelevel" %% "cats-core" % catsV,
@@ -51,10 +52,10 @@ lazy val serverDependencies = libraryDependencies ++= {
 
 lazy val commonSettings = Seq(
   organization := "io.github.uptane",
-  scalaVersion := "2.12.15",
+  scalaVersion := "2.13.10",
   organizationName := "uptane",
   organizationHomepage := Some(url("https://uptane.github.io/")),
-  scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8", "-Xexperimental", "-Ypartial-unification"),
+  scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8", "-Xasync", "-Xsource:3"),
   Compile / console / scalacOptions ~= (_.filterNot(_ == "-Ywarn-unused-import")),
   resolvers += "sonatype-snapshots" at "https://s01.oss.sonatype.org/content/repositories/snapshots",
   resolvers += "sonatype-releases" at "https://s01.oss.sonatype.org/content/repositories/releases",
@@ -132,7 +133,6 @@ lazy val cli = (project in file("cli"))
   .dependsOn(libtuf)
 
 lazy val ota_tuf = (project in file("."))
-  .settings(scalaVersion := "2.12.15")
   .settings(Publish.disable)
   .settings(Release.settings(libtuf, libtuf_server, keyserver, reposerver))
   .aggregate(libtuf_server, libtuf, keyserver, reposerver, cli)

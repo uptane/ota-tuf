@@ -5,7 +5,6 @@ import com.advancedtelematic.tuf.keyserver.http.TufKeyserverRoutes
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.http.scaladsl.server.Route
-import akka.http.scaladsl.util.FastFuture
 
 import scala.concurrent.duration._
 import akka.testkit.TestDuration
@@ -13,7 +12,7 @@ import com.advancedtelematic.libats.test.MysqlDatabaseSpec
 import com.advancedtelematic.libtuf.data.TufDataType.{Ed25519KeyType, KeyType, RepoId, RsaKeyType}
 import com.advancedtelematic.tuf.keyserver.daemon.DefaultKeyGenerationOp
 import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType.Key
-import com.advancedtelematic.tuf.keyserver.db.{KeyGenRequestSupport, KeyRepositorySupport}
+import com.advancedtelematic.tuf.keyserver.db.KeyGenRequestSupport
 import org.scalactic.source.Position
 import org.scalatest.funsuite.AnyFunSuite
 
@@ -40,7 +39,7 @@ trait RootGenerationSpecSupport {
   private val keyGenerationOp = DefaultKeyGenerationOp()
 
   def processKeyGenerationRequest(repoId: RepoId): Future[Seq[Key]] = {
-    keyGenRepo.findBy(repoId).flatMap { ids ⇒
+    keyGenRepo.findBy(repoId).flatMap { ids =>
       Future.sequence {
         ids.map(_.id).map { id =>
           keyGenRepo

@@ -141,17 +141,17 @@ object TufDataType {
     def canEqual(other: Any): Boolean = other.isInstanceOf[SignedPayload[T]]
 
     override def equals(other: Any): Boolean = other match {
-      case that: SignedPayload[_] ⇒
+      case that: SignedPayload[_] =>
         (that canEqual this) &&
           signatures == that.signatures &&
           signed == that.signed &&
           json == that.json
-      case _ ⇒ false
+      case _ => false
     }
 
     override def hashCode(): Int = {
       val state = Seq(signatures, signed, json)
-      state.map(_.hashCode()).foldLeft(0)((a, b) ⇒ 31 * a + b)
+      state.map(_.hashCode()).foldLeft(0)((a, b) => 31 * a + b)
     }
   }
 

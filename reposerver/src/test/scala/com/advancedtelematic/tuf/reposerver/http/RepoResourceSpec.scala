@@ -52,6 +52,8 @@ import java.net.URI
 class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
   with ResourceSpec with BeforeAndAfterAll with Inspectors with Whenever with PatienceConfiguration with SignedRoleRepositorySupport {
 
+  override val ec = this.executor
+
   val repoId = RepoId.generate()
 
   override implicit def patienceConfig: PatienceConfig = PatienceConfig().copy(timeout = Span(5, Seconds))
@@ -441,7 +443,7 @@ class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
       status shouldBe StatusCodes.OK
     }
 
-    val targetFilename = refineV[ValidTargetFilename]("some/target").right.get
+    val targetFilename = refineV[ValidTargetFilename]("some/target").toOption.get
 
     localStorage.retrieve(repoId, targetFilename).futureValue shouldBe a[TargetBytes]
 
@@ -914,7 +916,7 @@ class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
       status shouldBe StatusCodes.OK
     }
 
-    val targetFilename = refineV[ValidTargetFilename]("old/target").right.get
+    val targetFilename = refineV[ValidTargetFilename]("old/target").toOption.get
     localStorage.retrieve(repoId, targetFilename).futureValue shouldBe a[TargetRetrieveResult]
 
     val signedPayload = buildSignedTargetsRole(repoId, offlineTargets, version = 3)
@@ -1232,7 +1234,7 @@ class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
     Get(apiUri(s"repo/${repoId.show}/targets.json")) ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val newJson = responseAs[JsonSignedPayload].signed
-      newJson.hcursor.downField("targets").downField("some/file/name").downField("custom").downField("proprietary")  shouldBe 'succeeded
+      newJson.hcursor.downField("targets").downField("some/file/name").downField("custom").downField("proprietary")  shouldBe Symbol("succeeded")
     }
   }
 

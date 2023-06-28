@@ -1,17 +1,17 @@
 package com.advancedtelematic.libtuf.data
 
-import java.time.{Duration, Instant, Period}
+import java.time.Period
 
 import com.advancedtelematic.libtuf.data.ClientDataType.{RoleKeys, RootRole}
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
-import com.advancedtelematic.libtuf.data.TufDataType.{KeyId, RoleType, TufKey}
+import com.advancedtelematic.libtuf.data.TufDataType.{KeyId, TufKey}
 
 object RootManipulationOps {
   implicit class RootRoleExtension(val rootRole: RootRole) extends AnyVal {
 
     def roleKeys(roleTypes: RoleType*): List[TufKey] = {
-      val keyids = rootRole.roles.filterKeys(roleTypes.contains).values.map(_.keyids).toSet.flatten
-      rootRole.keys.filterKeys(keyids.contains).values.toList
+      val keyids = rootRole.roles.view.filterKeys(roleTypes.contains).values.map(_.keyids).toSet.flatten
+      rootRole.keys.view.filterKeys(keyids.contains).values.toList
     }
 
     def withVersion(version: Int): RootRole =
@@ -22,14 +22,14 @@ object RootManipulationOps {
 
     def addRoleKeys(roleType: RoleType, newKeys: TufKey*): RootRole = {
       val existingIds = rootRole.roles(roleType).keyids.toSet
-      val existingKeys = rootRole.keys.filterKeys(existingIds.contains).values.toSeq
+      val existingKeys = rootRole.keys.view.filterKeys(existingIds.contains).values.toSeq
       withRoleKeys(roleType, existingKeys ++ newKeys:_*)
     }
 
     def removeRoleKeys(roleType: RoleType, keyIds: Set[KeyId]): (RootRole, Int) = {
       val oldKeyIds = rootRole.roles(roleType).keyids
       val newKeyIds = oldKeyIds.filterNot(keyIds.contains).toSet
-      val newKeys = rootRole.keys.filterKeys(newKeyIds.contains).values.toSeq
+      val newKeys = rootRole.keys.view.filterKeys(newKeyIds.contains).values.toSeq
       (withRoleKeys(roleType, newKeys:_*), oldKeyIds.size - newKeyIds.size)
     }
 

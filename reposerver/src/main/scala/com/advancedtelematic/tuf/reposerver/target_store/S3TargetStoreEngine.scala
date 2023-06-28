@@ -6,7 +6,7 @@ import java.time.{Duration, Instant}
 import java.util.Date
 
 import scala.async.Async._
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.Uri
 import akka.http.scaladsl.util.FastFuture
@@ -46,13 +46,12 @@ class S3TargetStoreEngine(credentials: S3Credentials)(implicit val system: Actor
     // The s3 sdk requires us to specify the file size if using a stream
     // so we always need to cache the file into the filesystem before uploading
     val sink = FileIO.toPath(tempFile.toPath).mapMaterializedValue {
-      _.flatMap { result =>
-        if(result.wasSuccessful) {
-          upload(repoId, tempFile, filename).andThen { case _ => Try(tempFile.delete()) }
-        } else {
+      _.flatMap { _ =>
+        upload(repoId, tempFile, filename).andThen { case _ => Try(tempFile.delete()) }
+      }.recoverWith {
+        case err =>
           Try(tempFile.delete())
-          Future.failed(result.getError)
-        }
+          FastFuture.failed(err)
       }
     }
 

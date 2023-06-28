@@ -3,14 +3,14 @@ package com.advancedtelematic.tuf.keyserver.roles
 import akka.http.scaladsl.util.FastFuture
 import com.advancedtelematic.libtuf.crypt.TufCrypto
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
-import com.advancedtelematic.libtuf.data.TufDataType.{RepoId, _}
-import com.advancedtelematic.tuf.keyserver.db._
+import com.advancedtelematic.libtuf.data.TufDataType.{RepoId, *}
+import com.advancedtelematic.tuf.keyserver.db.*
 import com.advancedtelematic.tuf.keyserver.http.Errors
+import io.circe.syntax.EncoderOps
 import io.circe.{Encoder, Json}
-import slick.jdbc.MySQLProfile.api._
-import io.circe.syntax._
+import slick.jdbc.MySQLProfile.api.*
 
-import scala.async.Async._
+import scala.async.Async.*
 import scala.concurrent.{ExecutionContext, Future}
 
 class RoleSigning()(implicit val db: Database, val ec: ExecutionContext)

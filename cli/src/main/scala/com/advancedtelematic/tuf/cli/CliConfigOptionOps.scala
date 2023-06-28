@@ -1,12 +1,11 @@
 package com.advancedtelematic.tuf.cli
 
-import java.io.FileOutputStream
+import java.io.{FileOutputStream, OutputStream}
 import java.nio.file.Path
-
 import com.advancedtelematic.tuf.cli.Errors.CliArgumentMissing
 
 import scala.reflect.ClassTag
-import scala.tools.nsc.interpreter.OutputStream
+
 
 object CliConfigOptionOps {
 

@@ -167,8 +167,8 @@ class TufClientCodecsSpec extends LibtufSpec with ScalaFutures  {
                   "additionalField": true
                  }"""
 
-    val json = circeParser.parse(str).right.get
-    val targetCustom = json.as[TargetCustom].right.get
+    val json = circeParser.parse(str).toOption.get
+    val targetCustom = json.as[TargetCustom].toOption.get
 
     targetCustom.name shouldBe TargetName("bananas")
     targetCustom.uri shouldBe None

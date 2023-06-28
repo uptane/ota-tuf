@@ -3,7 +3,6 @@ package com.advancedtelematic.libtuf_server.keyserver
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.Uri.Path
 import akka.http.scaladsl.model.Uri.Path.{Empty, Slash}
-import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.model.{StatusCodes, _}
 import cats.syntax.show._
 import com.advancedtelematic.libats.data.ErrorCode
@@ -14,10 +13,9 @@ import com.advancedtelematic.libats.http.tracing.TracingHttpClient
 import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.libtuf.data.ClientDataType.{RootRole, TufRole}
 import com.advancedtelematic.libtuf.data.TufCodecs._
-import com.advancedtelematic.libtuf.data.TufDataType.RoleType.{RoleType, _}
-import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, KeyId, KeyType, RepoId, SignedPayload, TufKeyPair}
-import com.advancedtelematic.libtuf_server.repo.server.DataType.SignedRole
-import io.circe.{Codec, Decoder, Json}
+import com.advancedtelematic.libtuf.data.TufDataType.RoleType._
+import com.advancedtelematic.libtuf.data.TufDataType.{KeyId, KeyType, RepoId, SignedPayload, TufKeyPair}
+import io.circe.{Codec, Json}
 
 import scala.concurrent.Future
 
