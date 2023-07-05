@@ -22,11 +22,12 @@ import com.advancedtelematic.libtuf.data.TufCodecs._
 import com.advancedtelematic.libtuf.data.TufDataType.TargetFormat.TargetFormat
 import com.advancedtelematic.libtuf.data.TufDataType.{HardwareIdentifier, JsonSignedPayload, KeyType, RepoId, SignedPayload, TargetFilename, TargetName, TargetVersion}
 import com.advancedtelematic.libtuf_server.data.Requests.{CommentRequest, CreateRepositoryRequest, FilenameComment, TargetComment}
-import com.advancedtelematic.libtuf_server.repo.client.ReposerverClient.{KeysNotReady, NotFound, RootNotInKeyserver}
+import com.advancedtelematic.libtuf_server.repo.client.ReposerverClient.{DelegationInfo, KeysNotReady, NotFound, RootNotInKeyserver}
 import io.circe.{Decoder, Encoder, Json}
 import com.advancedtelematic.libats.codecs.CirceCodecs._
+import com.advancedtelematic.libats.codecs.CirceValidatedGeneric.validatedGenericKeyDecoder
 import com.advancedtelematic.libtuf.data.ClientCodecs._
-import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, DelegationClientTargetItem, RootRole, TargetsRole}
+import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, DelegatedRoleName, Delegation, DelegationClientTargetItem, DelegationFriendlyName, RootRole, TargetCustom, TargetsRole}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
@@ -35,6 +36,7 @@ import io.circe.generic.semiauto._
 import org.slf4j.LoggerFactory
 
 import java.net.URI
+import java.time.Instant
 
 object ReposerverClient {
 
@@ -57,7 +59,11 @@ object ReposerverClient {
                             hardwareIds: Seq[HardwareIdentifier] = Seq.empty[HardwareIdentifier],
                             proprietaryCustom: Option[Json] = None
                            )
+  case class DelegationInfo(lastFetched: Option[Instant], remoteUri: Option[Uri], friendlyName: Option[DelegationFriendlyName]=None)
 
+  object DelegationInfo {
+    implicit val delegationInfoCodec: io.circe.Codec[DelegationInfo] = io.circe.generic.semiauto.deriveCodec[DelegationInfo]
+  }
   val KeysNotReady = RawError(ErrorCode("keys_not_ready"), StatusCodes.Locked, "keys not ready")
   val RootNotInKeyserver = RawError(ErrorCode("root_role_not_in_keyserver"), StatusCodes.FailedDependency, "the root role was not found in upstream keyserver")
   val NotFound = RawError(ErrorCode("repo_resource_not_found"), StatusCodes.NotFound, "the requested repo resource was not found")
@@ -116,6 +122,9 @@ trait ReposerverClient {
   def fetchDelegationMetadata(namespace: Namespace, roleName: String): Future[JsonSignedPayload]
   def fetchDelegationTargetItems(namespace: Namespace, nameContains: Option[String] = None): Future[PaginationResult[DelegationClientTargetItem]]
   def fetchSingleDelegationTargetItem(namespace: Namespace, targetFilename: TargetFilename): Future[Seq[DelegationClientTargetItem]]
+  def fetchTrustedDelegations(namespace: Namespace): Future[Delegation]
+  def fetchDelegationsInfo(namespace: Namespace): Future[Map[DelegatedRoleName, DelegationInfo]]
+  def refreshDelegatedRole(namespace: Namespace, fileName: DelegatedRoleName): Future[Unit]
 }
 
 object ReposerverHttpClient extends ServiceHttpClientSupport {
@@ -269,6 +278,16 @@ class ReposerverHttpClient(reposerverUri: Uri, httpClient: HttpRequest => Future
     execHttpUnmarshalledWithNamespace[PaginationResult[DelegationClientTargetItem]](namespace, req).ok
   }
 
+  override def fetchTrustedDelegations(namespace: Namespace): Future[Delegation] = {
+    val req = HttpRequest(HttpMethods.GET, uri=apiUri(Path("user_repo/trusted-delegations")))
+    execHttpUnmarshalledWithNamespace[Delegation](namespace, req).ok
+  }
+
+  override def fetchDelegationsInfo(namespace: Namespace): Future[Map[DelegatedRoleName, DelegationInfo]] = {
+    val req = HttpRequest(HttpMethods.GET, uri=apiUri(Path("user_repo/trusted-delegations/info")))
+    execHttpUnmarshalledWithNamespace[Map[DelegatedRoleName, DelegationInfo]](namespace, req).ok
+  }
+
   override def setTargetComments(namespace: Namespace, targetFilename: TargetFilename, comment: String): Future[Unit] = {
     val commentBody = HttpEntity(ContentTypes.`application/json`, CommentRequest(TargetComment(comment)).asJson.noSpaces)
     val req = HttpRequest(HttpMethods.PUT, uri = apiUri(Path(s"user_repo/comments/${targetFilename.value}")), entity = commentBody)
@@ -360,5 +379,11 @@ class ReposerverHttpClient(reposerverUri: Uri, httpClient: HttpRequest => Future
       val req = HttpRequest(HttpMethods.PUT, uri, entity = form)
       execHttpUnmarshalledWithNamespace[Unit](namespace, req).handleErrors(addTargetErrorHandler)
     }
+  }
+
+  override def refreshDelegatedRole(namespace: Namespace, fileName: DelegatedRoleName): Future[Unit] = {
+    val uri = apiUri(Path("user_repo") / "trusted-delegations" / fileName.value / "remote"/ "refresh")
+    val req = HttpRequest(HttpMethods.PUT, uri)
+    execHttpUnmarshalledWithNamespace[Unit](namespace, req).ok
   }
 }
