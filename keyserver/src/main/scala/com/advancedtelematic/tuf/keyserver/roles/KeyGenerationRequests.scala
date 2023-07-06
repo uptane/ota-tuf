@@ -96,7 +96,7 @@ extends KeyRepositorySupport with SignedRootRoleSupport {
   }
 
   private def persistSignedPayload(repoId: RepoId)(signedPayload: SignedPayload[RootRole]): Future[SignedRootRole] = {
-    val signedRootRole = SignedRootRole.fromSignedPayload(repoId, signedPayload)
+    val signedRootRole = signedPayload.toDbSignedRole(repoId)
     signedRootRoleRepo.persist(signedRootRole).map(_ => signedRootRole)
   }
 
@@ -115,7 +115,7 @@ extends KeyRepositorySupport with SignedRootRoleSupport {
     userSignedIsValid <- offlineSignedParsedV match {
       case Valid(offlineSignedParsed) =>
         val newOnlineKeys = offlineSignedParsed.signed.keys.values.map(_.id).toSet
-        val signedRootRole = SignedRootRole.fromSignedPayload(repoId, offlineSignedParsed)
+        val signedRootRole = offlineSignedParsed.toDbSignedRole(repoId)
         signedRootRoleRepo.persistAndKeepRepoKeys(keyRepo)(signedRootRole, newOnlineKeys).map(_ => Valid(signedRootRole))
 
       case r@Invalid(_) =>

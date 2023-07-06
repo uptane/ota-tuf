@@ -311,8 +311,6 @@ class RootRoleResourceSpec extends TufKeyserverSpec
     }
 
     Post(apiUri(s"root/${repoId.show}/targets"), Json.Null) ~> routes ~> check {
-      println(responseAs[Json].noSpaces)
-
       status shouldBe StatusCodes.PreconditionFailed
     }
   }
@@ -894,6 +892,57 @@ class RootRoleResourceSpec extends TufKeyserverSpec
     offlineTargetsKeys.keyids shouldNot be(empty)
     offlineTargetsKeys.threshold shouldBe 1
   }
+
+  test("rotate key fails with specific error when keys are offline") {
+    val repoId = RepoId.generate()
+    generateRootRole(repoId, Ed25519KeyType).futureValue
+
+    val oldRoot = fetchLatestRootOk(repoId).signed
+    val rootKeyId = oldRoot.roles(RoleType.ROOT).keyids.headOption.value
+
+    Delete (apiUri(s"root/${repoId.show}/private_keys/${rootKeyId.value}")) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+
+    val error = Put(apiUri(s"root/${repoId.show}/rotate")) ~> routes ~> check {
+      status shouldBe StatusCodes.PreconditionFailed
+      responseAs[ErrorRepresentation]
+    }
+
+    error.code shouldBe ErrorCodes.KeyServer.KeysOffline
+  }
+
+  test("rotates the key") {
+    val repoId = RepoId.generate()
+    generateRootRole(repoId, Ed25519KeyType).futureValue
+
+    val oldRoot = fetchLatestRootOk(repoId).signed
+
+    Put(apiUri(s"root/${repoId.show}/rotate")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+    }
+
+    val newSignedRoot = fetchLatestRootOk(repoId)
+    val newRoot = newSignedRoot.signed
+
+    newRoot.version shouldBe oldRoot.version + 1
+
+    val newKeys = newRoot.roles.filterKeys(r => r == RoleType.ROOT || r == RoleType.TARGETS)
+      .values.flatMap(_.keyids).toSet
+    val oldKeys = oldRoot.roles.filterKeys(r => r == RoleType.ROOT || r == RoleType.TARGETS)
+      .values.flatMap(_.keyids).toSet
+
+    newKeys.intersect(oldKeys) shouldBe empty
+
+    val signedWithKeys = newSignedRoot.signatures.map(_.keyid)
+
+    val oldRootKeys = oldRoot.roles(RoleType.ROOT).keyids
+    val newRootKeys = newRoot.roles(RoleType.ROOT).keyids
+
+    signedWithKeys should contain allElementsOf oldRootKeys
+    signedWithKeys should contain allElementsOf newRootKeys
+  }
+
 
   def fetchLatestRootOk(repoId: RepoId): SignedPayload[RootRole] = {
     Get(apiUri(s"root/${repoId.show}")) ~> routes ~> check {

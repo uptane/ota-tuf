@@ -206,6 +206,14 @@ class FakeKeyserverClient extends KeyserverClient {
 
   override def addRemoteSessionsRole(repoId: RepoId): Future[Unit] =
     addRoles(repoId, RoleType.REMOTE_SESSIONS)
+
+  // Does not actually rotate, but for testing on reposerver is ok. Rotation is done on keyserver
+  override def rotateRoot(repoId: RepoId): Future[Unit] = async {
+    val oldRoot = await(fetchRootRole(repoId)).signed
+    val newRootRole = oldRoot.copy(version = oldRoot.version + 1, expires = oldRoot.expires.plus(1, ChronoUnit.DAYS))
+    val signed = await(sign(repoId, newRootRole))
+    rootRoles.put(repoId, signed)
+  }
 }
 
 trait LongHttpRequest {

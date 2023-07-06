@@ -82,7 +82,13 @@ object ClientCodecs {
 
   implicit val delegatedRoleNameEncoder: Encoder[DelegatedRoleName] = ValidatedString.validatedStringEncoder
   implicit val delegatedRoleNameDecoder: Decoder[DelegatedRoleName] = ValidatedString.validatedStringDecoder
+  implicit val delegatedRoleNameKeyEncoder = new KeyEncoder[DelegatedRoleName] {
+    override def apply(roleName: DelegatedRoleName): String = roleName.value
+  }
 
+  implicit val delegatedRoleNameKeyDecoder = new KeyDecoder[DelegatedRoleName] {
+    override def apply(key: String): Option[DelegatedRoleName] = DelegatedRoleName.delegatedRoleNameValidation(key).toOption
+  }
   implicit val delegationFriendlyNameEncoder: Encoder[DelegationFriendlyName] = ValidatedString.validatedStringEncoder
   implicit val delegationFriendlyNameDecoder: Decoder[DelegationFriendlyName] = ValidatedString.validatedStringDecoder
 

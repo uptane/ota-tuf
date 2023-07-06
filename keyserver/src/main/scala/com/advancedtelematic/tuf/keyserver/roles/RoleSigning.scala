@@ -3,13 +3,14 @@ package com.advancedtelematic.tuf.keyserver.roles
 import akka.http.scaladsl.util.FastFuture
 import com.advancedtelematic.libtuf.crypt.TufCrypto
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
-import com.advancedtelematic.libtuf.data.TufDataType.{RepoId, _}
-import com.advancedtelematic.tuf.keyserver.db._
+import com.advancedtelematic.libtuf.data.TufDataType.{RepoId, *}
+import com.advancedtelematic.tuf.keyserver.db.*
 import com.advancedtelematic.tuf.keyserver.http.Errors
-import io.circe.Json
-import slick.jdbc.MySQLProfile.api._
+import io.circe.syntax.EncoderOps
+import io.circe.{Encoder, Json}
+import slick.jdbc.MySQLProfile.api.*
 
-import scala.async.Async._
+import scala.async.Async.*
 import scala.concurrent.{ExecutionContext, Future}
 
 class RoleSigning()(implicit val db: Database, val ec: ExecutionContext)
@@ -43,6 +44,17 @@ class RoleSigning()(implicit val db: Database, val ec: ExecutionContext)
       val signature = TufCrypto.signPayload(privateKey, payload)
       ClientSignature(key.id, signature.method, signature.sig)
     }
+  }
+
+  protected [roles] def signWithPrivateKeys[T : Encoder](payload: T, privateKeys: Seq[TufKeyPair]): SignedPayload[T] = {
+    val payloadJson = payload.asJson
+
+    val signatures = privateKeys.toList.map { key =>
+      val signature = TufCrypto.signPayload(key.privkey, payloadJson)
+      ClientSignature(key.pubkey.id, signature.method, signature.sig)
+    }
+
+    SignedPayload(signatures, payload, payloadJson)
   }
 
   private def fetchPrivateKey(key: TufKey): Future[TufPrivateKey] =

@@ -11,6 +11,8 @@ object ErrorCodes {
     val KeyGenerationFailed = ErrorCode("key_generation_failed")
     val InvalidRootRole = ErrorCode("invalid_root_role")
     val SignedRootRoleDecodingFailed = ErrorCode("signed_root_role_decoding_failed")
+    val KeysOffline = ErrorCode("private_keys_offline")
+    val KeysReadError = ErrorCode("private_keys_read_error")
   }
 
   object Reposerver {

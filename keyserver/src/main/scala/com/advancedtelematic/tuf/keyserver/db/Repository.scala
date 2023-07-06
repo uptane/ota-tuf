@@ -1,18 +1,18 @@
 package com.advancedtelematic.tuf.keyserver.db
 
-import com.advancedtelematic.libtuf.data.TufDataType._
-import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType._
-import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType.KeyGenRequestStatus
-import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType.KeyGenRequestStatus.KeyGenRequestStatus
 import com.advancedtelematic.libats.http.Errors.{EntityAlreadyExists, MissingEntity}
 import com.advancedtelematic.libats.slick.codecs.SlickRefined._
-import com.advancedtelematic.libtuf.data.ClientDataType.RootRole
-import com.advancedtelematic.libats.slick.db.SlickUUIDKey._
 import com.advancedtelematic.libats.slick.db.SlickExtensions._
+import com.advancedtelematic.libats.slick.db.SlickUUIDKey._
+import com.advancedtelematic.libtuf.data.ClientDataType.RootRole
+import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
+import com.advancedtelematic.libtuf.data.TufDataType._
+import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType.KeyGenRequestStatus.KeyGenRequestStatus
+import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType.{KeyGenRequestStatus, _}
+import com.advancedtelematic.tuf.keyserver.db.SlickMappings._
 import slick.jdbc.MySQLProfile.api._
 
 import scala.concurrent.{ExecutionContext, Future}
-import SlickMappings._
 
 trait DatabaseSupport {
   val ec: ExecutionContext
@@ -98,14 +98,11 @@ object KeyRepository {
 }
 
 protected [db] class KeyRepository()(implicit db: Database, ec: ExecutionContext) {
-  import Schema.keys
   import KeyRepository._
+  import Schema.keys
   import com.advancedtelematic.libats.slick.db.SlickPipeToUnit.pipeToUnit
 
   def persist(key: Key): Future[Unit] = db.run(persistAction(key))
-
-  protected [db] def deleteRepoKeys(repoId: RepoId, keysToDelete: Set[KeyId]): DBIO[Unit] =
-    keys.filter(_.repoId === repoId).filter(_.id.inSet(keysToDelete)).delete.map(_ => ())
 
   protected [db] def keepOnlyKeys(repoId: RepoId, keysToKeep: Set[KeyId]): DBIO[Unit] =
     keys.filter(_.repoId === repoId).filterNot(_.id.inSet(keysToKeep)).delete.map(_ => ())
@@ -152,6 +149,18 @@ protected[db] class SignedRootRoleRepository()(implicit db: Database, ec: Execut
 
   def persistAndKeepRepoKeys(keyRepository: KeyRepository)(signedRootRole: SignedRootRole, keysToKeep: Set[KeyId]): Future[Unit] = db.run {
     keyRepository.keepOnlyKeys(signedRootRole.repoId, keysToKeep).andThen(persistAction(signedRootRole).transactionally)
+  }
+
+  def persistWithKeys(keyRepository: KeyRepository)(signedRootRole: SignedRootRole,
+                                                    newKeys: Map[RoleType, List[TufKeyPair]]): Future[Unit] = db.run {
+    val keys = newKeys
+      .flatMap { case (roleType, keyPairs) => keyPairs.map(_.toDbKey(signedRootRole.repoId, roleType)) }
+      .toSeq
+
+    DBIO.seq(
+      keyRepository.persistAllAction(keys),
+      persistAction(signedRootRole)
+    ).transactionally
   }
 
   protected [db] def persistAction(signedRootRole: SignedRootRole): DBIO[Unit] = {

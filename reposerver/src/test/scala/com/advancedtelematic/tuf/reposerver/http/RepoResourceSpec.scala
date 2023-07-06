@@ -1546,6 +1546,52 @@ class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
     }
   }
 
+  test("rotating root generates root and targets") {
+    val repoId = addTargetToRepo()
+
+    val oldTargets = Get(apiUri(s"repo/${repoId.show}/targets.json")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      responseAs[SignedPayload[TargetsRole]].signed
+    }
+
+    val oldRoot = Get(apiUri(s"repo/${repoId.show}/root.json")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      responseAs[SignedPayload[RootRole]].signed
+    }
+
+    Put(apiUri(s"repo/${repoId.show}/root/rotate")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+    }
+
+    Get(apiUri(s"repo/${repoId.show}/targets.json")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val updatedRole = responseAs[SignedPayload[TargetsRole]].signed
+
+      updatedRole.version shouldBe oldTargets.version + 1
+    }
+
+    Get(apiUri(s"repo/${repoId.show}/root.json")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val updatedRole = responseAs[SignedPayload[RootRole]].signed
+
+      updatedRole.version shouldBe oldRoot.version + 1
+    }
+  }
+
+  test("rotate returns 412 when key is offline") {
+    val repoId = RepoId.generate()
+    fakeKeyserverClient.createRoot(repoId).futureValue
+
+    val root = fakeKeyserverClient.fetchRootRole(repoId).futureValue
+
+    fakeKeyserverClient.deletePrivateKey(repoId, root.signed.roles(RoleType.ROOT).keyids.head).futureValue
+
+    Put(apiUri(s"repo/${repoId.show}/root/rotate")) ~> routes ~> check {
+      status shouldBe StatusCodes.PreconditionFailed
+    }
+  }
+
+
   implicit class ErrorRepresentationOps(value: ErrorRepresentation) {
     def firstErrorCause: Option[String] =
       value.cause.flatMap(_.as[NonEmptyList[String]].toOption).map(_.head)
