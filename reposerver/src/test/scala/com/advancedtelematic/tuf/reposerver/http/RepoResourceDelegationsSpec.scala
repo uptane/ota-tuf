@@ -1,22 +1,22 @@
 package com.advancedtelematic.tuf.reposerver.http
 
 import java.time.Instant
-import org.scalatest.OptionValues._
+import org.scalatest.OptionValues.*
 
 import java.time.temporal.ChronoUnit
 import akka.http.scaladsl.model.{StatusCodes, Uri}
-import cats.syntax.option._
-import cats.syntax.show._
+import cats.syntax.option.*
+import cats.syntax.show.*
 import com.advancedtelematic.libats.data
 import com.advancedtelematic.libats.data.DataType.HashMethod
 import com.advancedtelematic.libats.data.DataType.HashMethod.HashMethod
 import com.advancedtelematic.libats.data.ErrorCodes.InvalidEntity
 import com.advancedtelematic.libats.data.{DataType, ErrorRepresentation, PaginationResult}
-import com.advancedtelematic.libtuf.crypt.CanonicalJson._
+import com.advancedtelematic.libtuf.crypt.CanonicalJson.*
 import com.advancedtelematic.libtuf.crypt.TufCrypto
-import com.advancedtelematic.libtuf.data.ClientCodecs._
+import com.advancedtelematic.libtuf.data.ClientCodecs.*
 import com.advancedtelematic.libtuf.data.ClientDataType.{DelegatedPathPattern, DelegatedRoleName, Delegation, DelegationClientTargetItem, DelegationFriendlyName, SnapshotRole, TargetsRole}
-import com.advancedtelematic.libtuf.data.TufCodecs._
+import com.advancedtelematic.libtuf.data.TufCodecs.*
 import com.advancedtelematic.libtuf.data.{ClientDataType, TufDataType}
 import com.advancedtelematic.libtuf.data.TufDataType.{Ed25519KeyType, RepoId, SignedPayload, TufKey}
 import com.advancedtelematic.libtuf.data.ValidatedString.StringToValidatedStringOps
@@ -24,9 +24,9 @@ import com.advancedtelematic.libtuf_server.crypto.Sha256Digest
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.{AddDelegationFromRemoteRequest, DelegationInfo}
 import com.advancedtelematic.tuf.reposerver.data.RepoCodecs.delegationInfoCodec
 import com.advancedtelematic.tuf.reposerver.util.{RepoResourceDelegationsSpecUtil, RepoResourceSpecUtil, ResourceSpec, TufReposerverSpec}
-import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
+import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
 import eu.timepit.refined.api.Refined
-import io.circe.syntax._
+import io.circe.syntax.*
 import org.scalactic.source.Position
 import io.circe.Json
 
@@ -885,6 +885,94 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
       itemsTuples should contain(Refined.unsafeApply(filename2) -> delegatedRoleName1)
       itemsTuples should contain(Refined.unsafeApply(filename3) -> delegatedRoleName2)
       itemsTuples should not contain(Refined.unsafeApply(filename4) -> delegatedRoleName2)
+    }
+  }
+  test("can restrict delegations_items with pagination parameters") {
+    implicit val repoId = addTargetToRepo()
+    val delegatedRoleName1 = delegatedRoleName
+    val delegatedRoleName2 = "bens-second-delegation".unsafeApply[DelegatedRoleName]
+    val customDelegationRef1 = delegation.copy(name = delegatedRoleName1, paths = List("*".unsafeApply[DelegatedPathPattern]))
+    val customDelegationRef2 = delegation.copy(name = delegatedRoleName2, paths = List("*".unsafeApply[DelegatedPathPattern]))
+    uploadOfflineSignedTargetsRole(delegations.copy(roles = List(customDelegationRef1, customDelegationRef2)))
+
+    val filename1 = "some_hot_target-0.0.1"
+    val filename2 = "hot-dogs-Rus-0.0.2"
+    val filename3 = "smol-dogs-innovations-90.3.4"
+    val filename4 = "true-scoops-ice-cream-334.3.3"
+    val testTargets1: Map[TufDataType.TargetFilename, ClientDataType.ClientTargetItem] =
+      Map(
+        Refined.unsafeApply(filename1) ->
+          ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None),
+        Refined.unsafeApply(filename2) ->
+          ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None)
+      )
+    val testTargets2: Map[TufDataType.TargetFilename, ClientDataType.ClientTargetItem] =
+      Map(
+        Refined.unsafeApply(filename3) ->
+          ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None),
+        Refined.unsafeApply(filename4) ->
+          ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None)
+      )
+    val signedDelegation1 = buildSignedDelegatedTargets(targets = testTargets1)
+    val signedDelegation2 = buildSignedDelegatedTargets(targets = testTargets2)
+    pushSignedDelegatedMetadata(signedDelegation1, delegatedRoleName1) ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+    pushSignedDelegatedMetadata(signedDelegation2, delegatedRoleName2) ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+    // fetch them
+    Get(apiUri(s"repo/${repoId.show}/delegations_items?offset=1")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val paged = responseAs[PaginationResult[DelegationClientTargetItem]]
+      paged.total shouldBe 3
+      paged.offset shouldBe 1
+      paged.limit shouldBe 50
+      val itemsTuples = paged.values.map(d => d.targetFilename -> d.delegatedRoleName)
+      val idk = Refined.unsafeApply(filename1)
+      itemsTuples should not contain(Refined.unsafeApply(filename3) -> delegatedRoleName2)
+      itemsTuples should contain (Refined.unsafeApply(filename4) -> delegatedRoleName2)
+      itemsTuples should contain (Refined.unsafeApply(filename1) -> delegatedRoleName1)
+      itemsTuples should contain(Refined.unsafeApply(filename2) -> delegatedRoleName1)
+    }
+    Get(apiUri(s"repo/${repoId.show}/delegations_items?offset=2")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val paged = responseAs[PaginationResult[DelegationClientTargetItem]]
+      paged.total shouldBe 2
+      paged.offset shouldBe 2
+      paged.limit shouldBe 50
+      val delegationClientTargetItems = paged.values
+      val itemsTuples = delegationClientTargetItems.map(d => d.targetFilename -> d.delegatedRoleName)
+      itemsTuples should not contain(Refined.unsafeApply(filename3) -> delegatedRoleName2)
+      itemsTuples should not contain(Refined.unsafeApply(filename4) -> delegatedRoleName2)
+      itemsTuples should contain (Refined.unsafeApply(filename1) -> delegatedRoleName1)
+      itemsTuples should contain (Refined.unsafeApply(filename2) -> delegatedRoleName1)
+    }
+    Get(apiUri(s"repo/${repoId.show}/delegations_items?limit=3")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val paged = responseAs[PaginationResult[DelegationClientTargetItem]]
+      paged.total shouldBe 3
+      paged.offset shouldBe 0
+      paged.limit shouldBe 3
+      val delegationClientTargetItems = paged.values
+      val itemsTuples = delegationClientTargetItems.map(d => d.targetFilename -> d.delegatedRoleName)
+      itemsTuples should contain(Refined.unsafeApply(filename3) -> delegatedRoleName2)
+      itemsTuples should contain(Refined.unsafeApply(filename4) -> delegatedRoleName2)
+      itemsTuples should contain (Refined.unsafeApply(filename1) -> delegatedRoleName1)
+      itemsTuples should not contain(Refined.unsafeApply(filename2) -> delegatedRoleName1)
+    }
+    Get(apiUri(s"repo/${repoId.show}/delegations_items?offset=2&limit=3")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val paged = responseAs[PaginationResult[DelegationClientTargetItem]]
+      paged.total shouldBe 1
+      paged.offset shouldBe 2
+      paged.limit shouldBe 3
+      val delegationClientTargetItems = paged.values
+      val itemsTuples = delegationClientTargetItems.map(d => d.targetFilename -> d.delegatedRoleName)
+      itemsTuples should not contain(Refined.unsafeApply(filename3) -> delegatedRoleName2)
+      itemsTuples should not contain (Refined.unsafeApply(filename4) -> delegatedRoleName2)
+      itemsTuples should contain(Refined.unsafeApply(filename1) -> delegatedRoleName1)
+      itemsTuples should not contain(Refined.unsafeApply(filename2) -> delegatedRoleName1)
     }
   }
 }

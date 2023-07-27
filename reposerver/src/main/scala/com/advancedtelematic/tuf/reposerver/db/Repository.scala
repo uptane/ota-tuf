@@ -10,32 +10,33 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.util.FastFuture
 import akka.stream.scaladsl.Source
 import com.advancedtelematic.libats.data.DataType.Namespace
-import com.advancedtelematic.libats.data.ErrorCode
+import com.advancedtelematic.libats.data.{ErrorCode, PaginationResult}
 import com.advancedtelematic.libats.http.Errors.{EntityAlreadyExists, MissingEntity, MissingEntityId, RawError}
 import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RepoId, RoleType, TargetFilename, validTargetFilename}
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
-import com.advancedtelematic.tuf.reposerver.data.RepoDataType._
-import com.advancedtelematic.libtuf_server.repo.server.DataType._
-import com.advancedtelematic.libats.slick.db.SlickExtensions._
-import com.advancedtelematic.libats.slick.codecs.SlickRefined._
-import com.advancedtelematic.libats.slick.db.SlickUUIDKey._
-import com.advancedtelematic.libats.slick.db.SlickAnyVal._
+import com.advancedtelematic.tuf.reposerver.data.RepoDataType.*
+import com.advancedtelematic.libtuf_server.repo.server.DataType.*
+import com.advancedtelematic.libats.slick.db.SlickExtensions.*
+import com.advancedtelematic.libats.slick.codecs.SlickRefined.*
+import com.advancedtelematic.libats.slick.db.SlickUUIDKey.*
+import com.advancedtelematic.libats.slick.db.SlickAnyVal.*
 import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, DelegatedRoleName, DelegationFriendlyName, SnapshotRole, TargetCustom, TimestampRole, TufRole}
 import com.advancedtelematic.libtuf_server.data.Requests.TargetComment
-import com.advancedtelematic.libtuf_server.data.TufSlickMappings._
+import com.advancedtelematic.libtuf_server.data.TufSlickMappings.*
 import com.advancedtelematic.tuf.reposerver.db.DBDataType.{DbDelegation, DbSignedRole}
 import com.advancedtelematic.tuf.reposerver.db.TargetItemRepositorySupport.MissingNamespaceException
-import com.advancedtelematic.tuf.reposerver.http.Errors._
+import com.advancedtelematic.tuf.reposerver.http.Errors.*
 import com.advancedtelematic.libtuf_server.repo.server.Errors.SignedRoleNotFound
 import SlickMappings.{delegatedRoleNameMapper, delegationFriendlyNameMapper}
 import shapeless.ops.function.FnToProduct
 import shapeless.{Generic, HList, Succ}
 import com.advancedtelematic.libtuf_server.repo.server.SignedRoleProvider
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.TargetItem
+import com.advancedtelematic.tuf.reposerver.http.PaginationParams.PaginationResultOps
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NoStackTrace
-import slick.jdbc.MySQLProfile.api._
+import slick.jdbc.MySQLProfile.api.*
 import slick.lifted.AbstractTable
 
 trait DatabaseSupport {
@@ -98,13 +99,34 @@ protected [db] class TargetItemRepository()(implicit db: Database, ec: Execution
     }.transactionally
   }
 
-  def findFor(repoId: RepoId, nameContains: Option[String] = None): Future[Seq[TargetItem]] = db.run {
+
+  def findForQuery(repoId: RepoId,
+                   nameContains: Option[String] = None) = {
+
     nameContains match {
       case Some(substring) =>
-        targetItems.filter(_.repoId === repoId).filter(_.filename.mappedTo[String].like(s"%${substring}%")).result
+        targetItems.filter(_.repoId === repoId).filter(_.filename.mappedTo[String].like(s"%${substring}%"))
       case None =>
-        targetItems.filter(_.repoId === repoId).result
+        targetItems.filter(_.repoId === repoId)
     }
+  }
+
+  def findFor(
+               repoId: RepoId,
+               nameContains: Option[String] = None
+  ): Future[Seq[TargetItem]] = db.run {
+    findForQuery(repoId, nameContains).result
+  }
+
+  def findForPaginated(repoId: RepoId,
+                       nameContains: Option[String] = None,
+                       offset: Option[Long] = None,
+                       limit: Option[Long] = None): Future[PaginationResult[TargetItem]] = db.run {
+    val items = findForQuery(repoId, nameContains)
+    val actualOffset = offset.orDefaultOffset
+    val actualLimit = limit.orDefaultLimit
+    val page = items.drop(actualOffset).take(actualLimit).result
+    page.map { case values => PaginationResult(values, values.length, actualOffset, actualLimit) }
   }
 
   def exists(repoId: RepoId, filename: TargetFilename): Future[Boolean] = {
