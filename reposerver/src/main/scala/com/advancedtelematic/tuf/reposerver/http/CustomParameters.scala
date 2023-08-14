@@ -1,5 +1,6 @@
 package com.advancedtelematic.tuf.reposerver.http
 
+import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.unmarshalling.PredefinedFromStringUnmarshallers.CsvSeq
 import com.advancedtelematic.libtuf.data.ClientDataType.TargetCustom
 import com.advancedtelematic.libtuf.data.TufDataType.TargetFormat.TargetFormat
@@ -7,8 +8,10 @@ import com.advancedtelematic.libtuf.data.TufDataType.{HardwareIdentifier, Target
 import io.circe.*
 import akka.http.scaladsl.unmarshalling.*
 import akka.http.scaladsl.util.FastFuture
+import com.advancedtelematic.libats.data.ErrorCode
 import com.advancedtelematic.libats.http.RefinedMarshallingSupport.*
 import com.advancedtelematic.libats.http.AnyvalMarshallingSupport.*
+import com.advancedtelematic.libats.http.Errors.RawError
 
 import scala.collection.immutable
 import com.advancedtelematic.libtuf_server.data.Marshalling.targetFormatFromStringUnmarshaller
@@ -33,7 +36,7 @@ object CustomParameterUnmarshallers {
     PredefinedFromStringUnmarshallers.longFromStringUnmarshaller
     .flatMap {
     ec => mat => value =>
-    if (value < 0) FastFuture.failed (new IllegalArgumentException ("Value cannot be negative") )
+    if (value < 0) FastFuture.failed (RawError (ErrorCode("Bad Request"), StatusCodes.BadRequest, "Value cannot be negative") )
     else FastFuture.successful (value)
   }
 }

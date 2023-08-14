@@ -887,7 +887,8 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
       itemsTuples should not contain(Refined.unsafeApply(filename4) -> delegatedRoleName2)
     }
   }
-  test("can restrict delegations_items with pagination parameters") {
+  // TODO: Re-Enable this when reposerver supports pagination with the delegation_items
+  ignore("can restrict delegations_items with pagination parameters") {
     implicit val repoId = addTargetToRepo()
     val delegatedRoleName1 = delegatedRoleName
     val delegatedRoleName2 = "bens-second-delegation".unsafeApply[DelegatedRoleName]

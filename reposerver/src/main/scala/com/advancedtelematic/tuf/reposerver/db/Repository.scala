@@ -32,12 +32,14 @@ import shapeless.ops.function.FnToProduct
 import shapeless.{Generic, HList, Succ}
 import com.advancedtelematic.libtuf_server.repo.server.SignedRoleProvider
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.TargetItem
+import com.advancedtelematic.tuf.reposerver.db.Schema.TargetItemTable
 import com.advancedtelematic.tuf.reposerver.http.PaginationParams.PaginationResultOps
+import slick.ast.Ordering
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NoStackTrace
 import slick.jdbc.MySQLProfile.api.*
-import slick.lifted.AbstractTable
+import slick.lifted.{AbstractTable, ColumnOrdered}
 
 trait DatabaseSupport {
   val ec: ExecutionContext
@@ -99,13 +101,13 @@ protected [db] class TargetItemRepository()(implicit db: Database, ec: Execution
     }.transactionally
   }
 
-
   def findForQuery(repoId: RepoId,
-                   nameContains: Option[String] = None) = {
-
+                   nameContains: Option[String] = None): Query[TargetItemTable, TargetItem, Seq] = {
     nameContains match {
       case Some(substring) =>
-        targetItems.filter(_.repoId === repoId).filter(_.filename.mappedTo[String].like(s"%${substring}%"))
+        targetItems
+          .filter(_.repoId === repoId)
+          .filter(_.filename.mappedTo[String].like(s"%${substring}%"))
       case None =>
         targetItems.filter(_.repoId === repoId)
     }
@@ -122,7 +124,7 @@ protected [db] class TargetItemRepository()(implicit db: Database, ec: Execution
                        nameContains: Option[String] = None,
                        offset: Option[Long] = None,
                        limit: Option[Long] = None): Future[PaginationResult[TargetItem]] = db.run {
-    val items = findForQuery(repoId, nameContains)
+    val items = findForQuery(repoId, nameContains).sortBy(t => ColumnOrdered(t.updatedAt, Ordering().asc))
     val actualOffset = offset.orDefaultOffset
     val actualLimit = limit.orDefaultLimit
     val page = items.drop(actualOffset).take(actualLimit).result

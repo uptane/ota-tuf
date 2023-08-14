@@ -409,12 +409,9 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
         } ~
         (pathEnd & parameters("offset".as(nonNegativeLong).?, "limit".as(nonNegativeLong).?, "nameContains".?)) { (offset, limit, nameContains) =>
           // so currently the backend is parsing the json metadata file directly so we
-          // handle the pagination manually here
-          val actualOffset = offset.orDefaultOffset
-          val actualLimit = limit.orDefaultLimit
+          // dont do pagination here. Just return everything
           val targets = delegations.findTargets(repoId, nameContains).map{ t =>
-              val pageLimitedValues = t.slice(actualOffset.toInt, actualLimit.toInt)
-              PaginationResult(pageLimitedValues, pageLimitedValues.length, actualOffset, actualLimit)
+              PaginationResult(t, t.length, 0, t.length)
             }
           complete( targets )
         }
