@@ -112,6 +112,7 @@ class RepoResourceCommentSpec extends TufReposerverSpec with ResourceSpec with P
     Get(apiUri(s"repo/${repoId.show}/comments")) ~> routes ~> check {
       status shouldBe StatusCodes.OK
       responseAs[PaginationResult[FilenameComment]].values shouldBe empty
+      responseAs[PaginationResult[FilenameComment]].total shouldBe 0
     }
   }
 
@@ -121,6 +122,7 @@ class RepoResourceCommentSpec extends TufReposerverSpec with ResourceSpec with P
     Get(apiUri(s"repo/${repoId.show}/comments")) ~> routes ~> check {
       status shouldBe StatusCodes.OK
       responseAs[PaginationResult[FilenameComment]].values shouldBe empty
+      responseAs[PaginationResult[FilenameComment]].total shouldBe 0
     }
   }
 
@@ -133,6 +135,7 @@ class RepoResourceCommentSpec extends TufReposerverSpec with ResourceSpec with P
 
     Get(apiUri(s"repo/${repoId.show}/comments")) ~> routes ~> check {
       status shouldBe StatusCodes.OK
+      entityAs[PaginationResult[FilenameComment]].total shouldBe 1
       entityAs[PaginationResult[FilenameComment]].values shouldBe Seq(FilenameComment("myfile01".refineTry[ValidTargetFilename].get,
         TargetComment("comment")))
     }
@@ -170,6 +173,8 @@ class RepoResourceCommentSpec extends TufReposerverSpec with ResourceSpec with P
     Get(apiUri(s"repo/$repoIdS/comments")) ~> routes ~> check {
       status shouldBe StatusCodes.OK
       entityAs[PaginationResult[FilenameComment]].values.length shouldBe 2
+      entityAs[PaginationResult[FilenameComment]].total shouldBe 2
+      entityAs[PaginationResult[FilenameComment]].limit shouldBe 50
     }
   }
 
@@ -251,6 +256,7 @@ class RepoResourceCommentSpec extends TufReposerverSpec with ResourceSpec with P
       }
       Get(apiUri("user_repo/comments")).namespaced ~> routes ~> check {
         status shouldBe StatusCodes.OK
+        responseAs[PaginationResult[FilenameComment]].total shouldBe 2
         val comments = responseAs[PaginationResult[FilenameComment]].values
         comments should contain(FilenameComment(Refined.unsafeApply("cheerios-0.0.5"), TargetComment(testComment)))
         comments should contain(FilenameComment(Refined.unsafeApply("cheerios-0.0.6"), TargetComment(testComment2)))
@@ -292,6 +298,96 @@ class RepoResourceCommentSpec extends TufReposerverSpec with ResourceSpec with P
         comments should contain(FilenameComment(Refined.unsafeApply("cheerios-0.0.5"), TargetComment(testComment)))
         comments should contain(FilenameComment(Refined.unsafeApply("cheerios-0.0.6"), TargetComment(testComment2)))
         comments should not contain (FilenameComment(Refined.unsafeApply("riceKrispies-0.0.1"), TargetComment(testComment2)))
+      }
+    }
+  }
+  test("can fetch comments with pagination query params") {
+    withRandomNamepace { implicit ns =>
+      createRepo()
+      // Create packages
+      Put(apiUri("user_repo/targets/cheerios-0.0.5?name=cheerios&version=0.0.5"), form).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[SignedPayload[TargetsRole]]
+      }
+      Put(apiUri("user_repo/targets/cheerios-0.0.6?name=cheerios&version=0.0.6"), form).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[SignedPayload[TargetsRole]]
+      }
+      Put(apiUri("user_repo/targets/riceKrispies-0.0.1?name=riceKrispies&version=0.0.1"), form).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[SignedPayload[TargetsRole]]
+      }
+      // update comments
+      val testComment = "this is a sweet comment"
+      val testComment2 = "this is just an ok comment"
+      Put(apiUri("user_repo/comments/cheerios-0.0.5"), CommentRequest(TargetComment(testComment))).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+      }
+      Put(apiUri("user_repo/comments/cheerios-0.0.6"), CommentRequest(TargetComment(testComment2))).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+      }
+      Put(apiUri("user_repo/comments/riceKrispies-0.0.1"), CommentRequest(TargetComment(testComment2))).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+      }
+      // Fetch with search query
+      Get(apiUri("user_repo/comments?offset=2&limit=2")).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[PaginationResult[FilenameComment]].offset shouldBe 2
+        responseAs[PaginationResult[FilenameComment]].limit shouldBe 2
+        responseAs[PaginationResult[FilenameComment]].total shouldBe 3
+        responseAs[PaginationResult[FilenameComment]].values.length shouldBe 1
+
+        val comments = responseAs[PaginationResult[(FilenameComment)]].values
+        comments should not contain(FilenameComment(Refined.unsafeApply("cheerios-0.0.5"), TargetComment(testComment)))
+        comments should not contain(FilenameComment(Refined.unsafeApply("cheerios-0.0.6"), TargetComment(testComment2)))
+        comments should contain (FilenameComment(Refined.unsafeApply("riceKrispies-0.0.1"), TargetComment(testComment2)))
+      }
+    }
+  }
+  test("can fetch comments by specifying filenames") {
+    withRandomNamepace { implicit ns =>
+      createRepo()
+      // Create packages
+      Put(apiUri("user_repo/targets/cheerios-0.0.5?name=cheerios&version=0.0.5"), form).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[SignedPayload[TargetsRole]]
+      }
+      Put(apiUri("user_repo/targets/cheerios-0.0.6?name=cheerios&version=0.0.6"), form).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[SignedPayload[TargetsRole]]
+      }
+      Put(apiUri("user_repo/targets/riceKrispies-0.0.1?name=riceKrispies&version=0.0.1"), form).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[SignedPayload[TargetsRole]]
+      }
+      // update comments
+      val testComment = "this is a sweet comment"
+      val testComment2 = "this is just an ok comment"
+      Put(apiUri("user_repo/comments/cheerios-0.0.5"), CommentRequest(TargetComment(testComment))).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+      }
+      Put(apiUri("user_repo/comments/cheerios-0.0.6"), CommentRequest(TargetComment(testComment2))).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+      }
+      Put(apiUri("user_repo/comments/riceKrispies-0.0.1"), CommentRequest(TargetComment(testComment2))).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+      }
+      // Fetch with search query
+      Post(apiUri("user_repo/list-target-comments"), Seq[String]("cheerios-0.0.5", "riceKrispies-0.0.1")).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val comments = responseAs[Seq[FilenameComment]]
+        println(comments)
+        comments should contain (FilenameComment(Refined.unsafeApply("cheerios-0.0.5"), TargetComment(testComment)))
+        comments should not contain (FilenameComment(Refined.unsafeApply("cheerios-0.0.6"), TargetComment(testComment2)))
+        comments should contain(FilenameComment(Refined.unsafeApply("riceKrispies-0.0.1"), TargetComment(testComment2)))
+      }
+      Post(apiUri("user_repo/list-target-comments"), Seq[String]("cheerios-0.0.6")).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val comments = responseAs[Seq[FilenameComment]]
+        println(comments)
+        comments should not contain(FilenameComment(Refined.unsafeApply("cheerios-0.0.5"), TargetComment(testComment)))
+        comments should contain (FilenameComment(Refined.unsafeApply("cheerios-0.0.6"), TargetComment(testComment2)))
+        comments should not contain(FilenameComment(Refined.unsafeApply("riceKrispies-0.0.1"), TargetComment(testComment2)))
       }
     }
   }
