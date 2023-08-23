@@ -109,7 +109,8 @@ trait ReposerverClient {
 
   def setTargetComments(namespace: Namespace, targetFilename: TargetFilename, comment: String): Future[Unit]
   def fetchSingleTargetComments(namespace: Namespace, targetFilename: TargetFilename): Future[FilenameComment]
-  def fetchTargetsComments(namespace: Namespace, targetNameContains: Option[String]): Future[PaginationResult[FilenameComment]]
+  def fetchTargetsComments(namespace: Namespace, targetNameContains: Option[String], offset: Option[Long], limit: Option[Long]): Future[PaginationResult[FilenameComment]]
+  def fetchTargetsCommentsByFilename(namespace: Namespace, filenames: Seq[TargetFilename]): Future[Seq[FilenameComment]]
   def deleteTarget(namespace: Namespace, targetFilename: TargetFilename): Future[Unit]
 
   def editTarget(namespace: Namespace,
@@ -118,7 +119,10 @@ trait ReposerverClient {
                  hardwareIds: Seq[HardwareIdentifier] = Seq.empty,
                  proprietaryMeta: Option[Json] = None) : Future[ClientTargetItem]
   def fetchSingleTargetItem(namespace: Namespace, targetFilename: TargetFilename): Future[ClientTargetItem]
-  def fetchTargetItems(namespace: Namespace, nameContains: Option[String] = None): Future[PaginationResult[ClientTargetItem]]
+  def fetchTargetItems(namespace: Namespace,
+                       nameContains: Option[String] = None,
+                       offset: Option[Long] = None,
+                       limit: Option[Long] = None): Future[PaginationResult[ClientTargetItem]]
   def fetchDelegationMetadata(namespace: Namespace, roleName: String): Future[JsonSignedPayload]
   def fetchDelegationTargetItems(namespace: Namespace, nameContains: Option[String] = None): Future[PaginationResult[DelegationClientTargetItem]]
   def fetchSingleDelegationTargetItem(namespace: Namespace, targetFilename: TargetFilename): Future[Seq[DelegationClientTargetItem]]
@@ -148,6 +152,9 @@ class ReposerverHttpClient(reposerverUri: Uri, httpClient: HttpRequest => Future
 
   private def apiUri(path: Path) =
     reposerverUri.withPath(reposerverUri.path / "api" / "v1" ++ Slash(path))
+  private def paginationParams(offset: Option[Long], limit: Option[Long]): Map[String, String] = {
+    Map("offset" -> offset, "limit" -> limit).collect { case (key, Some(value)) => key -> value.toString }
+  }
 
   override def createRoot(namespace: Namespace, keyType: KeyType): Future[RepoId] =
     Marshal(CreateRepositoryRequest(keyType)).to[RequestEntity].flatMap { entity =>
@@ -250,7 +257,10 @@ class ReposerverHttpClient(reposerverUri: Uri, httpClient: HttpRequest => Future
     execHttpUnmarshalledWithNamespace[ClientTargetItem](namespace, req).ok
   }
 
-  override def fetchTargetItems(namespace: Namespace, nameContains: Option[String] = None): Future[PaginationResult[ClientTargetItem]] = {
+  override def fetchTargetItems(namespace: Namespace,
+                                nameContains: Option[String] = None,
+                                offset: Option[Long] = None,
+                                limit: Option[Long] = None): Future[PaginationResult[ClientTargetItem]] = {
     val reqUri = if (nameContains.isDefined)
       apiUri(Path(s"user_repo/target_items")).withQuery(Query("nameContains" -> nameContains.get))
     else
@@ -294,14 +304,30 @@ class ReposerverHttpClient(reposerverUri: Uri, httpClient: HttpRequest => Future
     execHttpUnmarshalledWithNamespace[Unit](namespace, req).ok
   }
 
-  override def fetchTargetsComments(namespace: Namespace, targetNameContains: Option[String]): Future[PaginationResult[FilenameComment]] = {
-    val commentUri = if (targetNameContains.isDefined)
-        apiUri(Path("user_repo/comments")).withQuery(Query("nameContains" -> targetNameContains.getOrElse("")))
-      else
-        apiUri(Path("user_repo/comments"))
+  override def fetchTargetsComments(namespace: Namespace,
+                                    targetNameContains: Option[String],
+                                    offset: Option[Long],
+                                    limit: Option[Long]): Future[PaginationResult[FilenameComment]] = {
+
+    val nameContainsMap = if (targetNameContains.isDefined)
+        Map[String, String]("nameContains" -> targetNameContains.getOrElse(""))
+    else Map.empty[String, String]
+
+    val commentUri = apiUri(Path("user_repo/comments")).withQuery(
+          Query(paginationParams(offset, limit) .++ (nameContainsMap))
+        )
     val req = HttpRequest(HttpMethods.GET, uri = commentUri)
 
     execHttpUnmarshalledWithNamespace[PaginationResult[FilenameComment]](namespace, req).handleErrors {
+      case error if error.status == StatusCodes.NotFound =>
+        FastFuture.failed(NotFound)
+    }
+  }
+  override def fetchTargetsCommentsByFilename(namespace: Namespace, filenames: Seq[TargetFilename]): Future[Seq[FilenameComment]] = {
+    val filenameBody = HttpEntity(ContentTypes.`application/json`, filenames.asJson.noSpaces)
+    val req = HttpRequest(HttpMethods.POST, uri = apiUri(Path("user_repo/list-target-comments")), entity = filenameBody)
+
+    execHttpUnmarshalledWithNamespace[Seq[FilenameComment]](namespace, req).handleErrors {
       case error if error.status == StatusCodes.NotFound =>
         FastFuture.failed(NotFound)
     }

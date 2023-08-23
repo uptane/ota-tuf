@@ -17,6 +17,7 @@ import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.*
 import com.advancedtelematic.libtuf_server.repo.server.DataType.*
 import com.advancedtelematic.libats.slick.db.SlickExtensions.*
+import com.advancedtelematic.libats.slick.db.SlickPagination
 import com.advancedtelematic.libats.slick.codecs.SlickRefined.*
 import com.advancedtelematic.libats.slick.db.SlickUUIDKey.*
 import com.advancedtelematic.libats.slick.db.SlickAnyVal.*
@@ -125,10 +126,11 @@ protected [db] class TargetItemRepository()(implicit db: Database, ec: Execution
                        offset: Option[Long] = None,
                        limit: Option[Long] = None): Future[PaginationResult[TargetItem]] = db.run {
     val items = findForQuery(repoId, nameContains).sortBy(t => ColumnOrdered(t.updatedAt, Ordering().asc))
+    val totalItemsLength = items.length.result
     val actualOffset = offset.orDefaultOffset
     val actualLimit = limit.orDefaultLimit
     val page = items.drop(actualOffset).take(actualLimit).result
-    page.map { case values => PaginationResult(values, values.length, actualOffset, actualLimit) }
+    totalItemsLength.zip(page).map{ case (total, values) => PaginationResult(values, total, actualOffset, actualLimit) }
   }
 
   def exists(repoId: RepoId, filename: TargetFilename): Future[Boolean] = {
@@ -337,13 +339,23 @@ protected [db] class FilenameCommentRepository()(implicit db: Database, ec: Exec
       .failIfNone(CommentNotFound)
   }
 
-  def find(repoId: RepoId, nameContains: Option[String] = None): Future[Seq[(TargetFilename, TargetComment)]] = db.run {
+  def find(repoId: RepoId, nameContains: Option[String] = None, offset: Option[Long], limit: Option[Long]): Future[PaginationResult[(TargetFilename, TargetComment)]] = db.run {
     val allFileNameComments = filenameComments.filter(_.repoId === repoId)
-    val comments = if(nameContains.isDefined)
+    val comments = if(nameContains.isDefined) {
       allFileNameComments.filter(_.filename.mappedTo[String].like(s"%${nameContains.get}%"))
-    else allFileNameComments
-    comments.map(filenameComment => (filenameComment.filename, filenameComment.comment))
-      .result
+    } else allFileNameComments
+
+    comments.sortBy(_.filename)
+      .map(filenameComment => (filenameComment.filename, filenameComment.comment))
+      .paginateResult(offset.orDefaultOffset, limit.orDefaultLimit)
+  }
+
+  def findForFilenames(repoId: RepoId, filenames: Seq[TargetFilename]): Future[Seq[(TargetFilename, TargetComment)]] = {
+    val trueRep: Rep[Boolean] = true
+    val result = db.run {
+      filenameComments.filter(_.repoId === repoId).filter( _.filename inSet filenames  ).result
+    }
+    result.map(_.map{case(_, filename, comment) => (filename, comment)})
   }
 
   def deleteAction(repoId: RepoId, filename: TargetFilename) =
