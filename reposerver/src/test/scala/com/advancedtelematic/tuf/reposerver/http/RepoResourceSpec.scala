@@ -1408,7 +1408,7 @@ class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
         status shouldBe StatusCodes.OK
         val paged = responseAs[PaginationResult[ClientTargetItem]]
         println(paged)
-        paged.total shouldBe 2
+        paged.total shouldBe 3
         paged.offset shouldBe 1
         paged.limit shouldBe 50
         val targetCustoms = paged.map { clientTargetItem =>
@@ -1425,7 +1425,7 @@ class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
       Get(apiUri(s"user_repo/target_items?limit=2")).namespaced ~> routes ~> check {
         status shouldBe StatusCodes.OK
         val paged = responseAs[PaginationResult[ClientTargetItem]]
-        paged.total shouldBe 2
+        paged.total shouldBe 3
         paged.offset shouldBe 0
         paged.limit shouldBe 2
         val targetCustoms = paged.map { clientTargetItem =>
@@ -1442,7 +1442,7 @@ class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
       Get(apiUri(s"user_repo/target_items?offset=1&limit=1")).namespaced ~> routes ~> check {
         status shouldBe StatusCodes.OK
         val paged = responseAs[PaginationResult[ClientTargetItem]]
-        paged.total shouldBe 1
+        paged.total shouldBe 3
         paged.offset shouldBe 1
         paged.limit shouldBe 1
         val targetCustoms = paged.map { clientTargetItem =>

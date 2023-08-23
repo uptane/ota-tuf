@@ -11,6 +11,8 @@ import akka.http.scaladsl.util.FastFuture
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import cats.data.Validated.{Invalid, Valid}
+import com.advancedtelematic.libats.codecs.CirceRefined._
+import com.advancedtelematic.libats.codecs.CirceValidatedGeneric.validatedGenericDecoder
 import com.advancedtelematic.libats.data.DataType.HashMethod.HashMethod
 import com.advancedtelematic.libats.data.RefinedUtils.*
 import com.advancedtelematic.libats.http.Errors.{EntityAlreadyExists, MissingEntity}
@@ -24,6 +26,7 @@ import com.advancedtelematic.libats.http.AnyvalMarshallingSupport.*
 import com.advancedtelematic.libats.data.DataType.{Namespace, ValidChecksum}
 import com.advancedtelematic.libats.data.{ErrorRepresentation, PaginationResult}
 import com.advancedtelematic.libtuf.data.TufDataType.*
+import com.advancedtelematic.libtuf.data.TufDataType.TargetFilename
 import com.advancedtelematic.libtuf_server.data.Marshalling.*
 import com.advancedtelematic.libtuf_server.data.Requests.{CommentRequest, CreateRepositoryRequest, *}
 import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient
@@ -226,14 +229,16 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
       filenameCommentRepo.find(repoId, filename).map(CommentRequest)
     }
 
-  def findComments(repoId: RepoId, nameContains: Option[String] = None): Route =
+  def findCommentsForFiles(repoId: RepoId, filenames: Seq[TargetFilename]): Route =
     complete {
-      val comments = filenameCommentRepo.find(repoId, nameContains).map {
-        _.map {
-          case (filename, comment) => FilenameComment(filename, comment)
-        }
+      filenameCommentRepo.findForFilenames(repoId, filenames)
+        .map(_.map{case (name, comment) => FilenameComment(name, comment)})
+    }
+  def findComments(repoId: RepoId, nameContains: Option[String] = None, offset: Option[Long], limit: Option[Long]): Route =
+    complete {
+      filenameCommentRepo.find(repoId, nameContains, offset, limit).map {
+        _.map { case (filename, comment) => FilenameComment(filename, comment)}
       }
-      comments.map(c => PaginationResult(c, c.length, 0, c.length))
     }
 
   def addComment(repoId: RepoId, filename: TargetFilename, commentRequest: CommentRequest): Route =
@@ -510,8 +515,9 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
         }
       } ~
       pathPrefix("comments") {
-        (pathEnd & parameter("nameContains".optional)) { nameContains =>
-          findComments(repoId, nameContains)
+
+        (pathEnd & parameters("offset".as(nonNegativeLong).?, "limit".as(nonNegativeLong).?, "nameContains".?)) { (offset, limit, nameContains) =>
+          findComments(repoId, nameContains, offset, limit)
         } ~
         pathPrefix(TargetFilenamePath) { filename =>
           put {
@@ -522,6 +528,11 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
           get {
             findComment(repoId, filename)
           }
+        }
+      } ~
+      (post & pathPrefix("list-target-comments")) {
+        (pathEnd & entity(as[Seq[TargetFilename]])) { filenames =>
+          findCommentsForFiles(repoId, filenames)
         }
       } ~
       pathPrefix("target_items") {

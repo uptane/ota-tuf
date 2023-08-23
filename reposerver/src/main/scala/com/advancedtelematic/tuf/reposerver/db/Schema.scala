@@ -72,6 +72,7 @@ object Schema {
     def repoId = column[RepoId]("repo_id")
     def filename = column[TargetFilename]("filename")
     def comment = column[TargetComment]("comment")
+    def updatedAt = column[Instant]("updated_at")(javaInstantMapping)
 
     def pk = primaryKey("repo_name_pk", (repoId, filename))
 
