@@ -31,6 +31,7 @@ object Schema {
     def checksum = column[Checksum]("checksum")
     def length = column[Long]("length")
     def storageMethod = column[StorageMethod]("storage_method")
+    def updatedAt = column[Instant]("updated_at")(javaInstantMapping)
 
     def pk = primaryKey("target_items_pk", (repoId, filename))
 
@@ -71,6 +72,7 @@ object Schema {
     def repoId = column[RepoId]("repo_id")
     def filename = column[TargetFilename]("filename")
     def comment = column[TargetComment]("comment")
+    def updatedAt = column[Instant]("updated_at")(javaInstantMapping)
 
     def pk = primaryKey("repo_name_pk", (repoId, filename))
 

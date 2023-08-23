@@ -10,33 +10,37 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.util.FastFuture
 import akka.stream.scaladsl.Source
 import com.advancedtelematic.libats.data.DataType.Namespace
-import com.advancedtelematic.libats.data.ErrorCode
+import com.advancedtelematic.libats.data.{ErrorCode, PaginationResult}
 import com.advancedtelematic.libats.http.Errors.{EntityAlreadyExists, MissingEntity, MissingEntityId, RawError}
 import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RepoId, RoleType, TargetFilename, validTargetFilename}
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
-import com.advancedtelematic.tuf.reposerver.data.RepoDataType._
-import com.advancedtelematic.libtuf_server.repo.server.DataType._
-import com.advancedtelematic.libats.slick.db.SlickExtensions._
-import com.advancedtelematic.libats.slick.codecs.SlickRefined._
-import com.advancedtelematic.libats.slick.db.SlickUUIDKey._
-import com.advancedtelematic.libats.slick.db.SlickAnyVal._
+import com.advancedtelematic.tuf.reposerver.data.RepoDataType.*
+import com.advancedtelematic.libtuf_server.repo.server.DataType.*
+import com.advancedtelematic.libats.slick.db.SlickExtensions.*
+import com.advancedtelematic.libats.slick.db.SlickPagination
+import com.advancedtelematic.libats.slick.codecs.SlickRefined.*
+import com.advancedtelematic.libats.slick.db.SlickUUIDKey.*
+import com.advancedtelematic.libats.slick.db.SlickAnyVal.*
 import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, DelegatedRoleName, DelegationFriendlyName, SnapshotRole, TargetCustom, TimestampRole, TufRole}
 import com.advancedtelematic.libtuf_server.data.Requests.TargetComment
-import com.advancedtelematic.libtuf_server.data.TufSlickMappings._
+import com.advancedtelematic.libtuf_server.data.TufSlickMappings.*
 import com.advancedtelematic.tuf.reposerver.db.DBDataType.{DbDelegation, DbSignedRole}
 import com.advancedtelematic.tuf.reposerver.db.TargetItemRepositorySupport.MissingNamespaceException
-import com.advancedtelematic.tuf.reposerver.http.Errors._
+import com.advancedtelematic.tuf.reposerver.http.Errors.*
 import com.advancedtelematic.libtuf_server.repo.server.Errors.SignedRoleNotFound
 import SlickMappings.{delegatedRoleNameMapper, delegationFriendlyNameMapper}
 import shapeless.ops.function.FnToProduct
 import shapeless.{Generic, HList, Succ}
 import com.advancedtelematic.libtuf_server.repo.server.SignedRoleProvider
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.TargetItem
+import com.advancedtelematic.tuf.reposerver.db.Schema.TargetItemTable
+import com.advancedtelematic.tuf.reposerver.http.PaginationParams.PaginationResultOps
+import slick.ast.Ordering
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NoStackTrace
-import slick.jdbc.MySQLProfile.api._
-import slick.lifted.AbstractTable
+import slick.jdbc.MySQLProfile.api.*
+import slick.lifted.{AbstractTable, ColumnOrdered}
 
 trait DatabaseSupport {
   val ec: ExecutionContext
@@ -98,13 +102,35 @@ protected [db] class TargetItemRepository()(implicit db: Database, ec: Execution
     }.transactionally
   }
 
-  def findFor(repoId: RepoId, nameContains: Option[String] = None): Future[Seq[TargetItem]] = db.run {
+  def findForQuery(repoId: RepoId,
+                   nameContains: Option[String] = None): Query[TargetItemTable, TargetItem, Seq] = {
     nameContains match {
       case Some(substring) =>
-        targetItems.filter(_.repoId === repoId).filter(_.filename.mappedTo[String].like(s"%${substring}%")).result
+        targetItems
+          .filter(_.repoId === repoId)
+          .filter(_.filename.mappedTo[String].like(s"%${substring}%"))
       case None =>
-        targetItems.filter(_.repoId === repoId).result
+        targetItems.filter(_.repoId === repoId)
     }
+  }
+
+  def findFor(
+               repoId: RepoId,
+               nameContains: Option[String] = None
+  ): Future[Seq[TargetItem]] = db.run {
+    findForQuery(repoId, nameContains).result
+  }
+
+  def findForPaginated(repoId: RepoId,
+                       nameContains: Option[String] = None,
+                       offset: Option[Long] = None,
+                       limit: Option[Long] = None): Future[PaginationResult[TargetItem]] = db.run {
+    val items = findForQuery(repoId, nameContains).sortBy(t => ColumnOrdered(t.updatedAt, Ordering().asc))
+    val totalItemsLength = items.length.result
+    val actualOffset = offset.orDefaultOffset
+    val actualLimit = limit.orDefaultLimit
+    val page = items.drop(actualOffset).take(actualLimit).result
+    totalItemsLength.zip(page).map{ case (total, values) => PaginationResult(values, total, actualOffset, actualLimit) }
   }
 
   def exists(repoId: RepoId, filename: TargetFilename): Future[Boolean] = {
@@ -313,13 +339,23 @@ protected [db] class FilenameCommentRepository()(implicit db: Database, ec: Exec
       .failIfNone(CommentNotFound)
   }
 
-  def find(repoId: RepoId, nameContains: Option[String] = None): Future[Seq[(TargetFilename, TargetComment)]] = db.run {
+  def find(repoId: RepoId, nameContains: Option[String] = None, offset: Option[Long], limit: Option[Long]): Future[PaginationResult[(TargetFilename, TargetComment)]] = db.run {
     val allFileNameComments = filenameComments.filter(_.repoId === repoId)
-    val comments = if(nameContains.isDefined)
+    val comments = if(nameContains.isDefined) {
       allFileNameComments.filter(_.filename.mappedTo[String].like(s"%${nameContains.get}%"))
-    else allFileNameComments
-    comments.map(filenameComment => (filenameComment.filename, filenameComment.comment))
-      .result
+    } else allFileNameComments
+
+    comments.sortBy(_.filename)
+      .map(filenameComment => (filenameComment.filename, filenameComment.comment))
+      .paginateResult(offset.orDefaultOffset, limit.orDefaultLimit)
+  }
+
+  def findForFilenames(repoId: RepoId, filenames: Seq[TargetFilename]): Future[Seq[(TargetFilename, TargetComment)]] = {
+    val trueRep: Rep[Boolean] = true
+    val result = db.run {
+      filenameComments.filter(_.repoId === repoId).filter( _.filename inSet filenames  ).result
+    }
+    result.map(_.map{case(_, filename, comment) => (filename, comment)})
   }
 
   def deleteAction(repoId: RepoId, filename: TargetFilename) =

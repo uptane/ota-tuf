@@ -1388,6 +1388,76 @@ class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
       }
     }
   }
+  test("Use pagination query params when fetching target_items") {
+    withRandomNamepace { implicit ns =>
+      createRepo()
+      // create packages
+      Put(apiUri(s"user_repo/targets/cheerios-0.0.5?name=cheerios&version=0.0.5"), form).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[SignedPayload[TargetsRole]]
+      }
+      Put(apiUri(s"user_repo/targets/cheerios-0.0.6?name=cheerios&version=0.0.6"), form).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[SignedPayload[TargetsRole]]
+      }
+      Put(apiUri(s"user_repo/targets/riceKrispies-0.0.1?name=riceKrispies&version=0.0.1"), form).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[SignedPayload[TargetsRole]]
+      }
+      Get(apiUri(s"user_repo/target_items?offset=1")).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val paged = responseAs[PaginationResult[ClientTargetItem]]
+        println(paged)
+        paged.total shouldBe 3
+        paged.offset shouldBe 1
+        paged.limit shouldBe 50
+        val targetCustoms = paged.map { clientTargetItem =>
+          clientTargetItem.custom.asJson.as[TargetCustom] match {
+            case Right(custom) => custom
+            case Left(err) => println(s"Failed to parse json. Error: ${err.toString}"); throw err
+          }
+        }
+        val nameVersionTuple = targetCustoms.values.map(custom => (custom.name.value, custom.version.value))
+        nameVersionTuple should not contain("cheerios", "0.0.5")
+        nameVersionTuple should contain("cheerios", "0.0.6")
+        nameVersionTuple should contain("riceKrispies", "0.0.1")
+      }
+      Get(apiUri(s"user_repo/target_items?limit=2")).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val paged = responseAs[PaginationResult[ClientTargetItem]]
+        paged.total shouldBe 3
+        paged.offset shouldBe 0
+        paged.limit shouldBe 2
+        val targetCustoms = paged.map { clientTargetItem =>
+          clientTargetItem.custom.asJson.as[TargetCustom] match {
+            case Right(custom) => custom
+            case Left(err) => println(s"Failed to parse json. Error: ${err.toString}"); throw err
+          }
+        }
+        val nameVersionTuple = targetCustoms.values.map(custom => (custom.name.value, custom.version.value))
+        nameVersionTuple should contain("cheerios", "0.0.5")
+        nameVersionTuple should contain("cheerios", "0.0.6")
+        nameVersionTuple should not contain("riceKrispies", "0.0.1")
+      }
+      Get(apiUri(s"user_repo/target_items?offset=1&limit=1")).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val paged = responseAs[PaginationResult[ClientTargetItem]]
+        paged.total shouldBe 3
+        paged.offset shouldBe 1
+        paged.limit shouldBe 1
+        val targetCustoms = paged.map { clientTargetItem =>
+          clientTargetItem.custom.asJson.as[TargetCustom] match {
+            case Right(custom) => custom
+            case Left(err) => println(s"Failed to parse json. Error: ${err.toString}"); throw err
+          }
+        }
+        val nameVersionTuple = targetCustoms.values.map(custom => (custom.name.value, custom.version.value))
+        nameVersionTuple should not contain("cheerios", "0.0.5")
+        nameVersionTuple should contain("cheerios", "0.0.6")
+        nameVersionTuple should not contain("riceKrispies", "0.0.1")
+      }
+    }
+  }
   test("can search target_items with pattern and get expected output") {
     withRandomNamepace { implicit ns =>
       createRepo()
