@@ -45,7 +45,7 @@ lazy val serverDependencies = libraryDependencies ++= {
     "io.github.uptane" %% "libats-metrics-prometheus" % libatsV,
     "io.github.uptane" %% "libats-slick" % libatsV,
     "io.github.uptane" %% "libats-logging" % libatsV,
-    "org.mariadb.jdbc" % "mariadb-java-client" % "3.1.4"
+    "org.mariadb.jdbc" % "mariadb-java-client" % "3.2.0"
   )
 }
 
