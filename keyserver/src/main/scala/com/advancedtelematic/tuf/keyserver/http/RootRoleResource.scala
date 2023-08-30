@@ -2,41 +2,41 @@ package com.advancedtelematic.tuf.keyserver.http
 
 import akka.http.scaladsl.marshalling.ToResponseMarshallable
 import akka.http.scaladsl.model.StatusCodes
-import akka.stream.Materializer
 import cats.data.Validated.{Invalid, Valid}
 import com.advancedtelematic.libats.data.ErrorRepresentation
-import com.advancedtelematic.libats.http.UUIDKeyAkka._
-import com.advancedtelematic.libtuf.data.ClientCodecs._
+import com.advancedtelematic.libats.http.UUIDKeyAkka.*
+import com.advancedtelematic.libtuf.data.ClientCodecs.*
 import com.advancedtelematic.libtuf.data.ErrorCodes
-import com.advancedtelematic.libtuf.data.TufCodecs._
-import com.advancedtelematic.libtuf.data.TufDataType.{RepoId, RoleType, _}
-import com.advancedtelematic.libtuf_server.data.Marshalling._
+import com.advancedtelematic.libtuf.data.TufCodecs.*
+import com.advancedtelematic.libtuf.data.TufDataType.{RepoId, RoleType, *}
+import com.advancedtelematic.libtuf_server.data.Marshalling.*
 import com.advancedtelematic.tuf.keyserver.Settings
 import com.advancedtelematic.tuf.keyserver.daemon.DefaultKeyGenerationOp
 import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType.KeyGenRequestStatus
 import com.advancedtelematic.tuf.keyserver.db.SignedRootRoleRepository.MissingSignedRole
 import com.advancedtelematic.tuf.keyserver.db.{KeyGenRequestSupport, SignedRootRoleRepository}
-import com.advancedtelematic.tuf.keyserver.roles._
-import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
-import io.circe._
-import io.circe.syntax._
-import slick.jdbc.MySQLProfile.api._
+import com.advancedtelematic.tuf.keyserver.roles.*
+import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
+import io.circe.*
+import io.circe.syntax.*
+import slick.jdbc.MySQLProfile.api.*
 
+import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 class RootRoleResource()
                       (implicit val db: Database, val ec: ExecutionContext)
   extends KeyGenRequestSupport with Settings {
-  import ClientRootGenRequest._
-  import akka.http.scaladsl.server.Directives._
+  import ClientRootGenRequest.*
+  import akka.http.scaladsl.server.Directives.*
 
   val keyGenerationRequests = new KeyGenerationRequests()
   val signedRootRoles = new SignedRootRoles()
   val rootRoleKeyEdit = new RootRoleKeyEdit()
   val roleSigning = new RoleSigning()
 
-  private def createRootNow(repoId: RepoId, genRequest: ClientRootGenRequest) = {
+    private def createRootNow(repoId: RepoId, genRequest: ClientRootGenRequest) = {
     require(genRequest.threshold > 0, "threshold must be greater than 0")
 
     val keyGenerationOp = DefaultKeyGenerationOp()
@@ -73,8 +73,8 @@ class RootRoleResource()
           case genRequest =>
             createRootLater(repoId, genRequest)
         } ~
-        get {
-          val f = signedRootRoles.findFreshAndPersist(repoId)
+        (get & optionalHeaderValueByName("x-trx-expire-not-before").map(_.map(Instant.parse))) { expireNotBefore =>
+          val f = signedRootRoles.findFreshAndPersist(repoId, expireNotBefore)
           complete(f)
         }
       } ~

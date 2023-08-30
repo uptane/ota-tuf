@@ -3,20 +3,22 @@ package com.advancedtelematic.libtuf_server.keyserver
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.Uri.Path
 import akka.http.scaladsl.model.Uri.Path.{Empty, Slash}
-import akka.http.scaladsl.model.{StatusCodes, _}
-import cats.syntax.show._
+import akka.http.scaladsl.model.headers.RawHeader
+import akka.http.scaladsl.model.{StatusCodes, *}
+import cats.syntax.show.*
 import com.advancedtelematic.libats.data.ErrorCode
 import com.advancedtelematic.libats.http.Errors.{RawError, RemoteServiceError}
 import com.advancedtelematic.libats.http.ServiceHttpClientSupport
 import com.advancedtelematic.libats.http.tracing.Tracing.ServerRequestTracing
 import com.advancedtelematic.libats.http.tracing.TracingHttpClient
-import com.advancedtelematic.libtuf.data.ClientCodecs._
+import com.advancedtelematic.libtuf.data.ClientCodecs.*
 import com.advancedtelematic.libtuf.data.ClientDataType.{RootRole, TufRole}
-import com.advancedtelematic.libtuf.data.TufCodecs._
-import com.advancedtelematic.libtuf.data.TufDataType.RoleType._
+import com.advancedtelematic.libtuf.data.TufCodecs.*
+import com.advancedtelematic.libtuf.data.TufDataType.RoleType.*
 import com.advancedtelematic.libtuf.data.TufDataType.{KeyId, KeyType, RepoId, SignedPayload, TufKeyPair}
 import io.circe.{Codec, Json}
 
+import java.time.Instant
 import scala.concurrent.Future
 
 object KeyserverClient {
@@ -32,7 +34,7 @@ trait KeyserverClient {
 
   def sign[T : Codec : TufRole](repoId: RepoId, payload: T): Future[SignedPayload[T]]
 
-  def fetchRootRole(repoId: RepoId): Future[SignedPayload[RootRole]]
+  def fetchRootRole(repoId: RepoId, expiresNotBefore: Option[Instant] = None): Future[SignedPayload[RootRole]]
 
   def fetchRootRole(repoId: RepoId, version: Int): Future[SignedPayload[RootRole]]
 
@@ -92,10 +94,15 @@ class KeyserverHttpClient(uri: Uri, httpClient: HttpRequest => Future[HttpRespon
     }
   }
 
-  override def fetchRootRole(repoId: RepoId): Future[SignedPayload[RootRole]] = {
+  override def fetchRootRole(repoId: RepoId, expireNotBefore: Option[Instant]): Future[SignedPayload[RootRole]] = {
     val req = HttpRequest(HttpMethods.GET, uri = apiUri(Path("root") / repoId.show))
 
-    execHttpUnmarshalled[SignedPayload[RootRole]](req).handleErrors {
+    val reqWithParams = expireNotBefore match {
+      case Some(e) => req.withHeaders(RawHeader("x-trx-expire-not-before", e.toString))
+      case None => req
+    }
+
+    execHttpUnmarshalled[SignedPayload[RootRole]](reqWithParams).handleErrors {
       case RemoteServiceError(_, StatusCodes.NotFound, _, _, _, _) =>
         Future.failed(RootRoleNotFound)
       case RemoteServiceError(_, StatusCodes.Locked, _, _, _, _) =>

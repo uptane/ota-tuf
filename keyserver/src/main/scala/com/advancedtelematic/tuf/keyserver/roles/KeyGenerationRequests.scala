@@ -41,13 +41,14 @@ extends KeyRepositorySupport with SignedRootRoleSupport {
   def findLatest(repoId: RepoId): Future[SignedPayload[RootRole]] =
     find(repoId).map(_.content)
 
-  def findFreshAndPersist(repoId: RepoId): Future[SignedPayload[RootRole]] = async {
+  def findFreshAndPersist(repoId: RepoId, expireNotBefore: Option[Instant] = None): Future[SignedPayload[RootRole]] = async {
     val signedRole = await(findAndPersist(repoId))
 
-    if (signedRole.expiresAt.isBefore(Instant.now.plus(1, ChronoUnit.HOURS))) {
+    if (signedRole.expiresAt.isBefore(Instant.now.plus(1, ChronoUnit.HOURS)) || // existing role expires within the hour
+      expireNotBefore.exists(signedRole.expiresAt.isBefore)) { // existing role expiration is earlier than expireNotBefore
       val versionedRole = signedRole.content.signed
       val nextVersion = versionedRole.version + 1
-      val nextExpires = Instant.now.plus(defaultRoleExpire)
+      val nextExpires = List(Option(Instant.now.plus(defaultRoleExpire)), expireNotBefore).flatten.max
       val newRole = versionedRole.copy(expires = nextExpires, version = nextVersion)
 
       val f = signRootRole(newRole)
