@@ -13,7 +13,7 @@ lazy val commonConfigs = Seq(ItTest, UnitTest)
 lazy val commonDeps = libraryDependencies ++= {
   val scalaTestV = "3.2.16"
   lazy val libatsV = libatsVersion.value
-  lazy val catsV = "2.9.0"
+  lazy val catsV = "2.10.0"
 
   Seq(
     "org.scala-lang.modules" %% "scala-async" % "1.0.1",
@@ -59,7 +59,7 @@ lazy val commonSettings = Seq(
   Compile / console / scalacOptions ~= (_.filterNot(_ == "-Ywarn-unused-import")),
   resolvers += "sonatype-snapshots" at "https://s01.oss.sonatype.org/content/repositories/snapshots",
   resolvers += "sonatype-releases" at "https://s01.oss.sonatype.org/content/repositories/releases",
-  libatsVersion := "2.1.1",
+  libatsVersion := "2.1.2",
   licenses += ("MPL-2.0", url("http://mozilla.org/MPL/2.0/")),
   description := "scala tuf implementation support",
   buildInfoOptions += BuildInfoOption.ToMap,

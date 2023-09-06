@@ -1392,25 +1392,42 @@ class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
     withRandomNamepace { implicit ns =>
       createRepo()
       // create packages
-      Put(apiUri(s"user_repo/targets/cheerios-0.0.5?name=cheerios&version=0.0.5"), form).namespaced ~> routes ~> check {
-        status shouldBe StatusCodes.OK
-        responseAs[SignedPayload[TargetsRole]]
+      (1 to 100 by 1).foreach { idx =>
+        Put(apiUri(s"user_repo/targets/riceKrispies-0.0."+idx+"?name=riceKrispies&version=0.0."+idx), form).namespaced ~> routes ~> check {
+          status shouldBe StatusCodes.OK
+          responseAs[SignedPayload[TargetsRole]]
+        }
       }
-      Put(apiUri(s"user_repo/targets/cheerios-0.0.6?name=cheerios&version=0.0.6"), form).namespaced ~> routes ~> check {
+      Get(apiUri(s"user_repo/target_items")).namespaced ~> routes ~> check {
         status shouldBe StatusCodes.OK
-        responseAs[SignedPayload[TargetsRole]]
-      }
-      Put(apiUri(s"user_repo/targets/riceKrispies-0.0.1?name=riceKrispies&version=0.0.1"), form).namespaced ~> routes ~> check {
-        status shouldBe StatusCodes.OK
-        responseAs[SignedPayload[TargetsRole]]
+        val paged = responseAs[PaginationResult[ClientTargetItem]]
+        println(paged)
+        paged.total shouldBe 100
+        paged.offset shouldBe 0 // default
+        paged.limit shouldBe 50 // default
+        paged.values.length shouldEqual (paged.limit)
+        val targetCustoms = paged.map { clientTargetItem =>
+          clientTargetItem.custom.asJson.as[TargetCustom] match {
+            case Right(custom) => custom
+            case Left(err) => println(s"Failed to parse json. Error: ${err.toString}"); throw err
+          }
+        }
+        val nameVersionTuple = targetCustoms.values.map(custom => (custom.name.value, custom.version.value))
+        (1 to 50 by 1).foreach { idx =>
+          nameVersionTuple should contain("riceKrispies", "0.0." + idx)
+        }
+        (51 to 100 by 1).foreach { idx =>
+          nameVersionTuple should not contain("riceKrispies", "0.0." + idx)
+        }
       }
       Get(apiUri(s"user_repo/target_items?offset=1")).namespaced ~> routes ~> check {
         status shouldBe StatusCodes.OK
         val paged = responseAs[PaginationResult[ClientTargetItem]]
         println(paged)
-        paged.total shouldBe 3
+        paged.total shouldBe 100
         paged.offset shouldBe 1
-        paged.limit shouldBe 50
+        paged.limit shouldBe 50 // default
+        paged.values.length shouldEqual(paged.limit)
         val targetCustoms = paged.map { clientTargetItem =>
           clientTargetItem.custom.asJson.as[TargetCustom] match {
             case Right(custom) => custom
@@ -1418,16 +1435,21 @@ class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
           }
         }
         val nameVersionTuple = targetCustoms.values.map(custom => (custom.name.value, custom.version.value))
-        nameVersionTuple should not contain("cheerios", "0.0.5")
-        nameVersionTuple should contain("cheerios", "0.0.6")
-        nameVersionTuple should contain("riceKrispies", "0.0.1")
+        nameVersionTuple should not contain("riceKrispies", "0.0.1")
+        (2 to 51 by 1).foreach { idx =>
+          nameVersionTuple should contain("riceKrispies", "0.0." + idx)
+        }
+        (52 to 100 by 1).foreach { idx =>
+          nameVersionTuple should not contain("riceKrispies", "0.0." + idx)
+        }
       }
       Get(apiUri(s"user_repo/target_items?limit=2")).namespaced ~> routes ~> check {
         status shouldBe StatusCodes.OK
         val paged = responseAs[PaginationResult[ClientTargetItem]]
-        paged.total shouldBe 3
+        paged.total shouldBe 100
         paged.offset shouldBe 0
         paged.limit shouldBe 2
+        paged.values.length shouldEqual(paged.limit)
         val targetCustoms = paged.map { clientTargetItem =>
           clientTargetItem.custom.asJson.as[TargetCustom] match {
             case Right(custom) => custom
@@ -1435,16 +1457,19 @@ class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
           }
         }
         val nameVersionTuple = targetCustoms.values.map(custom => (custom.name.value, custom.version.value))
-        nameVersionTuple should contain("cheerios", "0.0.5")
-        nameVersionTuple should contain("cheerios", "0.0.6")
-        nameVersionTuple should not contain("riceKrispies", "0.0.1")
+        nameVersionTuple should contain("riceKrispies", "0.0.1")
+        nameVersionTuple should contain("riceKrispies", "0.0.2")
+        (3 to 100 by 1).foreach { idx =>
+          nameVersionTuple should not contain("riceKrispies", "0.0." + idx)
+        }
       }
-      Get(apiUri(s"user_repo/target_items?offset=1&limit=1")).namespaced ~> routes ~> check {
+      Get(apiUri(s"user_repo/target_items?offset=30&limit=30")).namespaced ~> routes ~> check {
         status shouldBe StatusCodes.OK
         val paged = responseAs[PaginationResult[ClientTargetItem]]
-        paged.total shouldBe 3
-        paged.offset shouldBe 1
-        paged.limit shouldBe 1
+        paged.total shouldBe 100
+        paged.offset shouldBe 30
+        paged.limit shouldBe 30
+        paged.values.length shouldEqual(paged.limit)
         val targetCustoms = paged.map { clientTargetItem =>
           clientTargetItem.custom.asJson.as[TargetCustom] match {
             case Right(custom) => custom
@@ -1452,9 +1477,54 @@ class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
           }
         }
         val nameVersionTuple = targetCustoms.values.map(custom => (custom.name.value, custom.version.value))
-        nameVersionTuple should not contain("cheerios", "0.0.5")
-        nameVersionTuple should contain("cheerios", "0.0.6")
-        nameVersionTuple should not contain("riceKrispies", "0.0.1")
+        (1 to 30 by 1).foreach { idx =>
+          nameVersionTuple should not contain("riceKrispies", "0.0." + idx)
+        }
+        (31 to 60 by 1).foreach { idx =>
+          nameVersionTuple should contain("riceKrispies", "0.0." + idx)
+        }
+      }
+      Get(apiUri(s"user_repo/target_items?offset=30&limit=60")).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val paged = responseAs[PaginationResult[ClientTargetItem]]
+        paged.total shouldBe 100
+        paged.offset shouldBe 30
+        paged.limit shouldBe 60
+        paged.values.length shouldEqual (paged.limit)
+        val targetCustoms = paged.map { clientTargetItem =>
+          clientTargetItem.custom.asJson.as[TargetCustom] match {
+            case Right(custom) => custom
+            case Left(err) => println(s"Failed to parse json. Error: ${err.toString}"); throw err
+          }
+        }
+        val nameVersionTuple = targetCustoms.values.map(custom => (custom.name.value, custom.version.value))
+        (1 to 30 by 1).foreach { idx =>
+          nameVersionTuple should not contain("riceKrispies", "0.0." + idx)
+        }
+        (31 to 90 by 1).foreach { idx =>
+          nameVersionTuple should contain("riceKrispies", "0.0." + idx)
+        }
+      }
+      Get(apiUri(s"user_repo/target_items?offset=30&limit=90")).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val paged = responseAs[PaginationResult[ClientTargetItem]]
+        paged.total shouldBe 100
+        paged.offset shouldBe 30
+        paged.limit shouldBe 90
+        paged.values.length shouldEqual(70) // 100 (total) - 30 (offset)
+        val targetCustoms = paged.map { clientTargetItem =>
+          clientTargetItem.custom.asJson.as[TargetCustom] match {
+            case Right(custom) => custom
+            case Left(err) => println(s"Failed to parse json. Error: ${err.toString}"); throw err
+          }
+        }
+        val nameVersionTuple = targetCustoms.values.map(custom => (custom.name.value, custom.version.value))
+        (1 to 30 by 1).foreach { idx =>
+          nameVersionTuple should not contain("riceKrispies", "0.0." + idx)
+        }
+        (31 to 100 by 1).foreach { idx =>
+          nameVersionTuple should contain("riceKrispies", "0.0." + idx)
+        }
       }
     }
   }
