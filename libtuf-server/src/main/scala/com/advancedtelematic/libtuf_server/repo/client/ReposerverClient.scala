@@ -261,12 +261,10 @@ class ReposerverHttpClient(reposerverUri: Uri, httpClient: HttpRequest => Future
                                 nameContains: Option[String] = None,
                                 offset: Option[Long] = None,
                                 limit: Option[Long] = None): Future[PaginationResult[ClientTargetItem]] = {
-    val reqUri = if (nameContains.isDefined)
-      apiUri(Path(s"user_repo/target_items")).withQuery(Query("nameContains" -> nameContains.get))
-    else
-      apiUri(Path(s"user_repo/target_items"))
-    val req = HttpRequest(HttpMethods.GET, uri = reqUri)
-    execHttpUnmarshalledWithNamespace[PaginationResult[ClientTargetItem]](namespace, req).ok
+    val nameContainsMap = nameContains.map(n => Map("nameContains" -> n)).getOrElse(Map.empty)
+
+    val reqUri = apiUri(Path(s"user_repo/target_items")).withQuery(Query(paginationParams(offset, limit) ++ (nameContainsMap)))
+    execHttpUnmarshalledWithNamespace[PaginationResult[ClientTargetItem]](namespace, HttpRequest(HttpMethods.GET, uri = reqUri)).ok
   }
 
   override def fetchDelegationMetadata(namespace: Namespace, roleName: String): Future[JsonSignedPayload] = {
@@ -309,12 +307,10 @@ class ReposerverHttpClient(reposerverUri: Uri, httpClient: HttpRequest => Future
                                     offset: Option[Long],
                                     limit: Option[Long]): Future[PaginationResult[FilenameComment]] = {
 
-    val nameContainsMap = if (targetNameContains.isDefined)
-        Map[String, String]("nameContains" -> targetNameContains.getOrElse(""))
-    else Map.empty[String, String]
+    val nameContainsMap = targetNameContains.map(c => Map("nameContains" -> c)).getOrElse(Map.empty)
 
     val commentUri = apiUri(Path("user_repo/comments")).withQuery(
-          Query(paginationParams(offset, limit) .++ (nameContainsMap))
+          Query(paginationParams(offset, limit) ++ (nameContainsMap))
         )
     val req = HttpRequest(HttpMethods.GET, uri = commentUri)
 
