@@ -252,8 +252,9 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
 
   def deleteTargetItem(namespace: Namespace, repoId: RepoId, filename: TargetFilename): Route = complete {
     for {
-      _ <- targetStore.delete(repoId, filename)
+      targetItem <- targetStore.targetItemRepo.findByFilename(repoId, filename)
       _ <- targetRoleEdit.deleteTargetItem(repoId, filename)
+      _ <- targetStore.delete(targetItem)
       _ <- tufTargetsPublisher.targetsMetaModified(namespace)
     } yield StatusCodes.NoContent
   }
