@@ -1,48 +1,44 @@
 package com.advancedtelematic.libtuf_server.repo.client
 
-import java.util.UUID
 import akka.actor.ActorSystem
 import akka.http.scaladsl.marshalling.Marshal
+import akka.http.scaladsl.model.*
 import akka.http.scaladsl.model.Uri.Path.Slash
 import akka.http.scaladsl.model.Uri.{Path, Query}
-import akka.http.scaladsl.model._
 import akka.http.scaladsl.unmarshalling.FromEntityUnmarshaller
 import akka.http.scaladsl.util.FastFuture
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
+import com.advancedtelematic.libats.codecs.CirceCodecs.*
 import com.advancedtelematic.libats.data.DataType.{Checksum, Namespace}
 import com.advancedtelematic.libats.data.{ErrorCode, PaginationResult}
 import com.advancedtelematic.libats.http.Errors.{RawError, RemoteServiceError}
-import com.advancedtelematic.libats.http.HttpCodecs._
+import com.advancedtelematic.libats.http.ServiceHttpClientSupport
 import com.advancedtelematic.libats.http.tracing.Tracing.ServerRequestTracing
 import com.advancedtelematic.libats.http.tracing.TracingHttpClient
-import com.advancedtelematic.libats.http.ServiceHttpClientSupport
-import com.advancedtelematic.libtuf.data.TufCodecs._
+import com.advancedtelematic.libtuf.data.ClientCodecs.*
+import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, DelegatedRoleName, Delegation, DelegationClientTargetItem, DelegationFriendlyName, RootRole, TargetsRole}
+import com.advancedtelematic.libtuf.data.TufCodecs.*
 import com.advancedtelematic.libtuf.data.TufDataType.TargetFormat.TargetFormat
 import com.advancedtelematic.libtuf.data.TufDataType.{HardwareIdentifier, JsonSignedPayload, KeyType, RepoId, SignedPayload, TargetFilename, TargetName, TargetVersion}
 import com.advancedtelematic.libtuf_server.data.Requests.{CommentRequest, CreateRepositoryRequest, FilenameComment, TargetComment}
 import com.advancedtelematic.libtuf_server.repo.client.ReposerverClient.{DelegationInfo, KeysNotReady, NotFound, RootNotInKeyserver}
-import io.circe.{Decoder, Encoder, Json}
-import com.advancedtelematic.libats.codecs.CirceCodecs._
-import com.advancedtelematic.libats.codecs.CirceValidatedGeneric.validatedGenericKeyDecoder
-import com.advancedtelematic.libtuf.data.ClientCodecs._
-import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, DelegatedRoleName, Delegation, DelegationClientTargetItem, DelegationFriendlyName, RootRole, TargetCustom, TargetsRole}
-
-import scala.concurrent.{ExecutionContext, Future}
-import scala.reflect.ClassTag
-import scala.util.{Failure, Success}
-import io.circe.generic.semiauto._
+import io.circe.generic.semiauto.*
+import io.circe.{Codec, Decoder, Encoder, Json}
 import org.slf4j.LoggerFactory
 
 import java.net.URI
 import java.time.Instant
+import java.util.UUID
+import scala.concurrent.{ExecutionContext, Future}
+import scala.reflect.ClassTag
+import scala.util.{Failure, Success}
+import com.advancedtelematic.libats.http.HttpCodecs.*
 
 object ReposerverClient {
-
   object RequestTargetItem {
-    implicit val encoder: Encoder[RequestTargetItem] = deriveEncoder
-    implicit val decoder: Decoder[RequestTargetItem] = deriveDecoder
+    implicit val requestTargetItemCode: Codec[RequestTargetItem] = deriveCodec
   }
 
   case class RequestTargetItem(uri: Uri, checksum: Checksum,
@@ -142,11 +138,11 @@ class ReposerverHttpClient(reposerverUri: Uri, httpClient: HttpRequest => Future
                           (implicit ec: ExecutionContext, system: ActorSystem, tracing: ServerRequestTracing)
   extends TracingHttpClient(httpClient, "reposerver") with ReposerverClient {
 
-  import ReposerverClient._
+  import ReposerverClient.*
   import com.advancedtelematic.libats.http.ServiceHttpClient
-  import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
-  import io.circe.syntax._
-  import ServiceHttpClient._
+  import ServiceHttpClient.*
+  import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
+  import io.circe.syntax.*
 
   val log = LoggerFactory.getLogger(this.getClass)
 

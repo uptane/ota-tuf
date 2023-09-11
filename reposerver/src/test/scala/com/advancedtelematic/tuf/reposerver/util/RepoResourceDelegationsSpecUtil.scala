@@ -25,6 +25,7 @@ import scala.concurrent.Future
 import com.advancedtelematic.tuf.reposerver.data.RepoCodecs._
 import com.advancedtelematic.tuf.reposerver.http.{TufRepoSignedRoleProvider, TufRepoTargetItemsProvider}
 import eu.timepit.refined.api.Refined
+import com.advancedtelematic.libtuf_server.data.Marshalling.*
 
 trait RepoResourceDelegationsSpecUtil extends RepoResourceSpecUtil {
   lazy val keyPair = Ed25519KeyType.crypto.generateKeyPair()
