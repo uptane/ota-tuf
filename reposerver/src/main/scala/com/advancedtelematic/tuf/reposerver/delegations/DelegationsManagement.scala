@@ -1,29 +1,30 @@
 package com.advancedtelematic.tuf.reposerver.delegations
 
 import akka.http.scaladsl.model.Uri
-import cats.implicits._
+import cats.implicits.*
 import cats.data.Validated.{Invalid, Valid}
 import cats.data.{NonEmptyList, Validated, ValidatedNel}
-import com.advancedtelematic.libats.data.RefinedUtils._
+import com.advancedtelematic.libats.data.RefinedUtils.*
 import com.advancedtelematic.libtuf.crypt.TufCrypto
-import com.advancedtelematic.libtuf.data.ClientCodecs._
+import com.advancedtelematic.libtuf.data.ClientCodecs.*
 import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, DelegatedRoleName, Delegation, DelegationClientTargetItem, DelegationFriendlyName, MetaItem, MetaPath, TargetCustom, TargetsRole, ValidMetaPath}
 import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RepoId, SignedPayload, TargetFilename}
 import com.advancedtelematic.libtuf_server.crypto.Sha256Digest
 import com.advancedtelematic.libtuf_server.repo.server.DataType.SignedRole
 import com.advancedtelematic.libtuf_server.repo.server.SignedRoleGeneration
 import com.advancedtelematic.tuf.reposerver.db.{DelegationRepositorySupport, SignedRoleRepositorySupport}
-import com.advancedtelematic.tuf.reposerver.http._
-import slick.jdbc.MySQLProfile.api._
+import com.advancedtelematic.tuf.reposerver.http.*
+import slick.jdbc.MySQLProfile.api.*
 
-import scala.async.Async._
+import scala.async.Async.*
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
-import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
-import akka.http.scaladsl.unmarshalling._
+import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
+import akka.http.scaladsl.unmarshalling.*
 import akka.http.scaladsl.util.FastFuture
-import com.advancedtelematic.libtuf.data.TufCodecs._
-import com.advancedtelematic.libtuf.data.ClientCodecs._
+import com.advancedtelematic.libtuf.data.TufCodecs.*
+import com.advancedtelematic.libtuf.data.ClientCodecs.*
+import com.advancedtelematic.libtuf.data.TufCodecs
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.{DelegationInfo, TargetItem}
 
 import java.nio.file.{FileSystems, Paths}
@@ -53,7 +54,7 @@ class SignedRoleDelegationsFind()(implicit val db: Database, val ec: ExecutionCo
   }
 
   private def asMetaItem(content: JsonSignedPayload): Try[MetaItem] = {
-    val canonicalJson = content.asJson.canonical
+    val canonicalJson = TufCodecs.jsonSignedPayloadEncoder(content).canonical
     val checksum = Sha256Digest.digest(canonicalJson.getBytes)
     val hashes = Map(checksum.method -> checksum.hash)
     val versionT = content.signed.hcursor.downField("version").as[Int].toTry

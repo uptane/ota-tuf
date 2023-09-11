@@ -5,14 +5,14 @@ import java.time.Instant
 import akka.http.scaladsl.model.Uri
 import akka.http.scaladsl.util.FastFuture
 import com.advancedtelematic.libats.data.DataType.Checksum
-import com.advancedtelematic.libtuf.data.ClientDataType
+import com.advancedtelematic.libtuf.data.{ClientDataType, TufCodecs}
 import com.advancedtelematic.libtuf.data.ClientDataType.TufRole
 import com.advancedtelematic.libtuf.data.TufDataType.JsonSignedPayload
-import com.advancedtelematic.libtuf.crypt.CanonicalJson._
+import com.advancedtelematic.libtuf.crypt.CanonicalJson.*
 import com.advancedtelematic.libtuf.data.ClientDataType.{MetaItem, MetaPath}
 import com.advancedtelematic.libtuf_server.crypto.Sha256Digest
 import io.circe.Decoder
-import io.circe.syntax._
+import io.circe.syntax.*
 
 import scala.concurrent.Future
 import scala.util.Try
@@ -48,7 +48,7 @@ object DataType {
 
     def withChecksum[T : TufRole : Decoder](content: JsonSignedPayload, version: Int, expireAt: Instant): Future[SignedRole[T]] = FastFuture {
       Try {
-        val canonicalJson = content.asJson.canonical
+        val canonicalJson = TufCodecs.jsonSignedPayloadEncoder(content).canonical
         val checksum = Sha256Digest.digest(canonicalJson.getBytes)
         val signedRole = SignedRole[T](content, checksum, canonicalJson.length, version, expireAt)
         signedRole.role // Decode the role to make sure it's valid

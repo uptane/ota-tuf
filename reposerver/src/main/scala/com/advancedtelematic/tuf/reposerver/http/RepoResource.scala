@@ -4,14 +4,14 @@ import java.time.Instant
 import io.circe.syntax.*
 import com.advancedtelematic.libats.data.ErrorRepresentation.*
 import akka.http.scaladsl.model.headers.{RawHeader, `Content-Length`}
-import akka.http.scaladsl.model.{EntityStreamException, HttpEntity, HttpHeader, HttpRequest, HttpResponse, ParsingException, StatusCode, StatusCodes, Uri}
+import akka.http.scaladsl.model.{EntityStreamException, HttpEntity, HttpHeader, HttpRequest, HttpResponse, MediaTypes, ParsingException, StatusCode, StatusCodes, Uri}
 import akka.http.scaladsl.server.*
 import akka.http.scaladsl.unmarshalling.*
 import akka.http.scaladsl.util.FastFuture
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import cats.data.Validated.{Invalid, Valid}
-import com.advancedtelematic.libats.codecs.CirceRefined._
+import com.advancedtelematic.libats.codecs.CirceRefined.*
 import com.advancedtelematic.libats.codecs.CirceValidatedGeneric.validatedGenericDecoder
 import com.advancedtelematic.libats.data.DataType.HashMethod.HashMethod
 import com.advancedtelematic.libats.data.RefinedUtils.*
@@ -25,8 +25,8 @@ import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 import com.advancedtelematic.libats.http.AnyvalMarshallingSupport.*
 import com.advancedtelematic.libats.data.DataType.{Namespace, ValidChecksum}
 import com.advancedtelematic.libats.data.{ErrorRepresentation, PaginationResult}
+import com.advancedtelematic.libtuf.data.{ClientCodecs, TufCodecs}
 import com.advancedtelematic.libtuf.data.TufDataType.*
-import com.advancedtelematic.libtuf.data.TufDataType.TargetFilename
 import com.advancedtelematic.libtuf_server.data.Marshalling.*
 import com.advancedtelematic.libtuf_server.data.Requests.{CommentRequest, CreateRepositoryRequest, *}
 import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient
@@ -53,8 +53,10 @@ import scala.util.{Failure, Success}
 import com.advancedtelematic.tuf.reposerver.data.RepoCodecs.*
 import com.advancedtelematic.tuf.reposerver.http.CustomParameterUnmarshallers.nonNegativeLong
 import com.advancedtelematic.tuf.reposerver.http.PaginationParams.PaginationResultOps
+import com.advancedtelematic.tuf.reposerver.data.RepoCodecs.*
+import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport
 import eu.timepit.refined.api.Refined
-
+import com.advancedtelematic.libtuf_server.data.Marshalling.jsonSignedPayloadMarshaller
 
 class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: NamespaceValidation,
                    targetStore: TargetStore, tufTargetsPublisher: TufTargetsPublisher,

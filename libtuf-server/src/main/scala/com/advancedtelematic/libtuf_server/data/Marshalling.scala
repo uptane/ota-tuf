@@ -1,11 +1,15 @@
 package com.advancedtelematic.libtuf_server.data
 
+import akka.http.scaladsl.marshalling.{Marshaller, ToEntityMarshaller}
+import akka.http.scaladsl.model.MediaTypes
 import akka.http.scaladsl.server.PathMatchers
 import akka.http.scaladsl.unmarshalling.Unmarshaller
-import com.advancedtelematic.libtuf.data.TufDataType.{RoleType, TargetFormat, ValidKeyId}
-import com.advancedtelematic.libtuf.data.TufDataType.TargetFormat.TargetFormat
-import com.advancedtelematic.libats.data.RefinedUtils._
+import com.advancedtelematic.libats.data.RefinedUtils.*
+import com.advancedtelematic.libtuf.crypt.CanonicalJson.*
 import com.advancedtelematic.libtuf.data.ClientDataType.DelegatedRoleName
+import com.advancedtelematic.libtuf.data.TufCodecs
+import com.advancedtelematic.libtuf.data.TufDataType.TargetFormat.TargetFormat
+import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RoleType, TargetFormat, ValidKeyId}
 
 import scala.util.Try
 
@@ -32,4 +36,8 @@ object Marshalling {
       case _ => None
     }
   }
+
+  implicit val jsonSignedPayloadMarshaller: ToEntityMarshaller[JsonSignedPayload] = Marshaller.stringMarshaller(MediaTypes.`application/json`).compose[JsonSignedPayload](jsonSignedPayload =>
+    TufCodecs.jsonSignedPayloadEncoder.apply(jsonSignedPayload).canonical
+  )
 }
