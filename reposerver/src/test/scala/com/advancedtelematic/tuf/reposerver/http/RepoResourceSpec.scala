@@ -1402,7 +1402,6 @@ class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
       Get(apiUri(s"user_repo/target_items")).namespaced ~> routes ~> check {
         status shouldBe StatusCodes.OK
         val paged = responseAs[PaginationResult[ClientTargetItem]]
-        println(paged)
         paged.total shouldBe 100
         paged.offset shouldBe 0 // default
         paged.limit shouldBe 50 // default
