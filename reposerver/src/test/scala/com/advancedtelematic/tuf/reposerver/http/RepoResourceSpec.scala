@@ -48,6 +48,7 @@ import scala.concurrent.Future
 import org.scalatest.OptionValues._
 
 import java.net.URI
+import com.advancedtelematic.libtuf_server.data.Marshalling.*
 
 class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
   with ResourceSpec with BeforeAndAfterAll with Inspectors with Whenever with PatienceConfiguration with SignedRoleRepositorySupport {
