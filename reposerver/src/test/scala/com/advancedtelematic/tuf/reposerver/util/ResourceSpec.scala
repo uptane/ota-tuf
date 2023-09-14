@@ -129,7 +129,15 @@ class FakeKeyserverClient extends KeyserverClient {
     }
   }
 
-  override def fetchRootRole(repoId: RepoId): Future[SignedPayload[RootRole]] =
+private def refreshAndSaveRoot(repoId: RepoId, role: SignedPayload[RootRole], expireNotBefore: Instant): Future[SignedPayload[RootRole]] = {
+    val newRole = role.signed.copy(expires = expireNotBefore)
+    sign(repoId, newRole).map { signedPayload =>
+      rootRoles.put(repoId, signedPayload)
+      signedPayload
+    }
+  }
+
+  override def fetchRootRole(repoId: RepoId, expireNotBefore: Option[Instant] = None): Future[SignedPayload[RootRole]] =
     Future.fromTry {
       Try {
         if(pendingRequests.asScala.getOrElse(repoId, false))
@@ -138,6 +146,11 @@ class FakeKeyserverClient extends KeyserverClient {
         rootRoles.asScala(repoId)
       }.recover {
         case _: NoSuchElementException => throw RootRoleNotFound
+      }
+    }.flatMap { existing =>
+      expireNotBefore match {
+        case Some(e) => refreshAndSaveRoot(repoId, existing, e)
+        case None => FastFuture.successful(existing)
       }
     }
 

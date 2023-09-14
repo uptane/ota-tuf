@@ -2,34 +2,34 @@ package com.advancedtelematic.tuf.keyserver.http
 
 import java.time.{Duration, Instant}
 import java.time.temporal.ChronoUnit
-
 import akka.http.scaladsl.model.StatusCodes
+import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.testkit.RouteTest
 import com.advancedtelematic.tuf.util.{KeyTypeSpecSupport, ResourceSpec, RootGenerationSpecSupport, TufKeyserverSpec}
-import io.circe.generic.auto._
-import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
-import cats.syntax.show._
+import io.circe.generic.auto.*
+import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
+import cats.syntax.show.*
 import com.advancedtelematic.libats.data.ErrorRepresentation
 import com.advancedtelematic.libtuf.crypt.TufCrypto
-import com.advancedtelematic.libtuf.data.TufDataType.{RepoId, TufPrivateKey, _}
+import com.advancedtelematic.libtuf.data.TufDataType.{RepoId, TufPrivateKey, *}
 import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType.{Key, KeyGenId, KeyGenRequestStatus, SignedRootRole}
 import io.circe.{Encoder, Json}
 import org.scalatest.Inspectors
 import org.scalatest.concurrent.PatienceConfiguration
-import io.circe.syntax._
-import com.advancedtelematic.libtuf.data.ClientCodecs._
+import io.circe.syntax.*
+import com.advancedtelematic.libtuf.data.ClientCodecs.*
 import com.advancedtelematic.libtuf.data.ClientDataType.{RoleKeys, RootRole}
 import com.advancedtelematic.libtuf.data.ErrorCodes
-import com.advancedtelematic.libtuf.data.TufCodecs._
+import com.advancedtelematic.libtuf.data.TufCodecs.*
 import com.advancedtelematic.tuf.keyserver.db.{KeyGenRequestSupport, KeyRepository, KeyRepositorySupport, SignedRootRoleSupport}
 import eu.timepit.refined.api.Refined
 import org.scalatest.time.{Millis, Seconds, Span}
-import com.advancedtelematic.libtuf.data.RootManipulationOps._
-import cats.syntax.either._
+import com.advancedtelematic.libtuf.data.RootManipulationOps.*
+import cats.syntax.either.*
 import com.advancedtelematic.tuf.keyserver.roles.SignedRootRoles
 
 import scala.concurrent.{ExecutionContext, Future}
-import org.scalatest.OptionValues._
+import org.scalatest.OptionValues.*
 
 class RootRoleResourceSpec extends TufKeyserverSpec
   with ResourceSpec
@@ -750,6 +750,29 @@ class RootRoleResourceSpec extends TufKeyserverSpec
       val signed = responseAs[SignedPayload[RootRole]].signed
       signed.version shouldBe 3
       signed.expires.isAfter(Instant.now.plus(30, ChronoUnit.DAYS)) shouldBe true
+    }
+  }
+
+  keyTypeTest("GET returns renewed root if old root would expire before `expires-not-before`") { keyType =>
+    val repoId = RepoId.generate()
+
+    Post(apiUri(s"root/${repoId.show}"), ClientRootGenRequest(1, keyType, forceSync = Some(false))) ~> routes ~> check {
+      status shouldBe StatusCodes.Accepted
+    }
+
+    processKeyGenerationRequest(repoId).futureValue
+
+    val signedRootRoles = new SignedRootRoles()
+
+    signedRootRoles.findFreshAndPersist(repoId).futureValue
+
+    val expiresNotBefore = "2222-01-01T00:00:00Z"
+
+    Get(apiUri(s"root/${repoId.show}")).addHeader(RawHeader("x-trx-expire-not-before", expiresNotBefore)) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val signed = responseAs[SignedPayload[RootRole]].signed
+      signed.version shouldBe 2
+      signed.expires shouldBe Instant.parse(expiresNotBefore)
     }
   }
 

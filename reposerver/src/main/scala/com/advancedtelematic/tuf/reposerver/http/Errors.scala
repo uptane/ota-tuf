@@ -18,7 +18,6 @@ object ErrorCodes {
   val RoleChecksumMismatch = ErrorCode("role_checksum_mismatch")
   val NoRepoForNamespace = ErrorCode("no_repo_for_namespace")
   val NoUriForUnmanagedTarget = ErrorCode("no_uri_for_unmanaged_target")
-  val TooManyReposForNamespace = ErrorCode("too_many_repos_for_namespace")
   val DelegationNotFound = ErrorCode("delegations_not_found")
   val DelegationNotDefined = ErrorCode("delegations_not_defined")
   val InvalidTrustedDelegations = ErrorCode("trusted_delegations_invalid")
@@ -31,6 +30,7 @@ object ErrorCodes {
   val InvalidDelegatedTarget = ErrorCode("invalid_delegated_target")
   val MissingRemoteDelegationUri = ErrorCode("missing_remote_delegation_uri")
   val ImmutableFields = ErrorCode("immutable_fields_specified")
+  val SetRootExpireError = ErrorCode("set_root_expire_failed")
 }
 
 object Errors {
@@ -41,7 +41,6 @@ object Errors {
   val NoUriForUnamanagedTarget = RawError(ErrorCodes.NoUriForUnmanagedTarget, StatusCodes.ExpectationFailed, "Cannot redirect to unmanaged resource, no known URI for this resource")
   val RoleChecksumNotProvided = RawError(ErrorCodes.RoleChecksumNotProvided, StatusCodes.PreconditionRequired, "A targets role already exists, but no previous checksum was sent")
   val RoleChecksumMismatch = RawError(ErrorCodes.RoleChecksumMismatch, StatusCodes.PreconditionFailed, "Provided checksum of previous role does not match current checksum")
-  val TooManyReposForNamespace = RawError(ErrorCodes.TooManyReposForNamespace, StatusCodes.BadRequest, "Too many repos found for this namespace. Use the /repo/:repo_id API instead")
 
   def MissingRemoteDelegationUri(repoId: RepoId, delegationName: DelegatedRoleName) =
     RawError(ErrorCodes.MissingRemoteDelegationUri, StatusCodes.PreconditionFailed, s"Role $repoId/$delegationName does not have a remote uri and therefore cannot be refreshed")
@@ -87,4 +86,7 @@ object Errors {
 
   case class RequestCanceledByUpstream(ex: Throwable)
     extends com.advancedtelematic.libats.http.Errors.Error(ErrorCodes.RequestCanceledByUpstream, StatusCodes.BadRequest, ex.getMessage, Some(ex))
+
+  case class SetRootExpire(ex: Throwable)
+    extends com.advancedtelematic.libats.http.Errors.Error(ErrorCodes.SetRootExpireError, StatusCodes.BadGateway, "expire-not-before was set on reposerver roles but not on root.json. Check the attached cause and try again", cause = Option(ex))
 }

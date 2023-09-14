@@ -466,8 +466,16 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
       pathPrefix("targets") {
         path("expire" / "not-before") {
           (put & entity(as[ExpireNotBeforeRequest])) { req =>
-            val f = repoNamespaceRepo.setExpiresNotBefore(repoId, Option(req.expireAt))
-            complete(f.map(_ => StatusCodes.NoContent))
+            onComplete(repoNamespaceRepo.setExpiresNotBefore(repoId, Option(req.expireAt))) { _ =>
+              val f = keyserverClient.fetchRootRole(repoId, Option(req.expireAt)).map { _ =>
+                StatusCodes.NoContent
+              }.recoverWith {
+                case err =>
+                  FastFuture.failed(Errors.SetRootExpire(err))
+              }
+
+              complete(f)
+            }
           }
         } ~
         path(TargetFilenamePath) { filename =>
