@@ -1,4 +1,3 @@
-import CustomSettings._
 
 def itFilter(name: String): Boolean = name endsWith "IntegrationSpec"
 
@@ -10,24 +9,24 @@ lazy val UnitTest = config("ut").extend(Test)
 
 lazy val commonConfigs = Seq(ItTest, UnitTest)
 
+val libatsVersion = "2.4.1"
+
 lazy val commonDeps = libraryDependencies ++= {
-  val scalaTestV = "3.2.16"
-  lazy val libatsV = libatsVersion.value
+  val scalaTestV = "3.2.17"
   lazy val catsV = "2.10.0"
 
   Seq(
     "org.scala-lang.modules" %% "scala-async" % "1.0.1",
     "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided,
-    "io.github.uptane" %% "libats" % libatsV,
+    "io.github.uptane" %% "libats" % libatsVersion,
     "org.scalatest" %% "scalatest" % scalaTestV % "test",
     "org.typelevel" %% "cats-core" % catsV,
   )
 }
 
 lazy val serverDependencies = libraryDependencies ++= {
-  lazy val akkaV = "2.6.20"
-  lazy val akkaHttpV = "10.2.10"
-  lazy val libatsV = libatsVersion.value
+  lazy val akkaV = "2.8.5"
+  lazy val akkaHttpV = "10.5.2"
 
   Seq(
     "com.typesafe.akka" %% "akka-actor" % akkaV,
@@ -38,14 +37,14 @@ lazy val serverDependencies = libraryDependencies ++= {
     "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpV % "test",
     "com.softwaremill.sttp.client" %% "akka-http-backend" % "2.3.0" % "test",
 
-    "io.github.uptane" %% "libats-http" % libatsV,
-    "io.github.uptane" %% "libats-http-tracing" % libatsV,
-    "io.github.uptane" %% "libats-messaging" % libatsV,
-    "io.github.uptane" %% "libats-metrics-akka" % libatsV,
-    "io.github.uptane" %% "libats-metrics-prometheus" % libatsV,
-    "io.github.uptane" %% "libats-slick" % libatsV,
-    "io.github.uptane" %% "libats-logging" % libatsV,
-    "org.mariadb.jdbc" % "mariadb-java-client" % "3.1.4"
+    "io.github.uptane" %% "libats-http" % libatsVersion,
+    "io.github.uptane" %% "libats-http-tracing" % libatsVersion,
+    "io.github.uptane" %% "libats-messaging" % libatsVersion,
+    "io.github.uptane" %% "libats-metrics-akka" % libatsVersion,
+    "io.github.uptane" %% "libats-metrics-prometheus" % libatsVersion,
+    "io.github.uptane" %% "libats-slick" % libatsVersion,
+    "io.github.uptane" %% "libats-logging" % libatsVersion,
+    "org.mariadb.jdbc" % "mariadb-java-client" % "3.2.0"
   )
 }
 
@@ -59,7 +58,6 @@ lazy val commonSettings = Seq(
   Compile / console / scalacOptions ~= (_.filterNot(_ == "-Ywarn-unused-import")),
   resolvers += "sonatype-snapshots" at "https://s01.oss.sonatype.org/content/repositories/snapshots",
   resolvers += "sonatype-releases" at "https://s01.oss.sonatype.org/content/repositories/releases",
-  libatsVersion := "2.1.2",
   licenses += ("MPL-2.0", url("http://mozilla.org/MPL/2.0/")),
   description := "scala tuf implementation support",
   buildInfoOptions += BuildInfoOption.ToMap,
