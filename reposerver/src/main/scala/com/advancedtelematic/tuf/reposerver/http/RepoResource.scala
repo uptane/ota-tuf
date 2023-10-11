@@ -252,8 +252,9 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
 
   def deleteTargetItem(namespace: Namespace, repoId: RepoId, filename: TargetFilename): Route = complete {
     for {
-      _ <- targetStore.delete(repoId, filename)
+      targetItem <- targetStore.targetItemRepo.findByFilename(repoId, filename)
       _ <- targetRoleEdit.deleteTargetItem(repoId, filename)
+      _ <- targetStore.delete(targetItem)
       _ <- tufTargetsPublisher.targetsMetaModified(namespace)
     } yield StatusCodes.NoContent
   }
@@ -465,8 +466,16 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
       pathPrefix("targets") {
         path("expire" / "not-before") {
           (put & entity(as[ExpireNotBeforeRequest])) { req =>
-            val f = repoNamespaceRepo.setExpiresNotBefore(repoId, Option(req.expireAt))
-            complete(f.map(_ => StatusCodes.NoContent))
+            onComplete(repoNamespaceRepo.setExpiresNotBefore(repoId, Option(req.expireAt))) { _ =>
+              val f = keyserverClient.fetchRootRole(repoId, Option(req.expireAt)).map { _ =>
+                StatusCodes.NoContent
+              }.recoverWith {
+                case err =>
+                  FastFuture.failed(Errors.SetRootExpire(err))
+              }
+
+              complete(f)
+            }
           }
         } ~
         path(TargetFilenamePath) { filename =>

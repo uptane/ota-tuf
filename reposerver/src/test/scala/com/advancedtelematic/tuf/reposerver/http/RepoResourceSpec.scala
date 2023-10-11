@@ -1314,6 +1314,25 @@ class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
     }
   }
 
+  test("expire-not-before field is used to get upstream root.json") {
+    withRandomNamepace { implicit ns =>
+      createRepo()
+
+      val notBefore = "2222-01-01T00:00:00Z"
+      val notBeforeIs = Instant.parse(notBefore)
+
+      Put(apiUri(s"user_repo/targets/expire/not-before"), ExpireNotBeforeRequest(notBeforeIs)).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.NoContent
+      }
+
+      Get(apiUri(s"user_repo/root.json")).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val targetsRole = responseAs[SignedPayload[RootRole]].signed
+        targetsRole.expires shouldBe notBeforeIs
+      }
+    }
+  }
+
   test("targets.json expire date is set according to expires-not-before when adding a target") {
     withRandomNamepace { implicit ns =>
       createRepo()
@@ -1402,7 +1421,6 @@ class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
       Get(apiUri(s"user_repo/target_items")).namespaced ~> routes ~> check {
         status shouldBe StatusCodes.OK
         val paged = responseAs[PaginationResult[ClientTargetItem]]
-        println(paged)
         paged.total shouldBe 100
         paged.offset shouldBe 0 // default
         paged.limit shouldBe 50 // default
