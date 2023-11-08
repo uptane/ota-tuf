@@ -590,13 +590,3 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
       modifyRepoRoutes(repoId)
     }
 }
-
-object ExpireNotBeforeRequest {
-  import io.circe.{Encoder, Decoder}
-
-  implicit val refreshRequestEncoder: Encoder[ExpireNotBeforeRequest] = io.circe.generic.semiauto.deriveEncoder[ExpireNotBeforeRequest]
-  implicit val refreshRequestDecoder: Decoder[ExpireNotBeforeRequest] = io.circe.generic.semiauto.deriveDecoder[ExpireNotBeforeRequest]
-}
-
-
-case class ExpireNotBeforeRequest(expireAt: Instant)

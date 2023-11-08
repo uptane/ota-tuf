@@ -5,6 +5,7 @@ import akka.http.scaladsl.marshalling.Marshal
 import akka.http.scaladsl.model.*
 import akka.http.scaladsl.model.Uri.Path.Slash
 import akka.http.scaladsl.model.Uri.{Path, Query}
+import akka.http.scaladsl.model.*
 import akka.http.scaladsl.unmarshalling.FromEntityUnmarshaller
 import akka.http.scaladsl.util.FastFuture
 import akka.stream.Materializer
@@ -15,6 +16,7 @@ import com.advancedtelematic.libats.data.DataType.{Checksum, Namespace}
 import com.advancedtelematic.libats.data.{ErrorCode, PaginationResult}
 import com.advancedtelematic.libats.http.Errors.{RawError, RemoteServiceError}
 import com.advancedtelematic.libats.http.ServiceHttpClientSupport
+import com.advancedtelematic.libats.http.HttpCodecs.*
 import com.advancedtelematic.libats.http.tracing.Tracing.ServerRequestTracing
 import com.advancedtelematic.libats.http.tracing.TracingHttpClient
 import com.advancedtelematic.libtuf.data.ClientCodecs.*
@@ -22,10 +24,12 @@ import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, Deleg
 import com.advancedtelematic.libtuf.data.TufCodecs.*
 import com.advancedtelematic.libtuf.data.TufDataType.TargetFormat.TargetFormat
 import com.advancedtelematic.libtuf.data.TufDataType.{HardwareIdentifier, JsonSignedPayload, KeyType, RepoId, SignedPayload, TargetFilename, TargetName, TargetVersion}
-import com.advancedtelematic.libtuf_server.data.Requests.{CommentRequest, CreateRepositoryRequest, FilenameComment, TargetComment}
+import com.advancedtelematic.libtuf_server.data.Requests.{CommentRequest, CreateRepositoryRequest, ExpireNotBeforeRequest, FilenameComment, TargetComment}
 import com.advancedtelematic.libtuf_server.repo.client.ReposerverClient.{DelegationInfo, KeysNotReady, NotFound, RootNotInKeyserver}
 import io.circe.generic.semiauto.*
 import io.circe.{Codec, Decoder, Encoder, Json}
+import com.advancedtelematic.libats.codecs.CirceCodecs.*
+import com.advancedtelematic.libtuf.data.ClientCodecs.*
 import org.slf4j.LoggerFactory
 
 import java.net.URI
@@ -104,6 +108,8 @@ trait ReposerverClient {
   def fetchTargets(namespace: Namespace): Future[SignedPayload[TargetsRole]]
 
   def setTargetComments(namespace: Namespace, targetFilename: TargetFilename, comment: String): Future[Unit]
+
+  def setTargetsMetadataExpiration(namespace: Namespace, expiry: Instant): Future[Unit]
   def fetchSingleTargetComments(namespace: Namespace, targetFilename: TargetFilename): Future[FilenameComment]
   def fetchTargetsComments(namespace: Namespace, targetNameContains: Option[String], offset: Option[Long], limit: Option[Long]): Future[PaginationResult[FilenameComment]]
   def fetchTargetsCommentsByFilename(namespace: Namespace, filenames: Seq[TargetFilename]): Future[Seq[FilenameComment]]
@@ -295,6 +301,12 @@ class ReposerverHttpClient(reposerverUri: Uri, httpClient: HttpRequest => Future
   override def setTargetComments(namespace: Namespace, targetFilename: TargetFilename, comment: String): Future[Unit] = {
     val commentBody = HttpEntity(ContentTypes.`application/json`, CommentRequest(TargetComment(comment)).asJson.noSpaces)
     val req = HttpRequest(HttpMethods.PUT, uri = apiUri(Path(s"user_repo/comments/${targetFilename.value}")), entity = commentBody)
+    execHttpUnmarshalledWithNamespace[Unit](namespace, req).ok
+  }
+
+  override def setTargetsMetadataExpiration(namespace: Namespace, expiry: Instant): Future[Unit] = {
+    val body = HttpEntity(ContentTypes.`application/json`, ExpireNotBeforeRequest(expiry).asJson.noSpaces)
+    val req = HttpRequest(HttpMethods.PUT, uri = apiUri(Path(s"user_repo/targets/expire/not-before")), entity = body)
     execHttpUnmarshalledWithNamespace[Unit](namespace, req).ok
   }
 
