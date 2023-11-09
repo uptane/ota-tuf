@@ -1,11 +1,13 @@
 package com.advancedtelematic.libtuf_server.data
 
-import com.advancedtelematic.libats.codecs.CirceCodecs._
-import com.advancedtelematic.libtuf.data.TufCodecs._
+import com.advancedtelematic.libats.codecs.CirceCodecs.*
+import com.advancedtelematic.libtuf.data.TufCodecs.*
 import com.advancedtelematic.libtuf.data.TufDataType.{KeyType, TargetFilename}
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.deriveEncoder
 import io.circe.generic.semiauto.deriveDecoder
+
+import java.time.Instant
 
 object Requests {
 
@@ -28,4 +30,9 @@ object Requests {
 
   implicit val filenameCommentEncoder: Encoder[FilenameComment] = deriveEncoder
   implicit val filenameCommentDecoder: Decoder[FilenameComment] = deriveDecoder
+
+  case class ExpireNotBeforeRequest(expireAt: Instant)
+
+  implicit val refreshRequestEncoder: Encoder[ExpireNotBeforeRequest] = io.circe.generic.semiauto.deriveEncoder[ExpireNotBeforeRequest]
+  implicit val refreshRequestDecoder: Decoder[ExpireNotBeforeRequest] = io.circe.generic.semiauto.deriveDecoder[ExpireNotBeforeRequest]
 }
