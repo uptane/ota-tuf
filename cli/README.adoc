@@ -2,7 +2,7 @@
 
 == Obtaining the binary
 
-Binaries are compiled for each push to `master` and stored in https://tuf-cli-releases.ota.here.com/index.html[s3].
+Binaries are compiled for with each release, and are available on the https://github.com/uptane/ota-tuf/releases/[github releases page].
 
 Download the archive file, unpack and run:
 
