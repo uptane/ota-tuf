@@ -60,6 +60,7 @@ class TargetRoleEdit(signedRoleGeneration: SignedRoleGeneration)
         )
       }
       _ <- targetItemRepo.setCustom(repoId, filename, newCustomJson)
-    } yield signedRoleGeneration.regenerateAllSignedRoles(repoId)
+      _ <- signedRoleGeneration.regenerateAllSignedRoles(repoId)
+    } yield ()
   }
 }
