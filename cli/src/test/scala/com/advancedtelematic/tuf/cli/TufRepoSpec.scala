@@ -450,7 +450,7 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
 
     error shouldBe a[RootPullError]
     error.getMessage should include(s"No signature found for key $oldKeyId")
-    error.getMessage should include(s"Root role version 1 requires 1 valid signatures in version 2, 0 supplied")
+    error.getMessage should include(s"root.json version 1 requires 1 valid signatures for root.json version 2, 0 supplied")
   }
 
   reposerverTest("fails with proper error when cannot find root at specified version") { (repo, client) =>

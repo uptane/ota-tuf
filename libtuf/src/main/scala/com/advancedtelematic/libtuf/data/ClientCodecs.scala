@@ -101,6 +101,11 @@ object ClientCodecs {
   implicit val delegationsEncoder: Encoder[Delegations] = deriveEncoder
   implicit val delegationsDecoder: Decoder[Delegations] = deriveDecoder[Delegations]
 
+  implicit val pubKeyMetaCodec: Codec[PubKeyMeta] = deriveCodec[PubKeyMeta]
+  implicit val pubKeyInfoCodec: Codec[PubKeyInfo] = deriveCodec[PubKeyInfo]
+  implicit val sshSessionPropertiesCodec: Codec[SshSessionProperties] = deriveCodec[SshSessionProperties]
+  implicit val remoteSessionsPayloadCodec: Codec[RemoteSessionsPayload] = deriveCodec[RemoteSessionsPayload]
+
   implicit val targetsRoleEncoder: Encoder[TargetsRole] = deriveEncoder[TargetsRole].encodeRoleType.mapJson(_.dropNullValues)
   implicit val targetsRoleDecoder: Decoder[TargetsRole] = deriveDecoder[TargetsRole].validateRoleType
   implicit val targetsRoleCodec: Codec[TargetsRole] = Codec.from(targetsRoleDecoder, targetsRoleEncoder)
