@@ -135,7 +135,7 @@ object ClientDataType {
                                  expires: Instant,
                                  version: Int) extends VersionedRole
 
-  case class RemoteSessionsRole(remote_sessions: Json,
+  case class RemoteSessionsRole(remote_sessions: RemoteSessionsPayload,
                                 expires: Instant,
                                 version: Int) extends VersionedRole
   final class DelegatedPathPattern private (val value: String) extends ValidatedString
@@ -180,4 +180,13 @@ object ClientDataType {
                         terminating: Boolean = true)
 
   case class Delegations(keys: Map[KeyId, TufKey], roles: List[Delegation])
+
+  case class SshSessionProperties(properties_version: String, authorized_keys: Map[String, PubKeyInfo],
+                                  ra_server_hosts: Vector[String], ra_server_ssh_pubkeys: Vector[String])
+
+  case class RemoteSessionsPayload(ssh: SshSessionProperties, version: String)
+
+  case class PubKeyInfo(pubkey: String, meta: Option[PubKeyMeta])
+
+  case class PubKeyMeta(name: String)
 }

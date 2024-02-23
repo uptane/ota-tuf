@@ -585,8 +585,8 @@ class RootRoleResourceSpec extends TufKeyserverSpec
 
     Post(apiUri(s"root/${repoId.show}/unsigned"), signedPayload) ~> routes ~> check {
       status shouldBe StatusCodes.BadRequest
-      responseErrors should contain("Root role version 1 requires 1 valid signatures in version 2, 0 supplied")
-      responseErrors should contain("Root role version 2 requires 1 valid signatures in version 2, 0 supplied")
+      responseErrors should contain("root.json version 1 requires 1 valid signatures for root.json version 2, 0 supplied")
+      responseErrors should contain("root.json version 2 requires 1 valid signatures for root.json version 2, 0 supplied")
     }
   }
 
@@ -685,7 +685,7 @@ class RootRoleResourceSpec extends TufKeyserverSpec
 
     Post(apiUri(s"root/${repoId.show}/unsigned"), signedPayload) ~> routes ~> check {
       status shouldBe StatusCodes.BadRequest
-      responseErrors should contain("Root role version 2 requires 1 valid signatures in version 2, 0 supplied")
+      responseErrors should contain("root.json version 2 requires 1 valid signatures for root.json version 2, 0 supplied")
     }
   }
 
@@ -706,7 +706,7 @@ class RootRoleResourceSpec extends TufKeyserverSpec
 
     Post(apiUri(s"root/${repoId.show}/unsigned"), signedPayload) ~> routes ~> check {
       status shouldBe StatusCodes.BadRequest
-      responseErrors should contain("Root role version 1 requires 1 valid signatures in version 2, 0 supplied")
+      responseErrors should contain("root.json version 1 requires 1 valid signatures for root.json version 2, 0 supplied")
     }
   }
 

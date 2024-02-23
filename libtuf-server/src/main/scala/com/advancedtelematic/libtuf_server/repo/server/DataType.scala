@@ -32,7 +32,7 @@ object DataType {
     def role(implicit dec: Decoder[T]): T =
       content.signed.as[T] match {
         case Left(err) =>
-          throw new IllegalArgumentException(s"Could not decode a role persisted as ${implicitly[TufRole[T]]} but not parseable as such a type: $err")
+          throw new IllegalArgumentException(s"Could not decode a role persisted as ${implicitly[TufRole[T]].metaPath} but not parseable as such a type: $err")
         case Right(p) => p
       }
 
