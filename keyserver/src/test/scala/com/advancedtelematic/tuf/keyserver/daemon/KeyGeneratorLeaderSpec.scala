@@ -25,7 +25,7 @@ class KeyGeneratorLeaderSpec extends TufKeyserverSpec with TestKitBase with Mysq
 
   override implicit lazy val system: ActorSystem = ActorSystem(this.getClass.getSimpleName)
 
-  implicit val ec = ExecutionContext.global
+  implicit val ec : scala.concurrent.ExecutionContextExecutor= ExecutionContext.global
 
   val testKeyGenOp: KeyGenRequest => Future[Seq[Key]] = (kgr: KeyGenRequest) => {
     val defaultOp = DefaultKeyGenerationOp()

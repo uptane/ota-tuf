@@ -9,7 +9,7 @@ lazy val UnitTest = config("ut").extend(Test)
 
 lazy val commonConfigs = Seq(ItTest, UnitTest)
 
-val libatsVersion = "2.4.1"
+val libatsVersion = "2.6.4"
 
 lazy val commonDeps = libraryDependencies ++= {
   val scalaTestV = "3.2.17"
@@ -51,7 +51,7 @@ lazy val serverDependencies = libraryDependencies ++= {
 
 lazy val commonSettings = Seq(
   organization := "io.github.uptane",
-  scalaVersion := "2.13.10",
+  scalaVersion := "2.13.12",
   organizationName := "uptane",
   organizationHomepage := Some(url("https://uptane.github.io/")),
   scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8", "-Xasync", "-Xsource:3"),

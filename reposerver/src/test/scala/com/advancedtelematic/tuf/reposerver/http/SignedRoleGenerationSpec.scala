@@ -26,7 +26,7 @@ class SignedRoleGenerationSpec extends TufReposerverSpec with MysqlDatabaseSpec 
   val fakeKeyserverClient: FakeKeyserverClient = new FakeKeyserverClient
 
   val signedRoleGeneration = TufRepoSignedRoleGeneration(fakeKeyserverClient)
-  implicit val roleRefresh = new RepoRoleRefresh(fakeKeyserverClient, new TufRepoSignedRoleProvider(), new TufRepoTargetItemsProvider())
+  implicit val roleRefresh: com.advancedtelematic.libtuf_server.repo.server.RepoRoleRefresh = new RepoRoleRefresh(fakeKeyserverClient, new TufRepoSignedRoleProvider(), new TufRepoTargetItemsProvider())
 
   def setupRepo(): Future[RepoId] = for {
     repoId <- FastFuture.successful(RepoId.generate())

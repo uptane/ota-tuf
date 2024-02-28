@@ -34,7 +34,7 @@ object KeyGeneratorLeader {
 
 class KeyGeneratorLeader(keyGenerationOp: KeyGenRequest => Future[Seq[Key]])(implicit val db: Database) extends Actor with ActorLogging with KeyGenRequestSupport {
 
-  implicit val ec = context.dispatcher
+  implicit val ec : scala.concurrent.ExecutionContextExecutor= context.dispatcher
 
   private val WORKER_COUNT = 10
 
@@ -135,7 +135,7 @@ class KeyGeneratorWorker(keyGenerationOp: KeyGenRequest => Future[Seq[Key]])(imp
   with KeyGenRequestSupport
   with KeyRepositorySupport {
 
-  implicit val ec = context.dispatcher
+  implicit val ec : scala.concurrent.ExecutionContextExecutor= context.dispatcher
 
   override def receive: Receive = {
     case kgr: KeyGenRequest =>

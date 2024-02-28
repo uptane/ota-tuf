@@ -41,7 +41,7 @@ object CliCodecs {
   implicit val pathEncoder: Encoder[Path] = Encoder.encodeString.contramap(_.toString)
   implicit val pathDecoder: Decoder[Path] = Decoder.decodeString.emapTry(s => Try(Paths.get(s)))
 
-  implicit val treehubConfigDecoder = Decoder.instance { d =>
+  implicit val treehubConfigDecoder: io.circe.Decoder[com.advancedtelematic.tuf.cli.DataType.TreehubConfig] = Decoder.instance { d =>
     for {
       noAuth <- d.downField("no_auth").as[Option[Boolean]]
       oauth <- d.downField("oauth2").as[Option[OAuthConfig]]
@@ -49,11 +49,11 @@ object CliCodecs {
     } yield TreehubConfig(oauth, noAuth.getOrElse(false), ostree.getOrElse(Json.obj()))
   }
 
-  implicit val treehubConfigEncoder = deriveConfiguredEncoder[TreehubConfig]
+  implicit val treehubConfigEncoder: io.circe.Encoder.AsObject[com.advancedtelematic.tuf.cli.DataType.TreehubConfig] = deriveConfiguredEncoder[TreehubConfig]
 
-  implicit val repoServerTypeCodec = deriveEnumerationCodec[TufServerType]
+  implicit val repoServerTypeCodec: io.circe.Codec[com.advancedtelematic.tuf.cli.DataType.TufServerType] = deriveEnumerationCodec[TufServerType]
 
-  implicit val repoConfigCodec = deriveConfiguredCodec[RepoConfig]
+  implicit val repoConfigCodec: io.circe.Codec.AsObject[com.advancedtelematic.tuf.cli.DataType.RepoConfig] = deriveConfiguredCodec[RepoConfig]
 }
 
 object CliReads {
