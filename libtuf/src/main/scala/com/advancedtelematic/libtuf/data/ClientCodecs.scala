@@ -82,11 +82,11 @@ object ClientCodecs {
 
   implicit val delegatedRoleNameEncoder: Encoder[DelegatedRoleName] = ValidatedString.validatedStringEncoder
   implicit val delegatedRoleNameDecoder: Decoder[DelegatedRoleName] = ValidatedString.validatedStringDecoder
-  implicit val delegatedRoleNameKeyEncoder = new KeyEncoder[DelegatedRoleName] {
+  implicit val delegatedRoleNameKeyEncoder: io.circe.KeyEncoder[com.advancedtelematic.libtuf.data.ClientDataType.DelegatedRoleName] = new KeyEncoder[DelegatedRoleName] {
     override def apply(roleName: DelegatedRoleName): String = roleName.value
   }
 
-  implicit val delegatedRoleNameKeyDecoder = new KeyDecoder[DelegatedRoleName] {
+  implicit val delegatedRoleNameKeyDecoder: io.circe.KeyDecoder[com.advancedtelematic.libtuf.data.ClientDataType.DelegatedRoleName] = new KeyDecoder[DelegatedRoleName] {
     override def apply(key: String): Option[DelegatedRoleName] = DelegatedRoleName.delegatedRoleNameValidation(key).toOption
   }
   implicit val delegationFriendlyNameEncoder: Encoder[DelegationFriendlyName] = ValidatedString.validatedStringEncoder

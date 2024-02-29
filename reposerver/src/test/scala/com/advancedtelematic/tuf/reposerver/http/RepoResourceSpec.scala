@@ -53,7 +53,7 @@ import com.advancedtelematic.libtuf_server.data.Marshalling.*
 class RepoResourceSpec extends TufReposerverSpec with RepoResourceSpecUtil
   with ResourceSpec with BeforeAndAfterAll with Inspectors with Whenever with PatienceConfiguration with SignedRoleRepositorySupport {
 
-  override val ec = this.executor
+  override val ec : scala.concurrent.ExecutionContextExecutor= this.executor
 
   val repoId = RepoId.generate()
 

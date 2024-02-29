@@ -13,7 +13,7 @@ import scala.annotation.nowarn
 import scala.reflect.ClassTag
 
 object SlickMappings {
-  implicit val storageMethodMapping = MappedColumnType.base[StorageMethod, String](
+  implicit val storageMethodMapping: slick.jdbc.MySQLProfile.BaseColumnType[com.advancedtelematic.tuf.reposerver.data.RepoDataType.StorageMethod.StorageMethod] = MappedColumnType.base[StorageMethod, String](
     {
       case StorageMethod.CliManaged => "CliManaged"
       case StorageMethod.Managed => "Managed"

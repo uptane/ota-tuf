@@ -18,7 +18,7 @@ object RoleValidation {
   def rawJsonIsValid[T : Codec](signedPayloadJson: JsonSignedPayload)(implicit tufRole: TufRole[T]): ValidatedNel[String, SignedPayload[T]] = {
     val parsedE = signedPayloadJson.signed.as[T].leftMap(_.message).toValidatedNel
 
-    parsedE.andThen { parsed: T =>
+    parsedE.andThen { (parsed: T) =>
       Validated.condNel(signedPayloadJson.signed.canonical == parsed.asJson.canonical, parsed, s"an incompatible encoder was used to encode ${tufRole.metaPath.value}")
     }.map { parsed =>
       SignedPayload(signedPayloadJson.signatures, parsed, signedPayloadJson.signed)

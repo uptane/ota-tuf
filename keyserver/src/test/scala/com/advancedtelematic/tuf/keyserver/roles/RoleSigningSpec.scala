@@ -20,12 +20,12 @@ case class TestPayload(propertyB: String = "some B", propertyA: String = "some A
 
 class RoleSigningSpec extends TufKeyserverSpec with MysqlDatabaseSpec with PatienceConfiguration with KeyTypeSpecSupport with KeyRepositorySupport {
 
-  implicit val ec = ExecutionContext.global
+  implicit val ec : scala.concurrent.ExecutionContextExecutor= ExecutionContext.global
 
   override implicit def patienceConfig = PatienceConfig().copy(timeout = Span(3, Seconds))
 
-  implicit val encoder = io.circe.generic.semiauto.deriveEncoder[TestPayload]
-  implicit val decoder = io.circe.generic.semiauto.deriveDecoder[TestPayload]
+  implicit val encoder: io.circe.Encoder.AsObject[com.advancedtelematic.tuf.keyserver.roles.TestPayload] = io.circe.generic.semiauto.deriveEncoder[TestPayload]
+  implicit val decoder: io.circe.Decoder[com.advancedtelematic.tuf.keyserver.roles.TestPayload] = io.circe.generic.semiauto.deriveDecoder[TestPayload]
 
   val roleSigning = new RoleSigning()
 

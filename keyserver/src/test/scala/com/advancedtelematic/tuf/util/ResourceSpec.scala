@@ -19,7 +19,7 @@ import org.scalatest.funsuite.AnyFunSuite
 import scala.concurrent.{Future, Promise}
 
 trait LongHttpRequest {
-  implicit def default(implicit system: ActorSystem) =
+  implicit def default(implicit system: ActorSystem): RouteTestTimeout =
     RouteTestTimeout(15.seconds.dilated(system))
 }
 

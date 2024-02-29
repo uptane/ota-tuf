@@ -29,7 +29,7 @@ import org.scalatest.time.{Seconds, Span}
 class OfflineSignedRoleStorageSpec extends TufReposerverSpec with MysqlDatabaseSpec with PatienceConfiguration
   with TargetItemRepositorySupport {
 
-  implicit val ec = scala.concurrent.ExecutionContext.global
+  implicit val ec : scala.concurrent.ExecutionContextExecutor= scala.concurrent.ExecutionContext.global
 
   override implicit def patienceConfig: PatienceConfig = PatienceConfig().copy(timeout = Span(5, Seconds))
 

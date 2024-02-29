@@ -19,13 +19,13 @@ object TufRepoCliClient {
     def apply(reposerverUri: URI, auth: CliHttpBackend)(implicit ec: ExecutionContext): S
   }
 
-  implicit val reposerverHttpClientBuilder = new HttpClientBuilder[ReposerverClient] {
+  implicit val reposerverHttpClientBuilder: com.advancedtelematic.tuf.cli.http.TufRepoCliClient.HttpClientBuilder[com.advancedtelematic.libtuf.http.ReposerverClient] = new HttpClientBuilder[ReposerverClient] {
     override def apply(reposerverUri: URI, httpBackend: CliHttpBackend)(implicit ec: ExecutionContext): ReposerverClient = {
       new ReposerverHttpClient(reposerverUri, httpBackend)
     }
   }
 
-  implicit val directorHttpClientBuilder = new HttpClientBuilder[DirectorClient] {
+  implicit val directorHttpClientBuilder: com.advancedtelematic.tuf.cli.http.TufRepoCliClient.HttpClientBuilder[com.advancedtelematic.libtuf.http.DirectorClient] = new HttpClientBuilder[DirectorClient] {
     override def apply(reposerverUri: URI, httpBackend: CliHttpBackend)(implicit ec: ExecutionContext): DirectorClient =
       new DirectorHttpClient(reposerverUri, httpBackend)
   }

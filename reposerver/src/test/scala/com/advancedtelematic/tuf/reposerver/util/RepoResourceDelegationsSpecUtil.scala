@@ -37,7 +37,7 @@ trait RepoResourceDelegationsSpecUtil extends RepoResourceSpecUtil {
     Delegation(delegatedRoleName, List(keyPair.pubkey.id), List(delegationPath))
   }
 
-  implicit val roleRefresh = new RepoRoleRefresh(fakeKeyserverClient, new TufRepoSignedRoleProvider(), new TufRepoTargetItemsProvider())
+  implicit val roleRefresh: RepoRoleRefresh = new RepoRoleRefresh(fakeKeyserverClient, new TufRepoSignedRoleProvider(), new TufRepoTargetItemsProvider())
 
   val delegations = Delegations(Map(keyPair.pubkey.id -> keyPair.pubkey), List(delegation))
 

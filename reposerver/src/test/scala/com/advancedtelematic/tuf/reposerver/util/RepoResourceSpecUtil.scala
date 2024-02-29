@@ -25,7 +25,7 @@ import com.advancedtelematic.libats.http.HttpCodecs._
 
 trait RepoResourceSpecUtil extends ResourceSpec with SignedRoleRepositorySupport with ScalaFutures with ScalatestRouteTest { this: Suite =>
 
-  override val ec = this.executor
+  override val ec: scala.concurrent.ExecutionContextExecutor = this.executor
 
   def makeRoleChecksumHeader(repoId: RepoId) =
     RoleChecksumHeader(signedRoleRepository.find[TargetsRole](repoId).futureValue.checksum.hash)

@@ -98,13 +98,13 @@ object ClientDataType {
         override def expires(v: T): Instant = v.expires
       }
 
-    implicit val targetsTufRole = apply[TargetsRole](RoleType.TARGETS)((r, v, e) => r.copy(version = v, expires = e))
-    implicit val snapshotTufRole = apply[SnapshotRole](RoleType.SNAPSHOT)((r, v, e) => r.copy(version = v, expires = e))
-    implicit val timestampTufRole = apply[TimestampRole](RoleType.TIMESTAMP)((r, v, e) => r.copy(version = v, expires = e))
-    implicit val rootTufRole = apply[RootRole](RoleType.ROOT)((r, v, e) => r.copy(version = v, expires = e))
-    implicit val offlineUpdatesRole = apply[OfflineUpdatesRole](RoleType.OFFLINE_UPDATES)((r, v, e) => r.copy(version = v, expires = e))
-    implicit val offlineSnapshotRole = apply[OfflineSnapshotRole](RoleType.OFFLINE_SNAPSHOT)((r, v, e) => r.copy(version = v, expires = e))
-    implicit val remoteSessionsRole = apply[RemoteSessionsRole](RoleType.REMOTE_SESSIONS)((r, v, e) => r.copy(version = v, expires = e))
+    implicit val targetsTufRole: com.advancedtelematic.libtuf.data.ClientDataType.TufRole[com.advancedtelematic.libtuf.data.ClientDataType.TargetsRole] = apply[TargetsRole](RoleType.TARGETS)((r, v, e) => r.copy(version = v, expires = e))
+    implicit val snapshotTufRole: com.advancedtelematic.libtuf.data.ClientDataType.TufRole[com.advancedtelematic.libtuf.data.ClientDataType.SnapshotRole] = apply[SnapshotRole](RoleType.SNAPSHOT)((r, v, e) => r.copy(version = v, expires = e))
+    implicit val timestampTufRole: com.advancedtelematic.libtuf.data.ClientDataType.TufRole[com.advancedtelematic.libtuf.data.ClientDataType.TimestampRole] = apply[TimestampRole](RoleType.TIMESTAMP)((r, v, e) => r.copy(version = v, expires = e))
+    implicit val rootTufRole: com.advancedtelematic.libtuf.data.ClientDataType.TufRole[com.advancedtelematic.libtuf.data.ClientDataType.RootRole] = apply[RootRole](RoleType.ROOT)((r, v, e) => r.copy(version = v, expires = e))
+    implicit val offlineUpdatesRole: com.advancedtelematic.libtuf.data.ClientDataType.TufRole[com.advancedtelematic.libtuf.data.ClientDataType.OfflineUpdatesRole] = apply[OfflineUpdatesRole](RoleType.OFFLINE_UPDATES)((r, v, e) => r.copy(version = v, expires = e))
+    implicit val offlineSnapshotRole: com.advancedtelematic.libtuf.data.ClientDataType.TufRole[com.advancedtelematic.libtuf.data.ClientDataType.OfflineSnapshotRole] = apply[OfflineSnapshotRole](RoleType.OFFLINE_SNAPSHOT)((r, v, e) => r.copy(version = v, expires = e))
+    implicit val remoteSessionsRole: com.advancedtelematic.libtuf.data.ClientDataType.TufRole[com.advancedtelematic.libtuf.data.ClientDataType.RemoteSessionsRole] = apply[RemoteSessionsRole](RoleType.REMOTE_SESSIONS)((r, v, e) => r.copy(version = v, expires = e))
   }
 
   case class RootRole(keys: Map[KeyId, TufKey],
@@ -141,20 +141,20 @@ object ClientDataType {
   final class DelegatedPathPattern private (val value: String) extends ValidatedString
 
   object DelegatedPathPattern {
-    implicit val delegatedPathPatternValidation = ValidatedStringValidation(new DelegatedPathPattern(_)) { v: String =>
+    implicit val delegatedPathPatternValidation: com.advancedtelematic.libtuf.data.ValidatedString.ValidatedStringValidation[com.advancedtelematic.libtuf.data.ClientDataType.DelegatedPathPattern] = ValidatedStringValidation(new DelegatedPathPattern(_)) { (v: String) =>
       cats.data.Validated.condNel(
         v.nonEmpty && v.length < 254 && !v.contains(".."),
         new DelegatedPathPattern(v),
         "DelegatedPathPattern cannot be empty or bigger than 254 chars or contain `..`"
       )
     }
-    implicit val delegatedPatternCodec = deriveCodec[DelegatedPathPattern]
+    implicit val delegatedPatternCodec: io.circe.Codec.AsObject[com.advancedtelematic.libtuf.data.ClientDataType.DelegatedPathPattern] = deriveCodec[DelegatedPathPattern]
   }
 
   final class DelegatedRoleName private (val value: String) extends ValidatedString
 
   object DelegatedRoleName {
-    implicit val delegatedRoleNameValidation = ValidatedStringValidation(new DelegatedRoleName(_)) { v: String =>
+    implicit val delegatedRoleNameValidation: com.advancedtelematic.libtuf.data.ValidatedString.ValidatedStringValidation[com.advancedtelematic.libtuf.data.ClientDataType.DelegatedRoleName] = ValidatedStringValidation(new DelegatedRoleName(_)) { (v: String) =>
       cats.data.Validated.condNel(
         v.nonEmpty && v.length < 51 && v.matches("[a-zA-Z0-9_-][a-zA-Z0-9_.-]*"),
         new DelegatedRoleName(v),
@@ -166,7 +166,7 @@ object ClientDataType {
   final class DelegationFriendlyName private (val value: String) extends ValidatedString
 
   object DelegationFriendlyName {
-    implicit val delegationFriendlyNameValidation = ValidatedStringValidation(new DelegationFriendlyName(_)) { v: String =>
+    implicit val delegationFriendlyNameValidation: com.advancedtelematic.libtuf.data.ValidatedString.ValidatedStringValidation[com.advancedtelematic.libtuf.data.ClientDataType.DelegationFriendlyName] = ValidatedStringValidation(new DelegationFriendlyName(_)) { (v: String) =>
       cats.data.Validated.condNel(
         v.nonEmpty && v.length < 81,
         new DelegationFriendlyName(v),

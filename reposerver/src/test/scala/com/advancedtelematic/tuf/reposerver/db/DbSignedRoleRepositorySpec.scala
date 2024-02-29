@@ -18,7 +18,7 @@ import scala.concurrent.ExecutionContext
 
 class DbSignedRoleRepositorySpec extends TufReposerverSpec with MysqlDatabaseSpec with PatienceConfiguration {
 
-  implicit val ec = ExecutionContext.global
+  implicit val ec: scala.concurrent.ExecutionContextExecutor = ExecutionContext.global
 
   override implicit def patienceConfig = PatienceConfig().copy(timeout = Span(10, Seconds))
 
