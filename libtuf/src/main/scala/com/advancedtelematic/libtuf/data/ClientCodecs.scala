@@ -82,11 +82,11 @@ object ClientCodecs {
 
   implicit val delegatedRoleNameEncoder: Encoder[DelegatedRoleName] = ValidatedString.validatedStringEncoder
   implicit val delegatedRoleNameDecoder: Decoder[DelegatedRoleName] = ValidatedString.validatedStringDecoder
-  implicit val delegatedRoleNameKeyEncoder = new KeyEncoder[DelegatedRoleName] {
+  implicit val delegatedRoleNameKeyEncoder: io.circe.KeyEncoder[com.advancedtelematic.libtuf.data.ClientDataType.DelegatedRoleName] = new KeyEncoder[DelegatedRoleName] {
     override def apply(roleName: DelegatedRoleName): String = roleName.value
   }
 
-  implicit val delegatedRoleNameKeyDecoder = new KeyDecoder[DelegatedRoleName] {
+  implicit val delegatedRoleNameKeyDecoder: io.circe.KeyDecoder[com.advancedtelematic.libtuf.data.ClientDataType.DelegatedRoleName] = new KeyDecoder[DelegatedRoleName] {
     override def apply(key: String): Option[DelegatedRoleName] = DelegatedRoleName.delegatedRoleNameValidation(key).toOption
   }
   implicit val delegationFriendlyNameEncoder: Encoder[DelegationFriendlyName] = ValidatedString.validatedStringEncoder
@@ -100,6 +100,11 @@ object ClientCodecs {
 
   implicit val delegationsEncoder: Encoder[Delegations] = deriveEncoder
   implicit val delegationsDecoder: Decoder[Delegations] = deriveDecoder[Delegations]
+
+  implicit val pubKeyMetaCodec: Codec[PubKeyMeta] = deriveCodec[PubKeyMeta]
+  implicit val pubKeyInfoCodec: Codec[PubKeyInfo] = deriveCodec[PubKeyInfo]
+  implicit val sshSessionPropertiesCodec: Codec[SshSessionProperties] = deriveCodec[SshSessionProperties]
+  implicit val remoteSessionsPayloadCodec: Codec[RemoteSessionsPayload] = deriveCodec[RemoteSessionsPayload]
 
   implicit val targetsRoleEncoder: Encoder[TargetsRole] = deriveEncoder[TargetsRole].encodeRoleType.mapJson(_.dropNullValues)
   implicit val targetsRoleDecoder: Decoder[TargetsRole] = deriveDecoder[TargetsRole].validateRoleType

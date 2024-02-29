@@ -1,7 +1,7 @@
 package com.advancedtelematic.tuf.reposerver.util
 
 import akka.actor.ActorSystem
-import akka.http.scaladsl.model._
+import akka.http.scaladsl.model.*
 import akka.http.scaladsl.server.{Directive1, Directives, Route}
 import akka.http.scaladsl.testkit.{RouteTestTimeout, ScalatestRouteTest}
 import akka.http.scaladsl.unmarshalling.FromEntityUnmarshaller
@@ -12,13 +12,14 @@ import akka.util.ByteString
 import com.advancedtelematic.libats.data.DataType.{Checksum, Namespace}
 import com.advancedtelematic.libats.http.NamespaceDirectives
 import com.advancedtelematic.libats.http.tracing.NullServerRequestTracing
+import com.advancedtelematic.libats.http.tracing.Tracing.ServerRequestTracing
 import com.advancedtelematic.libats.messaging.MemoryMessageBus
 import com.advancedtelematic.libats.test.MysqlDatabaseSpec
 import com.advancedtelematic.libtuf.crypt.{Sha256FileDigest, TufCrypto}
-import com.advancedtelematic.libtuf.data.ClientCodecs._
+import com.advancedtelematic.libtuf.data.ClientCodecs.*
 import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, RoleKeys, RootRole, TargetCustom, TargetsRole, TufRole}
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
-import com.advancedtelematic.libtuf.data.TufDataType._
+import com.advancedtelematic.libtuf.data.TufDataType.*
 import com.advancedtelematic.libtuf.http.ReposerverHttpClient
 import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient
 import com.advancedtelematic.tuf.reposerver.delegations.RemoteDelegationClient
@@ -35,12 +36,12 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.NoSuchElementException
 import java.util.concurrent.ConcurrentHashMap
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{ExecutionContext, Future, Promise}
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.Try
-import scala.async.Async._
+import scala.async.Async.*
 
 class FakeKeyserverClient extends KeyserverClient {
 
@@ -230,7 +231,7 @@ private def refreshAndSaveRoot(repoId: RepoId, role: SignedPayload[RootRole], ex
 }
 
 trait LongHttpRequest {
-  implicit def default(implicit system: ActorSystem) = RouteTestTimeout(60.seconds.dilated(system))
+  implicit def default(implicit system: ActorSystem): RouteTestTimeout = RouteTestTimeout(60.seconds.dilated(system))
 }
 
 trait FakeHttpClientSpec {
@@ -334,7 +335,7 @@ trait ResourceSpec extends TufReposerverSpec
 
   lazy val routes = new TufReposerverRoutes(fakeKeyserverClient, namespaceValidation, targetStore, messageBusPublisher, fakeRemoteDelegationClient).routes
 
-  implicit lazy val tracing = new NullServerRequestTracing
+  implicit lazy val tracing: ServerRequestTracing = new NullServerRequestTracing
 
   protected def uploadTargetFile(name: TargetName, version: TargetVersion, client: ReposerverHttpClient): TargetInfo = {
     val target = TargetInfo.generate(name, version)

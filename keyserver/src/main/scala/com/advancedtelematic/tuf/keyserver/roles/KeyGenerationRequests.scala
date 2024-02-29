@@ -5,22 +5,23 @@ import java.time.{Duration, Instant}
 import akka.http.scaladsl.util.FastFuture
 import cats.data.Validated.{Invalid, Valid}
 import cats.data.ValidatedNel
-import com.advancedtelematic.libtuf.data.ClientCodecs._
+import com.advancedtelematic.libtuf.data.ClientCodecs.*
 import com.advancedtelematic.libtuf.data.ClientDataType.{RoleKeys, RootRole}
-import com.advancedtelematic.libtuf.data.RootManipulationOps._
-import com.advancedtelematic.libtuf.data.RootRoleValidation
+import com.advancedtelematic.libtuf.data.RootManipulationOps.*
+import com.advancedtelematic.libtuf.data.{RoleValidation, RootRoleValidation, TufCodecs}
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
-import com.advancedtelematic.libtuf.data.TufDataType._
+import com.advancedtelematic.libtuf.data.TufDataType.*
 import com.advancedtelematic.tuf.keyserver.daemon.DefaultKeyGenerationOp
 import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType.KeyGenRequestStatus.KeyGenRequestStatus
-import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType._
-import com.advancedtelematic.tuf.keyserver.db._
-import com.advancedtelematic.tuf.keyserver.http._
-import io.circe.syntax._
+import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType.*
+import com.advancedtelematic.tuf.keyserver.db.*
+import com.advancedtelematic.tuf.keyserver.http.*
+import io.circe.Codec
+import io.circe.syntax.*
 import org.slf4j.LoggerFactory
-import slick.jdbc.MySQLProfile.api._
+import slick.jdbc.MySQLProfile.api.*
 
-import scala.async.Async._
+import scala.async.Async.*
 import scala.concurrent.{ExecutionContext, Future}
 
 class SignedRootRoles(defaultRoleExpire: Duration = Duration.ofDays(365))
@@ -125,7 +126,7 @@ extends KeyRepositorySupport with SignedRootRoleSupport {
   } yield userSignedIsValid
 
   private def userSignedJsonIsValid(offlinePayload: JsonSignedPayload, existingSignedRoot: SignedPayload[RootRole]): ValidatedNel[String, SignedPayload[RootRole]] = {
-    RootRoleValidation.rootRawJsonIsValid(offlinePayload).andThen { offlineSignedParsed =>
+    RoleValidation.rawJsonIsValid[RootRole](offlinePayload).andThen { offlineSignedParsed =>
       RootRoleValidation.newRootIsValid(offlineSignedParsed, existingSignedRoot)
     }
   }

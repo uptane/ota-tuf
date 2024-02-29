@@ -29,7 +29,7 @@ class SignedRootRolesSpec extends TufKeyserverSpec with MysqlDatabaseSpec
   with SignedRootRoleSupport
   with KeyRepositorySupport {
 
-  implicit val ec = ExecutionContext.global
+  implicit val ec : scala.concurrent.ExecutionContextExecutor= ExecutionContext.global
 
   override implicit def patienceConfig = PatienceConfig().copy(timeout = Span(10, Seconds))
 

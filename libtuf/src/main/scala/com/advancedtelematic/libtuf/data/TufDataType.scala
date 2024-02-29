@@ -68,7 +68,7 @@ object TufDataType {
     // TUF_ALL does not include OFFLINE_TARGETS, OFFLINE_SNAPSHOT and REMOTE_SESSIONS which are only used in UPTANE, not TUF
     val TUF_ALL = List(ROOT, SNAPSHOT, TARGETS, TIMESTAMP)
 
-    implicit val show = Show.show[Value](_.toString.toLowerCase)
+    implicit val show: cats.Show[com.advancedtelematic.libtuf.data.TufDataType.RoleType.Value] = Show.show[Value](_.toString.toLowerCase)
   }
 
   object SignatureMethod extends Enumeration {
@@ -177,21 +177,21 @@ object TufDataType {
     type Priv = RSATufPrivateKey
     type Pair = RSATufKeyPair
 
-    val crypto = TufCrypto.rsaCrypto
+    val crypto: TufCrypto[RsaKeyType.type] = TufCrypto.rsaCrypto
   }
   case object Ed25519KeyType extends KeyType {
     type Pub = Ed25519TufKey
     type Priv = Ed25519TufPrivateKey
     type Pair = Ed25519TufKeyPair
 
-    val crypto = TufCrypto.ed25519Crypto
+    val crypto: TufCrypto[Ed25519KeyType.type] = TufCrypto.ed25519Crypto
   }
   case object EcPrime256KeyType extends KeyType {
     type Pub = EcPrime256TufKey
     type Priv = EcPrime256TufPrivateKey
     type Pair = EcPrime256TufKeyPair
 
-    val crypto = TufCrypto.ecPrime256Crypto
+    val crypto: TufCrypto[EcPrime256KeyType.type] = TufCrypto.ecPrime256Crypto
   }
 
   sealed trait TufKey {

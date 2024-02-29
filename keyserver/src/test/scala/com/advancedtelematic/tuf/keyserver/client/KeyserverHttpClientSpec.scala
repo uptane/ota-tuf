@@ -28,7 +28,7 @@ class KeyserverHttpClientSpec extends TufKeyserverSpec
   with KeyTypeSpecSupport
   with HttpClientSpecSupport {
 
-  override val ec = this.executor
+  override val ec : scala.concurrent.ExecutionContextExecutor= this.executor
 
   override implicit def patienceConfig = PatienceConfig(timeout = Span(20, Seconds), interval = Span(500, Millis))
 

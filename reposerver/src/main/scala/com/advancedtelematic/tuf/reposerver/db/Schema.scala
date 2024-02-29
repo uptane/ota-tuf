@@ -84,7 +84,7 @@ object Schema {
   protected [db] val filenameComments = TableQuery[PackageCommentTable]
 
   class DelegationTable(tag: Tag) extends Table[DbDelegation](tag, "delegations") {
-    implicit val remoteHeadersMapper = SlickMappings.remoteHeadersMapper
+    implicit val remoteHeadersMapper: slick.jdbc.MySQLProfile.BaseColumnType[Map[String,String]] = SlickMappings.remoteHeadersMapper
 
     def repoId = column[RepoId]("repo_id")
     def roleName = column[DelegatedRoleName]("name")

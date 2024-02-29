@@ -14,7 +14,7 @@ import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RoleTyp
 import scala.util.Try
 
 object Marshalling {
-  implicit val targetFormatFromStringUnmarshaller = Unmarshaller.strict[String, TargetFormat](s => TargetFormat.withName(s.toUpperCase))
+  implicit val targetFormatFromStringUnmarshaller: akka.http.scaladsl.unmarshalling.Unmarshaller[String,com.advancedtelematic.libtuf.data.TufDataType.TargetFormat.TargetFormat] = Unmarshaller.strict[String, TargetFormat](s => TargetFormat.withName(s.toUpperCase))
 
   val KeyIdPath = PathMatchers.Segment.flatMap(_.refineTry[ValidKeyId].toOption)
 

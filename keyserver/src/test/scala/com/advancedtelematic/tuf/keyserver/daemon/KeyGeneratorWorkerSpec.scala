@@ -22,7 +22,7 @@ class KeyGeneratorWorkerSpec extends TufKeyserverSpec with TestKitBase with Mysq
   with PatienceConfiguration {
   override implicit lazy val system: ActorSystem = ActorSystem("KeyGeneratorWorkerIntegrationSpec")
 
-  implicit val ec = ExecutionContext.global
+  implicit val ec : scala.concurrent.ExecutionContextExecutor= ExecutionContext.global
 
   val actorRef = system.actorOf(KeyGeneratorWorker.props(DefaultKeyGenerationOp()))
 

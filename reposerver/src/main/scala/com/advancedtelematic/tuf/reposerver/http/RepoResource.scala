@@ -68,8 +68,8 @@ class RepoResource(keyserverClient: KeyserverClient, namespaceValidation: Namesp
   with SignedRoleRepositorySupport
   with Settings {
 
-  private implicit val signedRoleGeneration = TufRepoSignedRoleGeneration(keyserverClient)
-  private implicit val _client = remoteDelegationsClient
+  private implicit val signedRoleGeneration: com.advancedtelematic.libtuf_server.repo.server.SignedRoleGeneration = TufRepoSignedRoleGeneration(keyserverClient)
+  private implicit val _client: com.advancedtelematic.tuf.reposerver.delegations.RemoteDelegationClient = remoteDelegationsClient
 
   private val offlineSignedRoleStorage = new OfflineSignedRoleStorage(keyserverClient)
   private val roleRefresher = new RepoRoleRefresh(keyserverClient, new TufRepoSignedRoleProvider(), new TufRepoTargetItemsProvider())

@@ -26,7 +26,7 @@ class SignatureMethodMigration(dBIO: StreamingDBIO[Vector[Row], Row],
                                val system: ActorSystem
                               ) {
 
-  implicit val ec = system.dispatcher
+  implicit val ec: scala.concurrent.ExecutionContextExecutor = system.dispatcher
 
   private val _log = LoggerFactory.getLogger(this.getClass)
 
