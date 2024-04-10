@@ -15,15 +15,31 @@ import com.advancedtelematic.libats.data.{DataType, ErrorRepresentation, Paginat
 import com.advancedtelematic.libtuf.crypt.CanonicalJson.*
 import com.advancedtelematic.libtuf.crypt.TufCrypto
 import com.advancedtelematic.libtuf.data.ClientCodecs.*
-import com.advancedtelematic.libtuf.data.ClientDataType.{DelegatedPathPattern, DelegatedRoleName, Delegation, DelegationClientTargetItem, DelegationFriendlyName, SnapshotRole, TargetsRole}
+import com.advancedtelematic.libtuf.data.ClientDataType.{
+  DelegatedPathPattern,
+  DelegatedRoleName,
+  Delegation,
+  DelegationClientTargetItem,
+  DelegationFriendlyName,
+  SnapshotRole,
+  TargetsRole
+}
 import com.advancedtelematic.libtuf.data.TufCodecs.*
 import com.advancedtelematic.libtuf.data.{ClientDataType, TufDataType}
 import com.advancedtelematic.libtuf.data.TufDataType.{Ed25519KeyType, RepoId, SignedPayload, TufKey}
 import com.advancedtelematic.libtuf.data.ValidatedString.StringToValidatedStringOps
 import com.advancedtelematic.libtuf_server.crypto.Sha256Digest
-import com.advancedtelematic.tuf.reposerver.data.RepoDataType.{AddDelegationFromRemoteRequest, DelegationInfo}
+import com.advancedtelematic.tuf.reposerver.data.RepoDataType.{
+  AddDelegationFromRemoteRequest,
+  DelegationInfo
+}
 import com.advancedtelematic.tuf.reposerver.data.RepoCodecs.delegationInfoCodec
-import com.advancedtelematic.tuf.reposerver.util.{RepoResourceDelegationsSpecUtil, RepoResourceSpecUtil, ResourceSpec, TufReposerverSpec}
+import com.advancedtelematic.tuf.reposerver.util.{
+  RepoResourceDelegationsSpecUtil,
+  RepoResourceSpecUtil,
+  ResourceSpec,
+  TufReposerverSpec
+}
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
 import eu.timepit.refined.api.Refined
 import io.circe.syntax.*
@@ -32,50 +48,52 @@ import io.circe.Json
 
 import java.util.UUID
 
-class RepoResourceDelegationsSpec extends TufReposerverSpec
-  with ResourceSpec
-  with RepoResourceSpecUtil
-  with RepoResourceDelegationsSpecUtil {
+class RepoResourceDelegationsSpec
+    extends TufReposerverSpec
+    with ResourceSpec
+    with RepoResourceSpecUtil
+    with RepoResourceDelegationsSpecUtil {
 
-  private def addNewTrustedDelegationsOk(delegations: Delegation*)
-                                      (implicit repoId: RepoId): Unit = {
-    addNewTrustedDelegations(delegations:_*) ~> check {
+  private def addNewTrustedDelegationsOk(delegations: Delegation*)(implicit repoId: RepoId): Unit =
+    addNewTrustedDelegations(delegations: _*) ~> check {
       status shouldBe StatusCodes.NoContent
     }
-  }
 
-  private def addNewRemoteDelegationOk(delegatedRoleName: DelegatedRoleName, req: AddDelegationFromRemoteRequest)
-                                    (implicit  repoId: RepoId, pos: Position): Unit =
+  private def addNewRemoteDelegationOk(
+    delegatedRoleName: DelegatedRoleName,
+    req: AddDelegationFromRemoteRequest)(implicit repoId: RepoId, pos: Position): Unit =
     addNewRemoteDelegation(delegatedRoleName, req) ~> check {
       status shouldBe StatusCodes.Created
     }
 
-  private def getDelegationOk(delegationName: DelegatedRoleName)
-                             (implicit  repoId: RepoId): SignedPayload[TargetsRole] =
-    Get(apiUri(s"repo/${repoId.show}/delegations/${delegationName.value}.json")) ~> routes ~> check {
+  private def getDelegationOk(delegationName: DelegatedRoleName)(
+    implicit repoId: RepoId): SignedPayload[TargetsRole] =
+    Get(
+      apiUri(s"repo/${repoId.show}/delegations/${delegationName.value}.json")
+    ) ~> routes ~> check {
       status shouldBe StatusCodes.OK
       responseAs[SignedPayload[TargetsRole]]
     }
 
-  private def addNewTrustedDelegationKeysOK(tufKeys: TufKey*)
-                                         (implicit repoId: RepoId): Unit = {
-    Put(apiUri(s"repo/${repoId.show}/trusted-delegations/keys"), tufKeys.asJson) ~> routes ~> check {
+  private def addNewTrustedDelegationKeysOK(tufKeys: TufKey*)(implicit repoId: RepoId): Unit =
+    Put(
+      apiUri(s"repo/${repoId.show}/trusted-delegations/keys"),
+      tufKeys.asJson
+    ) ~> routes ~> check {
       status shouldBe StatusCodes.NoContent
     }
-  }
 
-  private def getTrustedDelegationsOk()(implicit repoId: RepoId, pos: Position): List[Delegation] = {
+  private def getTrustedDelegationsOk()(implicit repoId: RepoId, pos: Position): List[Delegation] =
     Get(apiUri(s"repo/${repoId.show}/trusted-delegations")) ~> routes ~> check {
       status shouldBe StatusCodes.OK
       responseAs[List[Delegation]]
     }
-  }
-  private def getTrustedDelegationInfo()(implicit repoId: RepoId): RouteTestResult = {
+
+  private def getTrustedDelegationInfo()(implicit repoId: RepoId): RouteTestResult =
     Get(apiUri(s"repo/${repoId.show}/trusted-delegations/info")) ~> routes
-  }
-  private def getTrustedDelegationKeys()(implicit repoId: RepoId): RouteTestResult = {
+
+  private def getTrustedDelegationKeys()(implicit repoId: RepoId): RouteTestResult =
     Get(apiUri(s"repo/${repoId.show}/trusted-delegations/keys")) ~> routes
-  }
 
   test("Rejects trusted delegations without reference keys") {
     implicit val repoId = addTargetToRepo()
@@ -147,7 +165,7 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     implicit val repoId = addTargetToRepo()
     val newKeys = Ed25519KeyType.crypto.generateKeyPair()
 
-    addNewTrustedDelegations(delegation.copy(keyids=List(newKeys.pubkey.id))) ~> check {
+    addNewTrustedDelegations(delegation.copy(keyids = List(newKeys.pubkey.id))) ~> check {
       status shouldBe StatusCodes.BadRequest
       responseAs[ErrorRepresentation].code shouldBe ErrorCodes.InvalidTrustedDelegations
     }
@@ -157,17 +175,23 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     implicit val repoId = addTargetToRepo()
     val newKeys = Ed25519KeyType.crypto.generateKeyPair()
 
-    addNewTrustedDelegations(delegation.copy(name = "badDelegationName?".unsafeApply[DelegatedRoleName])) ~> check {
+    addNewTrustedDelegations(
+      delegation.copy(name = "badDelegationName?".unsafeApply[DelegatedRoleName])
+    ) ~> check {
       status shouldBe StatusCodes.BadRequest
       responseAs[ErrorRepresentation].code shouldBe InvalidEntity
-      responseAs[ErrorRepresentation].description should include("delegated role name cannot be empty, bigger than 50 characters, or contain any special characters other than")
+      responseAs[ErrorRepresentation].description should include(
+        "delegated role name cannot be empty, bigger than 50 characters, or contain any special characters other than"
+      )
     }
   }
 
   test("Rejects targets.json containing delegations that reference unknown keys") {
     implicit val repoId = addTargetToRepo()
     val newKeys = Ed25519KeyType.crypto.generateKeyPair()
-    val signedTargets = buildSignedTargetsRoleWithDelegations(delegations.copy(roles = List(delegation.copy(keyids = List(newKeys.pubkey.id)))))
+    val signedTargets = buildSignedTargetsRoleWithDelegations(
+      delegations.copy(roles = List(delegation.copy(keyids = List(newKeys.pubkey.id))))
+    )
 
     val targetsRole = signedTargets.futureValue
     pushSignedTargetsMetadata(targetsRole) ~> check {
@@ -218,7 +242,9 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
 
     pushSignedDelegatedMetadataOk(signedDelegationRole)
 
-    Get(apiUri(s"repo/${repoId.show}/delegations/${delegatedRoleName.value}.json")) ~> routes ~> check {
+    Get(
+      apiUri(s"repo/${repoId.show}/delegations/${delegatedRoleName.value}.json")
+    ) ~> routes ~> check {
       status shouldBe StatusCodes.OK
       responseAs[SignedPayload[TargetsRole]].asJson shouldBe signedDelegationRole.asJson
     }
@@ -239,20 +265,30 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
   test("rejects delegated metadata when delegation name has invalid characters") {
     implicit val repoId = addTargetToRepo()
     val signedDelegation = buildSignedDelegatedTargets()
-    pushSignedDelegatedMetadata(signedDelegation, "badDelegationName*".unsafeApply[DelegatedRoleName]) ~> check {
+    pushSignedDelegatedMetadata(
+      signedDelegation,
+      "badDelegationName*".unsafeApply[DelegatedRoleName]
+    ) ~> check {
       status shouldBe StatusCodes.BadRequest
       responseAs[ErrorRepresentation].code shouldBe ErrorCodes.InvalidDelegationName
-      responseAs[ErrorRepresentation].cause.getOrElse("").toString should include("delegated role name cannot be empty, bigger than 50 characters, or contain any special characters other than")
+      responseAs[ErrorRepresentation].cause.getOrElse("").toString should include(
+        "delegated role name cannot be empty, bigger than 50 characters, or contain any special characters other than"
+      )
     }
   }
 
   test("rejects delegated metadata when delegation name is too long") {
     implicit val repoId = addTargetToRepo()
     val signedDelegation = buildSignedDelegatedTargets()
-    pushSignedDelegatedMetadata(signedDelegation, ("n"*51).unsafeApply[DelegatedRoleName]) ~> check {
+    pushSignedDelegatedMetadata(
+      signedDelegation,
+      ("n" * 51).unsafeApply[DelegatedRoleName]
+    ) ~> check {
       status shouldBe StatusCodes.BadRequest
       responseAs[ErrorRepresentation].code shouldBe ErrorCodes.InvalidDelegationName
-      responseAs[ErrorRepresentation].cause.getOrElse("").toString should include("delegated role name cannot be empty, bigger than 50 characters, or contain any special characters other than")
+      responseAs[ErrorRepresentation].cause.getOrElse("").toString should include(
+        "delegated role name cannot be empty, bigger than 50 characters, or contain any special characters other than"
+      )
     }
   }
 
@@ -274,36 +310,47 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
 
     val signedDelegation = buildSignedDelegatedTargets()
 
-    pushSignedDelegatedMetadata( signedDelegation) ~> check {
+    pushSignedDelegatedMetadata(signedDelegation) ~> check {
       status shouldBe StatusCodes.BadRequest
       responseAs[ErrorRepresentation].code shouldBe ErrorCodes.PayloadSignatureInvalid
     }
   }
 
-  test("rejects delegated metadata when a target filename doesn't match path specified in delegation refs in targets.json") {
+  test(
+    "rejects delegated metadata when a target filename doesn't match path specified in delegation refs in targets.json"
+  ) {
     implicit val repoId = addTargetToRepo()
     uploadOfflineSignedTargetsRole()
-    val testTargets: Map[TufDataType.TargetFilename, ClientDataType.ClientTargetItem] = Map(Refined.unsafeApply("bad-target-filename") -> ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None))
-    val signedDelegation = buildSignedDelegatedTargets(
-      targets = testTargets
-
+    val testTargets: Map[TufDataType.TargetFilename, ClientDataType.ClientTargetItem] = Map(
+      Refined.unsafeApply("bad-target-filename") -> ClientDataType.ClientTargetItem(
+        Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash),
+        0,
+        None
+      )
     )
+    val signedDelegation = buildSignedDelegatedTargets(targets = testTargets)
     pushSignedDelegatedMetadata(signedDelegation) ~> check {
       status shouldBe StatusCodes.BadRequest
       responseAs[ErrorRepresentation].code shouldBe ErrorCodes.InvalidDelegatedTarget
     }
   }
 
-  test("rejects delegated metadata when a target filename doesn't match nested path specified in delegation refs in targets.json") {
+  test(
+    "rejects delegated metadata when a target filename doesn't match nested path specified in delegation refs in targets.json"
+  ) {
     implicit val repoId = addTargetToRepo()
-    val customDelegationRef = delegation.copy(paths=List("*/wicked/*".unsafeApply[DelegatedPathPattern]))
+    val customDelegationRef =
+      delegation.copy(paths = List("*/wicked/*".unsafeApply[DelegatedPathPattern]))
     uploadOfflineSignedTargetsRole(delegations.copy(roles = List(customDelegationRef)))
 
-    val testTargets: Map[TufDataType.TargetFilename, ClientDataType.ClientTargetItem] = Map(Refined.unsafeApply("someprefix/mypath/wicked-target") -> ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None))
-    val signedDelegation = buildSignedDelegatedTargets(
-      targets = testTargets
-
+    val testTargets: Map[TufDataType.TargetFilename, ClientDataType.ClientTargetItem] = Map(
+      Refined.unsafeApply("someprefix/mypath/wicked-target") -> ClientDataType.ClientTargetItem(
+        Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash),
+        0,
+        None
+      )
     )
+    val signedDelegation = buildSignedDelegatedTargets(targets = testTargets)
     pushSignedDelegatedMetadata(signedDelegation) ~> check {
       status shouldBe StatusCodes.BadRequest
       responseAs[ErrorRepresentation].code shouldBe ErrorCodes.InvalidDelegatedTarget
@@ -312,13 +359,18 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
 
   test("Accepts delegated metadata with nested delegation filename path glob in targets.json") {
     implicit val repoId = addTargetToRepo()
-    val customDelegationRef = delegation.copy(paths=List("only-poppin/*".unsafeApply[DelegatedPathPattern]))
+    val customDelegationRef =
+      delegation.copy(paths = List("only-poppin/*".unsafeApply[DelegatedPathPattern]))
     uploadOfflineSignedTargetsRole(delegations.copy(roles = List(customDelegationRef)))
 
-    val testTargets: Map[TufDataType.TargetFilename, ClientDataType.ClientTargetItem] = Map(Refined.unsafeApply("only-poppin/wicked/lit-targets") -> ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None))
-    val signedDelegation = buildSignedDelegatedTargets(
-      targets = testTargets
+    val testTargets: Map[TufDataType.TargetFilename, ClientDataType.ClientTargetItem] = Map(
+      Refined.unsafeApply("only-poppin/wicked/lit-targets") -> ClientDataType.ClientTargetItem(
+        Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash),
+        0,
+        None
+      )
     )
+    val signedDelegation = buildSignedDelegatedTargets(targets = testTargets)
     pushSignedDelegatedMetadata(signedDelegation) ~> check {
       status shouldBe StatusCodes.NoContent
     }
@@ -326,13 +378,18 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
 
   test("Accepts delegated metadata with curly brackets in delegation filename path glob") {
     implicit val repoId = addTargetToRepo()
-    val customDelegationRef = delegation.copy(paths=List("here{we}go/*".unsafeApply[DelegatedPathPattern]))
+    val customDelegationRef =
+      delegation.copy(paths = List("here{we}go/*".unsafeApply[DelegatedPathPattern]))
     uploadOfflineSignedTargetsRole(delegations.copy(roles = List(customDelegationRef)))
 
-    val testTargets: Map[TufDataType.TargetFilename, ClientDataType.ClientTargetItem] = Map(Refined.unsafeApply("here{we}go/target1.xfile") -> ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None))
-    val signedDelegation = buildSignedDelegatedTargets(
-      targets = testTargets
+    val testTargets: Map[TufDataType.TargetFilename, ClientDataType.ClientTargetItem] = Map(
+      Refined.unsafeApply("here{we}go/target1.xfile") -> ClientDataType.ClientTargetItem(
+        Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash),
+        0,
+        None
+      )
     )
+    val signedDelegation = buildSignedDelegatedTargets(targets = testTargets)
     pushSignedDelegatedMetadata(signedDelegation) ~> check {
       status shouldBe StatusCodes.NoContent
     }
@@ -340,13 +397,18 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
 
   test("Accepts delegated metadata with question marks in delegation filename path glob") {
     implicit val repoId = addTargetToRepo()
-    val customDelegationRef = delegation.copy(paths=List("here{we}g?/*".unsafeApply[DelegatedPathPattern]))
+    val customDelegationRef =
+      delegation.copy(paths = List("here{we}g?/*".unsafeApply[DelegatedPathPattern]))
     uploadOfflineSignedTargetsRole(delegations.copy(roles = List(customDelegationRef)))
 
-    val testTargets: Map[TufDataType.TargetFilename, ClientDataType.ClientTargetItem] = Map(Refined.unsafeApply("here{we}go/target1.xfile") -> ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None))
-    val signedDelegation = buildSignedDelegatedTargets(
-      targets = testTargets
+    val testTargets: Map[TufDataType.TargetFilename, ClientDataType.ClientTargetItem] = Map(
+      Refined.unsafeApply("here{we}go/target1.xfile") -> ClientDataType.ClientTargetItem(
+        Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash),
+        0,
+        None
+      )
     )
+    val signedDelegation = buildSignedDelegatedTargets(targets = testTargets)
     pushSignedDelegatedMetadata(signedDelegation) ~> check {
       status shouldBe StatusCodes.NoContent
     }
@@ -354,13 +416,18 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
 
   test("Accepts delegated metadata with square brackets in delegation filename path glob") {
     implicit val repoId = addTargetToRepo()
-    val customDelegationRef = delegation.copy(paths=List("here{we}g?/target[0-9].*".unsafeApply[DelegatedPathPattern]))
+    val customDelegationRef =
+      delegation.copy(paths = List("here{we}g?/target[0-9].*".unsafeApply[DelegatedPathPattern]))
     uploadOfflineSignedTargetsRole(delegations.copy(roles = List(customDelegationRef)))
 
-    val testTargets: Map[TufDataType.TargetFilename, ClientDataType.ClientTargetItem] = Map(Refined.unsafeApply("here{we}go/target1.xfile") -> ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None))
-    val signedDelegation = buildSignedDelegatedTargets(
-      targets = testTargets
+    val testTargets: Map[TufDataType.TargetFilename, ClientDataType.ClientTargetItem] = Map(
+      Refined.unsafeApply("here{we}go/target1.xfile") -> ClientDataType.ClientTargetItem(
+        Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash),
+        0,
+        None
+      )
     )
+    val signedDelegation = buildSignedDelegatedTargets(targets = testTargets)
     pushSignedDelegatedMetadata(signedDelegation) ~> check {
       status shouldBe StatusCodes.NoContent
     }
@@ -368,15 +435,22 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
 
   test("Accepts delegated metadata with multiple delegated paths specified and only one matching") {
     implicit val repoId = addTargetToRepo()
-    val customDelegationRef = delegation.copy(paths=List("*/wicked/*".unsafeApply[DelegatedPathPattern],
-                                                          "*/alpine/*".unsafeApply[DelegatedPathPattern]
-                                                          ))
+    val customDelegationRef = delegation.copy(paths =
+      List(
+        "*/wicked/*".unsafeApply[DelegatedPathPattern],
+        "*/alpine/*".unsafeApply[DelegatedPathPattern]
+      )
+    )
     uploadOfflineSignedTargetsRole(delegations.copy(roles = List(customDelegationRef)))
 
-    val testTargets: Map[TufDataType.TargetFilename, ClientDataType.ClientTargetItem] = Map(Refined.unsafeApply("only-poppin/alpine/lit-targets") -> ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None))
-    val signedDelegation = buildSignedDelegatedTargets(
-      targets = testTargets
+    val testTargets: Map[TufDataType.TargetFilename, ClientDataType.ClientTargetItem] = Map(
+      Refined.unsafeApply("only-poppin/alpine/lit-targets") -> ClientDataType.ClientTargetItem(
+        Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash),
+        0,
+        None
+      )
     )
+    val signedDelegation = buildSignedDelegatedTargets(targets = testTargets)
     pushSignedDelegatedMetadata(signedDelegation) ~> check {
       status shouldBe StatusCodes.NoContent
     }
@@ -388,7 +462,8 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     uploadOfflineSignedTargetsRole(delegations.copy(roles = List(delegation.copy(threshold = 2))))
 
     val default = buildSignedDelegatedTargets()
-    val signedDelegation = SignedPayload(default.signatures.head +: default.signatures, default.signed, default.json)
+    val signedDelegation =
+      SignedPayload(default.signatures.head +: default.signatures, default.signed, default.json)
 
     pushSignedDelegatedMetadata(signedDelegation) ~> check {
       status shouldBe StatusCodes.BadRequest
@@ -402,9 +477,12 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     uploadOfflineSignedTargetsRole()
 
     val otherKey = Ed25519KeyType.crypto.generateKeyPair()
-    val delegationTargets = TargetsRole(Instant.now().plus(30, ChronoUnit.DAYS), targets = Map.empty, version = 2)
-    val signature = TufCrypto.signPayload(otherKey.privkey, delegationTargets.asJson).toClient(otherKey.pubkey.id)
-    val signedDelegation = SignedPayload(List(signature), delegationTargets, delegationTargets.asJson)
+    val delegationTargets =
+      TargetsRole(Instant.now().plus(30, ChronoUnit.DAYS), targets = Map.empty, version = 2)
+    val signature =
+      TufCrypto.signPayload(otherKey.privkey, delegationTargets.asJson).toClient(otherKey.pubkey.id)
+    val signedDelegation =
+      SignedPayload(List(signature), delegationTargets, delegationTargets.asJson)
 
     pushSignedDelegatedMetadata(signedDelegation) ~> check {
       status shouldBe StatusCodes.BadRequest
@@ -433,7 +511,9 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     pushSignedDelegatedMetadataOk(signedDelegationRole)
 
     val delegationRole =
-      Get(apiUri(s"repo/${repoId.show}/delegations/${delegatedRoleName.value}.json")) ~> routes ~> check {
+      Get(
+        apiUri(s"repo/${repoId.show}/delegations/${delegatedRoleName.value}.json")
+      ) ~> routes ~> check {
         status shouldBe StatusCodes.OK
         responseAs[SignedPayload[TargetsRole]]
       }
@@ -443,7 +523,9 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     Get(apiUri(s"repo/${repoId.show}/snapshot.json")) ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val signed = responseAs[SignedPayload[SnapshotRole]].signed
-      signed.meta(Refined.unsafeApply(s"${delegatedRoleName.value}.json")).length shouldBe delegationLength
+      signed
+        .meta(Refined.unsafeApply(s"${delegatedRoleName.value}.json"))
+        .length shouldBe delegationLength
     }
   }
 
@@ -459,7 +541,9 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     pushSignedDelegatedMetadataOk(signedDelegationRole)
 
     val delegationRole =
-      Get(apiUri(s"repo/${repoId.show}/delegations/${delegatedRoleName.value}.json")) ~> routes ~> check {
+      Get(
+        apiUri(s"repo/${repoId.show}/delegations/${delegatedRoleName.value}.json")
+      ) ~> routes ~> check {
         status shouldBe StatusCodes.OK
         responseAs[SignedPayload[TargetsRole]]
       }
@@ -468,10 +552,18 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
 
     val oldSnapshots = signedRoleGeneration.findRole[SnapshotRole](repoId).futureValue
 
-    signedRoleRepository.persist[SnapshotRole](repoId, oldSnapshots.copy(expiresAt = Instant.now().minusSeconds(60)), forceVersion = true).futureValue
+    signedRoleRepository
+      .persist[SnapshotRole](
+        repoId,
+        oldSnapshots.copy(expiresAt = Instant.now().minusSeconds(60)),
+        forceVersion = true
+      )
+      .futureValue
 
     val renewedSnapshots = signedRoleRepository.find[SnapshotRole](repoId).futureValue
-    renewedSnapshots.role.meta(Refined.unsafeApply(s"${delegatedRoleName.value}.json")).length shouldBe delegationLength
+    renewedSnapshots.role
+      .meta(Refined.unsafeApply(s"${delegatedRoleName.value}.json"))
+      .length shouldBe delegationLength
   }
 
   test("Adding a single target keeps delegations") {
@@ -557,7 +649,9 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
 
     fakeRemoteDelegationClient.setRemote(uri, signedDelegation2.asJson, Map("myheader" -> "myval2"))
 
-    Put(apiUri(s"repo/${repoId.show}/trusted-delegations/${delegation.name.value}/remote/refresh")) ~> routes ~> check {
+    Put(
+      apiUri(s"repo/${repoId.show}/trusted-delegations/${delegation.name.value}/remote/refresh")
+    ) ~> routes ~> check {
       status shouldBe StatusCodes.OK
     }
 
@@ -583,7 +677,9 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     val req1 = AddDelegationFromRemoteRequest(uri)
     addNewRemoteDelegationOk(delegation.name, req1)
 
-    Get(apiUri(s"repo/${repoId.show}/delegations/${delegation.name.value}.json")) ~> routes ~> check {
+    Get(
+      apiUri(s"repo/${repoId.show}/delegations/${delegation.name.value}.json")
+    ) ~> routes ~> check {
       status shouldBe StatusCodes.OK
       responseAs[SignedPayload[TargetsRole]].json shouldBe signedDelegation1.json
 
@@ -608,7 +704,8 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     addNewTrustedDelegationsOk(delegation)
     val friendlyName = "my-friendly-delegation-name".unsafeApply[DelegationFriendlyName]
 
-    val req = AddDelegationFromRemoteRequest(uri, Map("myheader" -> "myval2").some, Some(friendlyName))
+    val req =
+      AddDelegationFromRemoteRequest(uri, Map("myheader" -> "myval2").some, Some(friendlyName))
     addNewRemoteDelegation(delegation.name, req) ~> check {
       status shouldBe StatusCodes.Created
     }
@@ -620,12 +717,12 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
 
     getTrustedDelegationInfo() ~> check {
       status shouldBe StatusCodes.OK
-      val respMap = responseAs[Map[String,DelegationInfo]]
+      val respMap = responseAs[Map[String, DelegationInfo]]
       respMap(delegation.name.value).friendlyName.getOrElse("") shouldBe friendlyName
     }
   }
 
-    test("specifying invalid friendlyName during remote delegation creation returns error") {
+  test("specifying invalid friendlyName during remote delegation creation returns error") {
     implicit val repoId = addTargetToRepo()
 
     val uri = Uri(s"https://test/mydelegation-${UUID.randomUUID()}")
@@ -637,12 +734,18 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     addNewTrustedDelegationKeysOK(keyPair.pubkey)
 
     addNewTrustedDelegationsOk(delegation)
-    val friendlyName = "m"*105
+    val friendlyName = "m" * 105
 
-    val req = AddDelegationFromRemoteRequest(uri, Map("myheader" -> "myval2").some, Option(friendlyName.unsafeApply[DelegationFriendlyName]))
+    val req = AddDelegationFromRemoteRequest(
+      uri,
+      Map("myheader" -> "myval2").some,
+      Option(friendlyName.unsafeApply[DelegationFriendlyName])
+    )
     addNewRemoteDelegation(delegation.name, req) ~> check {
       status shouldBe StatusCodes.BadRequest
-      responseAs[ErrorRepresentation].description should include("delegation friendly name name cannot be empty or longer than 80 characters")
+      responseAs[ErrorRepresentation].description should include(
+        "delegation friendly name name cannot be empty or longer than 80 characters"
+      )
     }
   }
 
@@ -656,7 +759,10 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     pushSignedDelegatedMetadataOk(signedDelegation)
 
     val friendlyName = "my-friendly-delegation-name".unsafeApply[DelegationFriendlyName]
-    Patch(apiUri(s"repo/${repoId.show}/trusted-delegations/${delegation.name.value}/info"), DelegationInfo(None, None, Some(friendlyName)).asJson) ~> routes ~> check {
+    Patch(
+      apiUri(s"repo/${repoId.show}/trusted-delegations/${delegation.name.value}/info"),
+      DelegationInfo(None, None, Some(friendlyName)).asJson
+    ) ~> routes ~> check {
       status shouldBe StatusCodes.OK
     }
 
@@ -666,7 +772,9 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     }
   }
 
-  test("Attempting to set immutable members of delegationInfo fails gracefully with error response") {
+  test(
+    "Attempting to set immutable members of delegationInfo fails gracefully with error response"
+  ) {
     implicit val repoId = addTargetToRepo()
 
     uploadOfflineSignedTargetsRole()
@@ -676,7 +784,10 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     pushSignedDelegatedMetadataOk(signedDelegation)
 
     val friendlyName = "my-friendly-delegation-name".unsafeApply[DelegationFriendlyName]
-    Patch(apiUri(s"repo/${repoId.show}/trusted-delegations/${delegation.name.value}/info"), DelegationInfo(None, Some("http://some-remote-uri"), Some(friendlyName)).asJson) ~> routes ~> check {
+    Patch(
+      apiUri(s"repo/${repoId.show}/trusted-delegations/${delegation.name.value}/info"),
+      DelegationInfo(None, Some("http://some-remote-uri"), Some(friendlyName)).asJson
+    ) ~> routes ~> check {
       status shouldBe StatusCodes.BadRequest
       responseAs[ErrorRepresentation].code shouldBe ErrorCodes.ImmutableFields
     }
@@ -689,7 +800,9 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
 
     addNewTrustedDelegationsOk(delegation)
 
-    Delete(apiUri(s"repo/${repoId.show}/trusted-delegations/${delegation.name.value}")) ~> routes ~> check {
+    Delete(
+      apiUri(s"repo/${repoId.show}/trusted-delegations/${delegation.name.value}")
+    ) ~> routes ~> check {
       status shouldBe StatusCodes.NoContent
     }
 
@@ -708,7 +821,9 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
 
     pushSignedDelegatedMetadataOk(signedDelegation)
 
-    Put(apiUri(s"repo/${repoId.show}/trusted-delegations/${delegation.name.value}/remote/refresh")) ~> routes ~> check {
+    Put(
+      apiUri(s"repo/${repoId.show}/trusted-delegations/${delegation.name.value}/remote/refresh")
+    ) ~> routes ~> check {
       status shouldBe StatusCodes.PreconditionFailed
       responseAs[ErrorRepresentation].code shouldBe ErrorCodes.MissingRemoteDelegationUri
     }
@@ -774,18 +889,24 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
   test("can fetch single delegations_item") {
     // Create package
     implicit val repoId = addTargetToRepo()
-    val customDelegationRef = delegation.copy(paths = List("*some*".unsafeApply[DelegatedPathPattern],
-      "*/alpine/*".unsafeApply[DelegatedPathPattern]
-    ))
+    val customDelegationRef = delegation.copy(paths =
+      List(
+        "*some*".unsafeApply[DelegatedPathPattern],
+        "*/alpine/*".unsafeApply[DelegatedPathPattern]
+      )
+    )
     uploadOfflineSignedTargetsRole(delegations.copy(roles = List(customDelegationRef)))
 
-    val testTargets: Map[TufDataType.TargetFilename,
-      ClientDataType.ClientTargetItem] = Map(Refined.unsafeApply("some_hot_target-0.0.1") ->
-      ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None))
-
-    val signedDelegation = buildSignedDelegatedTargets(
-      targets = testTargets
+    val testTargets: Map[TufDataType.TargetFilename, ClientDataType.ClientTargetItem] = Map(
+      Refined.unsafeApply("some_hot_target-0.0.1") ->
+        ClientDataType.ClientTargetItem(
+          Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash),
+          0,
+          None
+        )
     )
+
+    val signedDelegation = buildSignedDelegatedTargets(targets = testTargets)
     pushSignedDelegatedMetadata(signedDelegation) ~> check {
       status shouldBe StatusCodes.NoContent
     }
@@ -797,13 +918,22 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
       targetItem.head.delegatedRoleName shouldBe delegatedRoleName
     }
   }
+
   test("can fetch all delegations_items when pattern parameter is excluded") {
     implicit val repoId = addTargetToRepo()
     val delegatedRoleName1 = delegatedRoleName
     val delegatedRoleName2 = "bens-second-delegation".unsafeApply[DelegatedRoleName]
-    val customDelegationRef1 = delegation.copy(name = delegatedRoleName1, paths = List("*".unsafeApply[DelegatedPathPattern]))
-    val customDelegationRef2 = delegation.copy(name = delegatedRoleName2, paths = List("*".unsafeApply[DelegatedPathPattern]))
-    uploadOfflineSignedTargetsRole(delegations.copy(roles = List(customDelegationRef1, customDelegationRef2)))
+    val customDelegationRef1 = delegation.copy(
+      name = delegatedRoleName1,
+      paths = List("*".unsafeApply[DelegatedPathPattern])
+    )
+    val customDelegationRef2 = delegation.copy(
+      name = delegatedRoleName2,
+      paths = List("*".unsafeApply[DelegatedPathPattern])
+    )
+    uploadOfflineSignedTargetsRole(
+      delegations.copy(roles = List(customDelegationRef1, customDelegationRef2))
+    )
 
     val filename1 = "some_hot_target-0.0.1"
     val filename2 = "hot-dogs-Rus-0.0.2"
@@ -812,16 +942,32 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     val testTargets1: Map[TufDataType.TargetFilename, ClientDataType.ClientTargetItem] =
       Map(
         Refined.unsafeApply(filename1) ->
-          ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None),
+          ClientDataType.ClientTargetItem(
+            Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash),
+            0,
+            None
+          ),
         Refined.unsafeApply(filename2) ->
-          ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None)
+          ClientDataType.ClientTargetItem(
+            Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash),
+            0,
+            None
+          )
       )
     val testTargets2: Map[TufDataType.TargetFilename, ClientDataType.ClientTargetItem] =
       Map(
         Refined.unsafeApply(filename3) ->
-          ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None),
+          ClientDataType.ClientTargetItem(
+            Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash),
+            0,
+            None
+          ),
         Refined.unsafeApply(filename4) ->
-          ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None)
+          ClientDataType.ClientTargetItem(
+            Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash),
+            0,
+            None
+          )
       )
     val signedDelegation1 = buildSignedDelegatedTargets(targets = testTargets1)
     val signedDelegation2 = buildSignedDelegatedTargets(targets = testTargets2)
@@ -834,21 +980,32 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     // fetch them
     Get(apiUri(s"repo/${repoId.show}/delegations_items")) ~> routes ~> check {
       status shouldBe StatusCodes.OK
-      val delegationClientTargetItems = responseAs[PaginationResult[DelegationClientTargetItem]].values
-      val itemsTuples = delegationClientTargetItems.map(d => d.targetFilename -> d.delegatedRoleName)
-      itemsTuples should contain (Refined.unsafeApply(filename1) -> delegatedRoleName1)
-      itemsTuples should contain (Refined.unsafeApply(filename2) -> delegatedRoleName1)
-      itemsTuples should contain (Refined.unsafeApply(filename3) -> delegatedRoleName2)
-      itemsTuples should contain (Refined.unsafeApply(filename4) -> delegatedRoleName2)
+      val delegationClientTargetItems =
+        responseAs[PaginationResult[DelegationClientTargetItem]].values
+      val itemsTuples =
+        delegationClientTargetItems.map(d => d.targetFilename -> d.delegatedRoleName)
+      itemsTuples should contain(Refined.unsafeApply(filename1) -> delegatedRoleName1)
+      itemsTuples should contain(Refined.unsafeApply(filename2) -> delegatedRoleName1)
+      itemsTuples should contain(Refined.unsafeApply(filename3) -> delegatedRoleName2)
+      itemsTuples should contain(Refined.unsafeApply(filename4) -> delegatedRoleName2)
     }
   }
+
   test("can search delegations_items with pattern and get expected output") {
     implicit val repoId = addTargetToRepo()
     val delegatedRoleName1 = delegatedRoleName
     val delegatedRoleName2 = "bens-second-delegation".unsafeApply[DelegatedRoleName]
-    val customDelegationRef1 = delegation.copy(name = delegatedRoleName1, paths = List("*".unsafeApply[DelegatedPathPattern]))
-    val customDelegationRef2 = delegation.copy(name = delegatedRoleName2, paths = List("*".unsafeApply[DelegatedPathPattern]))
-    uploadOfflineSignedTargetsRole(delegations.copy(roles = List(customDelegationRef1, customDelegationRef2)))
+    val customDelegationRef1 = delegation.copy(
+      name = delegatedRoleName1,
+      paths = List("*".unsafeApply[DelegatedPathPattern])
+    )
+    val customDelegationRef2 = delegation.copy(
+      name = delegatedRoleName2,
+      paths = List("*".unsafeApply[DelegatedPathPattern])
+    )
+    uploadOfflineSignedTargetsRole(
+      delegations.copy(roles = List(customDelegationRef1, customDelegationRef2))
+    )
 
     val filename1 = "some_hot_target-0.0.1"
     val filename2 = "hot-dogs-Rus-0.0.2"
@@ -857,16 +1014,32 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     val testTargets1: Map[TufDataType.TargetFilename, ClientDataType.ClientTargetItem] =
       Map(
         Refined.unsafeApply(filename1) ->
-          ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None),
+          ClientDataType.ClientTargetItem(
+            Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash),
+            0,
+            None
+          ),
         Refined.unsafeApply(filename2) ->
-          ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None)
+          ClientDataType.ClientTargetItem(
+            Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash),
+            0,
+            None
+          )
       )
     val testTargets2: Map[TufDataType.TargetFilename, ClientDataType.ClientTargetItem] =
       Map(
         Refined.unsafeApply(filename3) ->
-          ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None),
+          ClientDataType.ClientTargetItem(
+            Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash),
+            0,
+            None
+          ),
         Refined.unsafeApply(filename4) ->
-          ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None)
+          ClientDataType.ClientTargetItem(
+            Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash),
+            0,
+            None
+          )
       )
     val signedDelegation1 = buildSignedDelegatedTargets(targets = testTargets1)
     val signedDelegation2 = buildSignedDelegatedTargets(targets = testTargets2)
@@ -879,22 +1052,33 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     // fetch them
     Get(apiUri(s"repo/${repoId.show}/delegations_items?nameContains=dogs")) ~> routes ~> check {
       status shouldBe StatusCodes.OK
-      val delegationClientTargetItems = responseAs[PaginationResult[DelegationClientTargetItem]].values
-      val itemsTuples = delegationClientTargetItems.map(d => d.targetFilename -> d.delegatedRoleName)
-      itemsTuples should not contain(Refined.unsafeApply(filename1) -> delegatedRoleName1)
+      val delegationClientTargetItems =
+        responseAs[PaginationResult[DelegationClientTargetItem]].values
+      val itemsTuples =
+        delegationClientTargetItems.map(d => d.targetFilename -> d.delegatedRoleName)
+      itemsTuples should not contain (Refined.unsafeApply(filename1) -> delegatedRoleName1)
       itemsTuples should contain(Refined.unsafeApply(filename2) -> delegatedRoleName1)
       itemsTuples should contain(Refined.unsafeApply(filename3) -> delegatedRoleName2)
-      itemsTuples should not contain(Refined.unsafeApply(filename4) -> delegatedRoleName2)
+      itemsTuples should not contain (Refined.unsafeApply(filename4) -> delegatedRoleName2)
     }
   }
+
   // TODO: Re-Enable this when reposerver supports pagination with the delegation_items
   ignore("can restrict delegations_items with pagination parameters") {
     implicit val repoId = addTargetToRepo()
     val delegatedRoleName1 = delegatedRoleName
     val delegatedRoleName2 = "bens-second-delegation".unsafeApply[DelegatedRoleName]
-    val customDelegationRef1 = delegation.copy(name = delegatedRoleName1, paths = List("*".unsafeApply[DelegatedPathPattern]))
-    val customDelegationRef2 = delegation.copy(name = delegatedRoleName2, paths = List("*".unsafeApply[DelegatedPathPattern]))
-    uploadOfflineSignedTargetsRole(delegations.copy(roles = List(customDelegationRef1, customDelegationRef2)))
+    val customDelegationRef1 = delegation.copy(
+      name = delegatedRoleName1,
+      paths = List("*".unsafeApply[DelegatedPathPattern])
+    )
+    val customDelegationRef2 = delegation.copy(
+      name = delegatedRoleName2,
+      paths = List("*".unsafeApply[DelegatedPathPattern])
+    )
+    uploadOfflineSignedTargetsRole(
+      delegations.copy(roles = List(customDelegationRef1, customDelegationRef2))
+    )
 
     val filename1 = "some_hot_target-0.0.1"
     val filename2 = "hot-dogs-Rus-0.0.2"
@@ -903,16 +1087,32 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
     val testTargets1: Map[TufDataType.TargetFilename, ClientDataType.ClientTargetItem] =
       Map(
         Refined.unsafeApply(filename1) ->
-          ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None),
+          ClientDataType.ClientTargetItem(
+            Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash),
+            0,
+            None
+          ),
         Refined.unsafeApply(filename2) ->
-          ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None)
+          ClientDataType.ClientTargetItem(
+            Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash),
+            0,
+            None
+          )
       )
     val testTargets2: Map[TufDataType.TargetFilename, ClientDataType.ClientTargetItem] =
       Map(
         Refined.unsafeApply(filename3) ->
-          ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None),
+          ClientDataType.ClientTargetItem(
+            Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash),
+            0,
+            None
+          ),
         Refined.unsafeApply(filename4) ->
-          ClientDataType.ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None)
+          ClientDataType.ClientTargetItem(
+            Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash),
+            0,
+            None
+          )
       )
     val signedDelegation1 = buildSignedDelegatedTargets(targets = testTargets1)
     val signedDelegation2 = buildSignedDelegatedTargets(targets = testTargets2)
@@ -931,9 +1131,9 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
       paged.limit shouldBe 50
       val itemsTuples = paged.values.map(d => d.targetFilename -> d.delegatedRoleName)
       val idk = Refined.unsafeApply(filename1)
-      itemsTuples should not contain(Refined.unsafeApply(filename3) -> delegatedRoleName2)
-      itemsTuples should contain (Refined.unsafeApply(filename4) -> delegatedRoleName2)
-      itemsTuples should contain (Refined.unsafeApply(filename1) -> delegatedRoleName1)
+      itemsTuples should not contain (Refined.unsafeApply(filename3) -> delegatedRoleName2)
+      itemsTuples should contain(Refined.unsafeApply(filename4) -> delegatedRoleName2)
+      itemsTuples should contain(Refined.unsafeApply(filename1) -> delegatedRoleName1)
       itemsTuples should contain(Refined.unsafeApply(filename2) -> delegatedRoleName1)
     }
     Get(apiUri(s"repo/${repoId.show}/delegations_items?offset=2")) ~> routes ~> check {
@@ -943,11 +1143,12 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
       paged.offset shouldBe 2
       paged.limit shouldBe 50
       val delegationClientTargetItems = paged.values
-      val itemsTuples = delegationClientTargetItems.map(d => d.targetFilename -> d.delegatedRoleName)
-      itemsTuples should not contain(Refined.unsafeApply(filename3) -> delegatedRoleName2)
-      itemsTuples should not contain(Refined.unsafeApply(filename4) -> delegatedRoleName2)
-      itemsTuples should contain (Refined.unsafeApply(filename1) -> delegatedRoleName1)
-      itemsTuples should contain (Refined.unsafeApply(filename2) -> delegatedRoleName1)
+      val itemsTuples =
+        delegationClientTargetItems.map(d => d.targetFilename -> d.delegatedRoleName)
+      itemsTuples should not contain (Refined.unsafeApply(filename3) -> delegatedRoleName2)
+      itemsTuples should not contain (Refined.unsafeApply(filename4) -> delegatedRoleName2)
+      itemsTuples should contain(Refined.unsafeApply(filename1) -> delegatedRoleName1)
+      itemsTuples should contain(Refined.unsafeApply(filename2) -> delegatedRoleName1)
     }
     Get(apiUri(s"repo/${repoId.show}/delegations_items?limit=3")) ~> routes ~> check {
       status shouldBe StatusCodes.OK
@@ -956,11 +1157,12 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
       paged.offset shouldBe 0
       paged.limit shouldBe 3
       val delegationClientTargetItems = paged.values
-      val itemsTuples = delegationClientTargetItems.map(d => d.targetFilename -> d.delegatedRoleName)
+      val itemsTuples =
+        delegationClientTargetItems.map(d => d.targetFilename -> d.delegatedRoleName)
       itemsTuples should contain(Refined.unsafeApply(filename3) -> delegatedRoleName2)
       itemsTuples should contain(Refined.unsafeApply(filename4) -> delegatedRoleName2)
-      itemsTuples should contain (Refined.unsafeApply(filename1) -> delegatedRoleName1)
-      itemsTuples should not contain(Refined.unsafeApply(filename2) -> delegatedRoleName1)
+      itemsTuples should contain(Refined.unsafeApply(filename1) -> delegatedRoleName1)
+      itemsTuples should not contain (Refined.unsafeApply(filename2) -> delegatedRoleName1)
     }
     Get(apiUri(s"repo/${repoId.show}/delegations_items?offset=2&limit=3")) ~> routes ~> check {
       status shouldBe StatusCodes.OK
@@ -969,11 +1171,13 @@ class RepoResourceDelegationsSpec extends TufReposerverSpec
       paged.offset shouldBe 2
       paged.limit shouldBe 3
       val delegationClientTargetItems = paged.values
-      val itemsTuples = delegationClientTargetItems.map(d => d.targetFilename -> d.delegatedRoleName)
-      itemsTuples should not contain(Refined.unsafeApply(filename3) -> delegatedRoleName2)
+      val itemsTuples =
+        delegationClientTargetItems.map(d => d.targetFilename -> d.delegatedRoleName)
+      itemsTuples should not contain (Refined.unsafeApply(filename3) -> delegatedRoleName2)
       itemsTuples should not contain (Refined.unsafeApply(filename4) -> delegatedRoleName2)
       itemsTuples should contain(Refined.unsafeApply(filename1) -> delegatedRoleName1)
-      itemsTuples should not contain(Refined.unsafeApply(filename2) -> delegatedRoleName1)
+      itemsTuples should not contain (Refined.unsafeApply(filename2) -> delegatedRoleName1)
     }
   }
+
 }

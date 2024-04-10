@@ -8,7 +8,7 @@ import slick.jdbc.MySQLProfile.api._
 
 import java.security.Security
 
-class R__MigrateKeysToJsonEncoded extends AppMigration  {
+class R__MigrateKeysToJsonEncoded extends AppMigration {
   Security.addProvider(new BouncyCastleProvider)
 
   implicit val system: akka.actor.ActorSystem = ActorSystem(this.getClass.getSimpleName)
@@ -16,5 +16,3 @@ class R__MigrateKeysToJsonEncoded extends AppMigration  {
 
   override def migrate(implicit db: Database) = new KeysToJsonEncodedMigration().run.map(_ => ())
 }
-
-

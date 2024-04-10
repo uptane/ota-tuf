@@ -15,17 +15,20 @@ import com.advancedtelematic.libats.messaging_datatype.MessageCodecs._
 import com.advancedtelematic.libats.messaging_datatype.MessageLike
 
 object Messages {
-  final case class TufTargetAdded(
-    namespace: Namespace,
-    filename: TargetFilename,
-    checksum: Checksum,
-    length: Long,
-    custom: Option[TargetCustom])
+
+  final case class TufTargetAdded(namespace: Namespace,
+                                  filename: TargetFilename,
+                                  checksum: Checksum,
+                                  length: Long,
+                                  custom: Option[TargetCustom])
 
   implicit val tufTargetAddedEncoder: Encoder[TufTargetAdded] = deriveEncoder
   implicit val tufTargetAddedDecoder: Decoder[TufTargetAdded] = deriveDecoder
 
-  implicit val tufTargetAddedMessageLike: com.advancedtelematic.libats.messaging_datatype.MessageLike[com.advancedtelematic.libtuf_server.data.Messages.TufTargetAdded] = MessageLike[TufTargetAdded](_.namespace.get)
+  implicit val tufTargetAddedMessageLike
+    : com.advancedtelematic.libats.messaging_datatype.MessageLike[
+      com.advancedtelematic.libtuf_server.data.Messages.TufTargetAdded
+    ] = MessageLike[TufTargetAdded](_.namespace.get)
 
   final case class PackageStorageUsage(namespace: String, timestamp: Instant, byteCount: Long)
 
@@ -34,10 +37,17 @@ object Messages {
   implicit val packageStorageUsageEncoder: Encoder[PackageStorageUsage] = deriveEncoder
   implicit val packageStorageUsageDecoder: Decoder[PackageStorageUsage] = deriveDecoder
 
-  implicit val packageStorageUsageMessageLike: com.advancedtelematic.libats.messaging_datatype.MessageLike[com.advancedtelematic.libtuf_server.data.Messages.PackageStorageUsage] = MessageLike[PackageStorageUsage](_.namespace)
+  implicit val packageStorageUsageMessageLike
+    : com.advancedtelematic.libats.messaging_datatype.MessageLike[
+      com.advancedtelematic.libtuf_server.data.Messages.PackageStorageUsage
+    ] = MessageLike[PackageStorageUsage](_.namespace)
 
-  case class DeviceUpdateReport(namespace: Namespace, device: DeviceId, updateId: UpdateId, timestampVersion: Int,
-                                operationResult: Map[EcuIdentifier, OperationResult], resultCode: Int)
+  case class DeviceUpdateReport(namespace: Namespace,
+                                device: DeviceId,
+                                updateId: UpdateId,
+                                timestampVersion: Int,
+                                operationResult: Map[EcuIdentifier, OperationResult],
+                                resultCode: Int)
 
   implicit val operationResultEncoder: Encoder[OperationResult] = deriveEncoder
   implicit val operationResultDecoder: Decoder[OperationResult] = deriveDecoder
@@ -45,11 +55,18 @@ object Messages {
   implicit val deviceUpdateReportEncoder: Encoder[DeviceUpdateReport] = deriveEncoder
   implicit val deviceUpdateReportDecoder: Decoder[DeviceUpdateReport] = deriveDecoder
 
-  implicit val deviceUpdateReportMessageLike: com.advancedtelematic.libats.messaging_datatype.MessageLike[com.advancedtelematic.libtuf_server.data.Messages.DeviceUpdateReport] = MessageLike[DeviceUpdateReport](_.device.toString)
-
+  implicit val deviceUpdateReportMessageLike
+    : com.advancedtelematic.libats.messaging_datatype.MessageLike[
+      com.advancedtelematic.libtuf_server.data.Messages.DeviceUpdateReport
+    ] = MessageLike[DeviceUpdateReport](_.device.toString)
 
   final case class TufTargetsModified(namespace: Namespace)
   implicit val tufTargetsModifiedEncoder: Encoder[TufTargetsModified] = deriveEncoder
   implicit val tufTargetsModifiedDecoder: Decoder[TufTargetsModified] = deriveDecoder
-  implicit val tufTargetsModifiedMessageLike: com.advancedtelematic.libats.messaging_datatype.MessageLike[com.advancedtelematic.libtuf_server.data.Messages.TufTargetsModified] = MessageLike[TufTargetsModified](_.namespace.get)
+
+  implicit val tufTargetsModifiedMessageLike
+    : com.advancedtelematic.libats.messaging_datatype.MessageLike[
+      com.advancedtelematic.libtuf_server.data.Messages.TufTargetsModified
+    ] = MessageLike[TufTargetsModified](_.namespace.get)
+
 }

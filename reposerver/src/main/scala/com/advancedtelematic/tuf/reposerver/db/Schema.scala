@@ -3,7 +3,11 @@ package com.advancedtelematic.tuf.reposerver.db
 import java.time.Instant
 import akka.http.scaladsl.model.Uri
 import com.advancedtelematic.libats.data.DataType.{Checksum, Namespace}
-import com.advancedtelematic.libtuf.data.ClientDataType.{DelegatedRoleName, DelegationFriendlyName, TargetCustom}
+import com.advancedtelematic.libtuf.data.ClientDataType.{
+  DelegatedRoleName,
+  DelegationFriendlyName,
+  TargetCustom
+}
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RepoId, TargetFilename}
 import slick.jdbc.MySQLProfile.api._
@@ -15,6 +19,7 @@ import com.advancedtelematic.tuf.reposerver.data.RepoDataType.StorageMethod.Stor
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.TargetItem
 
 object Schema {
+
   import com.advancedtelematic.libats.slick.codecs.SlickRefined._
   import com.advancedtelematic.libats.slick.db.SlickUUIDKey._
   import com.advancedtelematic.libats.slick.db.SlickUriMapper._
@@ -35,10 +40,19 @@ object Schema {
 
     def pk = primaryKey("target_items_pk", (repoId, filename))
 
-    override def * = (repoId, filename, uri, checksum, length, custom, storageMethod) <> ((TargetItem.apply _).tupled, TargetItem.unapply)
+    override def * = (
+      repoId,
+      filename,
+      uri,
+      checksum,
+      length,
+      custom,
+      storageMethod
+    ) <> ((TargetItem.apply _).tupled, TargetItem.unapply)
+
   }
 
-  protected [db] val targetItems = TableQuery[TargetItemTable]
+  protected[db] val targetItems = TableQuery[TargetItemTable]
 
   class SignedRoleTable(tag: Tag) extends Table[DbSignedRole](tag, "signed_roles") {
     def repoId = column[RepoId]("repo_id")
@@ -51,24 +65,37 @@ object Schema {
 
     def pk = primaryKey("signed_role_pk", (repoId, roleType))
 
-    override def * = (repoId, roleType, content, checksum, length, version, expiresAt) <> ((DbSignedRole.apply _).tupled, DbSignedRole.unapply)
+    override def * = (
+      repoId,
+      roleType,
+      content,
+      checksum,
+      length,
+      version,
+      expiresAt
+    ) <> ((DbSignedRole.apply _).tupled, DbSignedRole.unapply)
+
   }
 
-  protected [db] val signedRoles = TableQuery[SignedRoleTable]
+  protected[db] val signedRoles = TableQuery[SignedRoleTable]
 
-  class RepoNamespaceTable(tag: Tag) extends Table[(RepoId, Namespace, Option[Instant])](tag, "repo_namespaces") {
+  class RepoNamespaceTable(tag: Tag)
+      extends Table[(RepoId, Namespace, Option[Instant])](tag, "repo_namespaces") {
     def repoId = column[RepoId]("repo_id")
     def namespace = column[Namespace]("namespace")
-    def expiresNotBefore = column[Option[Instant]]("expires_not_before")(javaInstantMapping.optionType)
+
+    def expiresNotBefore =
+      column[Option[Instant]]("expires_not_before")(javaInstantMapping.optionType)
 
     def pk = primaryKey("repo_namespaces_pk", namespace)
 
     override def * = (repoId, namespace, expiresNotBefore)
   }
 
-  protected [db] val repoNamespaces = TableQuery[RepoNamespaceTable]
+  protected[db] val repoNamespaces = TableQuery[RepoNamespaceTable]
 
-  class PackageCommentTable(tag: Tag) extends Table[(RepoId, TargetFilename, TargetComment)](tag, "filename_comments") {
+  class PackageCommentTable(tag: Tag)
+      extends Table[(RepoId, TargetFilename, TargetComment)](tag, "filename_comments") {
     def repoId = column[RepoId]("repo_id")
     def filename = column[TargetFilename]("filename")
     def comment = column[TargetComment]("comment")
@@ -76,15 +103,20 @@ object Schema {
 
     def pk = primaryKey("repo_name_pk", (repoId, filename))
 
-    def targetItemFk = foreignKey("target_item_fk", (repoId, filename), targetItems)(c => (c.repoId, c.filename), onDelete = ForeignKeyAction.Cascade)
+    def targetItemFk = foreignKey("target_item_fk", (repoId, filename), targetItems)(
+      c => (c.repoId, c.filename),
+      onDelete = ForeignKeyAction.Cascade
+    )
 
     override def * = (repoId, filename, comment)
   }
 
-  protected [db] val filenameComments = TableQuery[PackageCommentTable]
+  protected[db] val filenameComments = TableQuery[PackageCommentTable]
 
   class DelegationTable(tag: Tag) extends Table[DbDelegation](tag, "delegations") {
-    implicit val remoteHeadersMapper: slick.jdbc.MySQLProfile.BaseColumnType[Map[String,String]] = SlickMappings.remoteHeadersMapper
+
+    implicit val remoteHeadersMapper: slick.jdbc.MySQLProfile.BaseColumnType[Map[String, String]] =
+      SlickMappings.remoteHeadersMapper
 
     def repoId = column[RepoId]("repo_id")
     def roleName = column[DelegatedRoleName]("name")
@@ -96,8 +128,17 @@ object Schema {
 
     def pk = primaryKey("delegations_pk", (repoId, roleName))
 
-    override def * = (repoId, roleName, content, remoteUri, lastFetched, remoteHeaders, friendlyName) <> ((DbDelegation.apply _).tupled, DbDelegation.unapply)
+    override def * = (
+      repoId,
+      roleName,
+      content,
+      remoteUri,
+      lastFetched,
+      remoteHeaders,
+      friendlyName
+    ) <> ((DbDelegation.apply _).tupled, DbDelegation.unapply)
+
   }
 
-  protected [db] val delegations = TableQuery[DelegationTable]
+  protected[db] val delegations = TableQuery[DelegationTable]
 }

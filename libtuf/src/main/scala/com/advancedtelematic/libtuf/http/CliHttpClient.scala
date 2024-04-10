@@ -2,7 +2,13 @@ package com.advancedtelematic.libtuf.http
 
 import com.advancedtelematic.libats.data
 import com.advancedtelematic.libats.data.ErrorRepresentation
-import com.advancedtelematic.libtuf.http.CliHttpClient.{CliHttpBackend, CliHttpClientError, CliRequest, CliResponse, HttpClient}
+import com.advancedtelematic.libtuf.http.CliHttpClient.{
+  CliHttpBackend,
+  CliHttpClientError,
+  CliRequest,
+  CliResponse,
+  HttpClient
+}
 import io.circe.syntax._
 import io.circe.{Decoder, Encoder, Json}
 import org.slf4j.LoggerFactory
@@ -25,7 +31,9 @@ object CliHttpClient {
   type CliResponse = Response[Array[Byte]]
   type HttpClient = CliRequest => Future[CliResponse]
 
-  case class CliHttpClientError(msg: String, remoteError: ErrorRepresentation) extends Throwable(msg) with NoStackTrace
+  case class CliHttpClientError(msg: String, remoteError: ErrorRepresentation)
+      extends Throwable(msg)
+      with NoStackTrace
 
   def UnknownErrorRepr(msg: String) = ErrorRepresentation(data.ErrorCode("unknown_error_repr"), msg)
 
@@ -49,19 +57,25 @@ abstract class CliHttpClient(httpBackend: CliHttpBackend)(implicit ec: Execution
 
   protected def http = basicRequest.response(asByteArrayAlways)
 
-  private def defaultErrorHandler[T](): PartialFunction[(Int, ErrorRepresentation), Future[T]] = PartialFunction.empty
+  private def defaultErrorHandler[T](): PartialFunction[(Int, ErrorRepresentation), Future[T]] =
+    PartialFunction.empty
 
-  protected val defaultHttpClient: HttpClient = (request: CliRequest) => httpBackend.send[Array[Byte]](request)
+  protected val defaultHttpClient: HttpClient = (request: CliRequest) =>
+    httpBackend.send[Array[Byte]](request)
 
-  private lazy val gzipMinSizeBytes = sys.env.get("CLI_GZIP_MIN_BYTES").map(_.toLong).getOrElse(500000L) // 0.5 mb
+  private lazy val gzipMinSizeBytes =
+    sys.env.get("CLI_GZIP_MIN_BYTES").map(_.toLong).getOrElse(500000L) // 0.5 mb
 
-  protected def execJsonHttp[Res: ClassTag : Decoder, Req: Encoder]
-  (request: CliRequest, entity: Req, httpClient: HttpClient = defaultHttpClient)
-  (errorHandler: PartialFunction[(Int, ErrorRepresentation), Future[Res]] = defaultErrorHandler()): Future[Res] = {
+  protected def execJsonHttp[Res: ClassTag: Decoder, Req: Encoder](request: CliRequest,
+                                                                   entity: Req,
+                                                                   httpClient: HttpClient =
+                                                                     defaultHttpClient)(
+    errorHandler: PartialFunction[(Int, ErrorRepresentation), Future[Res]] = defaultErrorHandler())
+    : Future[Res] = {
 
     val bodyBytes = entity.asJson.noSpaces.getBytes
 
-    val req = if(bodyBytes.length >= gzipMinSizeBytes) {
+    val req = if (bodyBytes.length >= gzipMinSizeBytes) {
       val baos = new ByteArrayOutputStream()
       val gzip = new GZIPOutputStream(baos)
       gzip.write(bodyBytes)
@@ -82,27 +96,33 @@ abstract class CliHttpClient(httpBackend: CliHttpBackend)(implicit ec: Execution
   }
 
   private def tryErrorParsing(response: Response[Array[Byte]]): ErrorRepresentation = {
-    def fallbackToResponseParse: String = {
-      tryParseResponse[Json](response).map { errorRepr =>
-        errorRepr.noSpaces
-      }.recover { case _ =>
-        new String(response.body)
-      }.getOrElse {
-        s"Unknown error|$response"
-      }
-    }
+    def fallbackToResponseParse: String =
+      tryParseResponse[Json](response)
+        .map { errorRepr =>
+          errorRepr.noSpaces
+        }
+        .recover { case _ =>
+          new String(response.body)
+        }
+        .getOrElse {
+          s"Unknown error|$response"
+        }
 
-    tryParseResponse[ErrorRepresentation](response).getOrElse(CliHttpClient.UnknownErrorRepr(fallbackToResponseParse))
+    tryParseResponse[ErrorRepresentation](response).getOrElse(
+      CliHttpClient.UnknownErrorRepr(fallbackToResponseParse)
+    )
   }
 
-  def tryParseResponse[T: ClassTag : Decoder](response: Response[Array[Byte]]): Try[T] =
+  def tryParseResponse[T: ClassTag: Decoder](response: Response[Array[Byte]]): Try[T] =
     if (implicitly[ClassTag[T]].runtimeClass.equals(classOf[Unit]))
       Success(()).asInstanceOf[Try[T]]
     else
       io.circe.parser.parse(new String(response.body)).flatMap(_.as[T]).toTry
 
-  protected def handleErrorResponse[T](request: Request[Array[Byte], Nothing], resp: Response[Array[Byte]])
-                                      (errorHandler: PartialFunction[(Int, ErrorRepresentation), Future[T]] = defaultErrorHandler()): Future[Response[T]] = {
+  protected def handleErrorResponse[T](request: Request[Array[Byte], Nothing],
+                                       resp: Response[Array[Byte]])(
+    errorHandler: PartialFunction[(Int, ErrorRepresentation), Future[T]] = defaultErrorHandler())
+    : Future[Response[T]] = {
     val parsedErr = tryErrorParsing(resp)
 
     if (errorHandler.isDefinedAt(resp.code.code, parsedErr)) {
@@ -110,53 +130,59 @@ abstract class CliHttpClient(httpBackend: CliHttpBackend)(implicit ec: Execution
     } else {
       log.debug(s"request failed: $request")
       Future.failed {
-        val msg = s"${this.getClass.getSimpleName}|${request.method}|http/${resp.code}|${request.uri}|${parsedErr.description}"
+        val msg =
+          s"${this.getClass.getSimpleName}|${request.method}|http/${resp.code}|${request.uri}|${parsedErr.description}"
         CliHttpClientError(msg, parsedErr)
       }
     }
   }
 
-  protected def handleResponse[T: ClassTag : Decoder](request: Request[Array[Byte], Nothing], resp: Response[Array[Byte]])
-                                                     (errorHandler: PartialFunction[(Int, ErrorRepresentation), Future[T]] = defaultErrorHandler()): Future[Response[T]] = {
+  protected def handleResponse[T: ClassTag: Decoder](request: Request[Array[Byte], Nothing],
+                                                     resp: Response[Array[Byte]])(
+    errorHandler: PartialFunction[(Int, ErrorRepresentation), Future[T]] = defaultErrorHandler())
+    : Future[Response[T]] =
     if (resp.isSuccess)
       Future.fromTry(tryParseResponse[T](resp).map(parsed => resp.copy(body = parsed)))
     else {
       handleErrorResponse(request, resp)(errorHandler)
     }
-  }
 
-  protected def execHttp[T: ClassTag : Decoder](request: CliRequest, httpClient: HttpClient = defaultHttpClient)
-                                               (errorHandler: PartialFunction[(Int, ErrorRepresentation), Future[T]] = defaultErrorHandler()): Future[Response[T]] =
+  protected def execHttp[T: ClassTag: Decoder](request: CliRequest,
+                                               httpClient: HttpClient = defaultHttpClient)(
+    errorHandler: PartialFunction[(Int, ErrorRepresentation), Future[T]] = defaultErrorHandler())
+    : Future[Response[T]] =
     httpClient(request).flatMap(handleResponse(request, _)(errorHandler))
 
   protected def retryingHttpClient(statuses: Set[StatusCode] = CliHttpClient.defaultRetryStatuses,
                                    backoffs: List[Duration] = CliHttpClient.defaultBackoffs,
-                                   httpClient: HttpClient = defaultHttpClient): HttpClient = (request: CliRequest) => {
+                                   httpClient: HttpClient = defaultHttpClient): HttpClient =
+    (request: CliRequest) => {
 
-    def retryOrResult(result: Future[CliResponse], msg: String) = backoffs match {
-      case head :: tail =>
-        log.warn(s"$msg. Retrying in $head. Request: $request")
-        wait(head).flatMap(_ => retryingHttpClient(statuses, tail, httpClient)(request))
-      case Nil => result
-    }
-
-    httpClient(request).flatMap { response =>
-      if (statuses.contains(response.code)) {
-        retryOrResult(Future.successful(response), s"Received status code ${response.code}")
-      } else {
-        Future.successful(response)
+      def retryOrResult(result: Future[CliResponse], msg: String) = backoffs match {
+        case head :: tail =>
+          log.warn(s"$msg. Retrying in $head. Request: $request")
+          wait(head).flatMap(_ => retryingHttpClient(statuses, tail, httpClient)(request))
+        case Nil => result
       }
-    }.recoverWith {
-      case e: ConnectException =>
-        retryOrResult(Future.failed(e), s"Connection error: ${e.getMessage}")
-      case e: ReadException =>
-        retryOrResult(Future.failed(e), s"Read error: ${e.getMessage}")
-    }
-  }
 
-  /**
-   * Don't use this on server side.
-   */
+      httpClient(request)
+        .flatMap { response =>
+          if (statuses.contains(response.code)) {
+            retryOrResult(Future.successful(response), s"Received status code ${response.code}")
+          } else {
+            Future.successful(response)
+          }
+        }
+        .recoverWith {
+          case e: ConnectException =>
+            retryOrResult(Future.failed(e), s"Connection error: ${e.getMessage}")
+          case e: ReadException =>
+            retryOrResult(Future.failed(e), s"Read error: ${e.getMessage}")
+        }
+    }
+
+  /** Don't use this on server side.
+    */
   private def wait(duration: Duration): Future[Unit] = Future {
     Thread.sleep(duration.toMillis)
     ()

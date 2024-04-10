@@ -12,6 +12,7 @@ import org.bouncycastle.util.encoders.Hex
 import scala.concurrent.{ExecutionContext, Future}
 
 object Sha256Digest {
+
   def digest(data: Array[Byte]): Checksum = {
     val digest = new SHA256Digest()
     val buf = Array.fill[Byte](digest.getDigestSize)(0)
@@ -22,17 +23,19 @@ object Sha256Digest {
     Checksum(HashMethod.SHA256, checksum)
   }
 
-  def asSink(implicit ec: ExecutionContext): Sink[ByteString, Future[Checksum]] = {
-    Sink.fold(MessageDigest.getInstance("SHA-256")) { (d, b: ByteString) =>
-      d.update(b.toArray)
-      d
-    }.mapMaterializedValue {
-      _.flatMap { dd =>
-        val hex = Hex.toHexString(dd.digest())
-        Future.fromTry {
-          hex.refineTry[ValidChecksum].map(Checksum(HashMethod.SHA256, _))
+  def asSink(implicit ec: ExecutionContext): Sink[ByteString, Future[Checksum]] =
+    Sink
+      .fold(MessageDigest.getInstance("SHA-256")) { (d, b: ByteString) =>
+        d.update(b.toArray)
+        d
+      }
+      .mapMaterializedValue {
+        _.flatMap { dd =>
+          val hex = Hex.toHexString(dd.digest())
+          Future.fromTry {
+            hex.refineTry[ValidChecksum].map(Checksum(HashMethod.SHA256, _))
+          }
         }
       }
-    }
-  }
+
 }

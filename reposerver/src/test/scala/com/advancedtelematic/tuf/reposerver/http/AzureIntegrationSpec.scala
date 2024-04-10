@@ -13,8 +13,21 @@ import akka.stream.IOResult
 import akka.util.ByteString
 import akka.Done
 import com.advancedtelematic.libtuf.crypt.{Sha256FileDigest, TufCrypto}
-import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, TargetCustom, TargetsRole}
-import com.advancedtelematic.libtuf.data.TufDataType.{Ed25519KeyType, RepoId, RoleType, SignedPayload, TargetFormat, TargetName, TargetVersion, ValidTargetFilename}
+import com.advancedtelematic.libtuf.data.ClientDataType.{
+  ClientTargetItem,
+  TargetCustom,
+  TargetsRole
+}
+import com.advancedtelematic.libtuf.data.TufDataType.{
+  Ed25519KeyType,
+  RepoId,
+  RoleType,
+  SignedPayload,
+  TargetFormat,
+  TargetName,
+  TargetVersion,
+  ValidTargetFilename
+}
 import com.advancedtelematic.libtuf.http.ReposerverHttpClient
 import com.advancedtelematic.libtuf_server.data.Requests
 import com.advancedtelematic.tuf.reposerver.target_store.{AzureTargetStoreEngine, TargetStore}
@@ -36,30 +49,47 @@ import cats.syntax.option._
 import cats.syntax.show._
 import io.circe.syntax._
 import com.advancedtelematic.libtuf.data.ClientCodecs._
-import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, TargetCustom, TargetsRole}
+import com.advancedtelematic.libtuf.data.ClientDataType.{
+  ClientTargetItem,
+  TargetCustom,
+  TargetsRole
+}
 import com.advancedtelematic.libtuf.data.TufCodecs._
 
 import scala.concurrent.{duration, Future}
 import scala.concurrent.duration.Duration
 import scala.util.{Random, Success}
 
-class AzureIntegrationSpec extends TufReposerverSpec
-  with ResourceSpec with BeforeAndAfterAll with Inspectors with Whenever with PatienceConfiguration {
+class AzureIntegrationSpec
+    extends TufReposerverSpec
+    with ResourceSpec
+    with BeforeAndAfterAll
+    with Inspectors
+    with Whenever
+    with PatienceConfiguration {
 
   private[this] val storeEngine = {
     val storeConfig = new Settings {}.azureSettings
     new AzureTargetStoreEngine(storeConfig)
   }
-  override lazy val targetStore = new TargetStore(fakeKeyserverClient, storeEngine, fakeHttpClient, messageBusPublisher)
+
+  override lazy val targetStore =
+    new TargetStore(fakeKeyserverClient, storeEngine, fakeHttpClient, messageBusPublisher)
 
   private val tufTargetsPublisher = new TufTargetsPublisher(messageBusPublisher)
 
-
-  override implicit def patienceConfig: PatienceConfig = PatienceConfig(timeout = time.Span(15, Seconds), Span(100, Millis))
+  override implicit def patienceConfig: PatienceConfig =
+    PatienceConfig(timeout = time.Span(15, Seconds), Span(100, Millis))
 
   override lazy val routes = Route.seal {
     pathPrefix("api" / "v1") {
-      new RepoResource(fakeKeyserverClient, namespaceValidation, targetStore, tufTargetsPublisher, fakeRemoteDelegationClient).route
+      new RepoResource(
+        fakeKeyserverClient,
+        namespaceValidation,
+        targetStore,
+        tufTargetsPublisher,
+        fakeRemoteDelegationClient
+      ).route
     }
   }
 
@@ -70,8 +100,10 @@ class AzureIntegrationSpec extends TufReposerverSpec
 
     fakeKeyserverClient.createRoot(repoId).futureValue
 
-
-    Post(apiUri(s"repo/${repoId.uuid.toString}"), Requests.CreateRepositoryRequest(Ed25519KeyType)) ~> routes ~> check {
+    Post(
+      apiUri(s"repo/${repoId.uuid.toString}"),
+      Requests.CreateRepositoryRequest(Ed25519KeyType)
+    ) ~> routes ~> check {
       status shouldBe StatusCodes.OK
     }
   }
@@ -79,31 +111,40 @@ class AzureIntegrationSpec extends TufReposerverSpec
   test("store") {
     val uploadFilePath = Files.createTempFile("upload", "txt")
     val chunkSize = 2000000
-    val fileGenResult = Source(1.to(5)).map(_ => ByteString(Random.nextString(chunkSize)))
-      .concat(Source.single(ByteString(Random.nextString(Random.nextInt(chunkSize))))).runWith(FileIO.toPath(uploadFilePath)).futureValue
-    val uploadedFileChecksum = com.advancedtelematic.libtuf.crypt.Sha256FileDigest.from(uploadFilePath)
+    val fileGenResult = Source(1.to(5))
+      .map(_ => ByteString(Random.nextString(chunkSize)))
+      .concat(Source.single(ByteString(Random.nextString(Random.nextInt(chunkSize)))))
+      .runWith(FileIO.toPath(uploadFilePath))
+      .futureValue
+    val uploadedFileChecksum =
+      com.advancedtelematic.libtuf.crypt.Sha256FileDigest.from(uploadFilePath)
     println(s"File generated: ${fileGenResult.count} bytes, checksum: ${uploadedFileChecksum}")
 
     val source = FileIO.fromPath(uploadFilePath, 2048000)
-    val targetFilename = eu.timepit.refined.refineV[ValidTargetFilename](uploadFilePath.getFileName.toString).toOption.get
+    val targetFilename = eu.timepit.refined
+      .refineV[ValidTargetFilename](uploadFilePath.getFileName.toString)
+      .toOption
+      .get
     val storeResult = storeEngine.store(repoId, targetFilename, source).futureValue
     storeResult.checksum should equal(uploadedFileChecksum)
   }
 
   test("cli upload and download") {
     val realClient = AkkaHttpBackend.apply()
-    val testBackend = AkkaHttpBackend.usingClient(system, http = AkkaHttpClient.stubFromRoute(Route.seal(routes)))
+    val testBackend =
+      AkkaHttpBackend.usingClient(system, http = AkkaHttpClient.stubFromRoute(Route.seal(routes)))
 
     val testBackendWithFallback = new SttpBackend[Future, Nothing, Nothing]() {
-      override def send[T](request: Request[T, Nothing]): Future[Response[T]] = {
-          if( request.uri.host == "0.0.0.0"){
-            testBackend.send(request)
-          } else {
-            realClient.send(request)
-          }
-      }
+      override def send[T](request: Request[T, Nothing]): Future[Response[T]] =
+        if (request.uri.host == "0.0.0.0") {
+          testBackend.send(request)
+        } else {
+          realClient.send(request)
+        }
 
-      override def openWebsocket[T, WS_RESULT](request: Request[T, Nothing], handler: Nothing): Future[WebSocketResponse[WS_RESULT]] = ???
+      override def openWebsocket[T, WS_RESULT](
+        request: Request[T, Nothing],
+        handler: Nothing): Future[WebSocketResponse[WS_RESULT]] = ???
 
       override def close(): Future[Unit] = testBackend.close()
 
@@ -117,4 +158,5 @@ class AzureIntegrationSpec extends TufReposerverSpec
     updateTargetsMetadata(repoId, targetInfo)
     downloadTarget(realClient, "core.windows.net", repoId, targetInfo)
   }
+
 }

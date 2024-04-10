@@ -18,8 +18,11 @@ object Requests {
 
   case class TargetComment(value: String) extends AnyVal
 
-  implicit val targetCommentEncoder: Encoder[TargetComment] = Encoder.encodeString.contramap(_.value)
-  implicit val targetCommentDecoder: Decoder[TargetComment] = Decoder.decodeString.map(TargetComment)
+  implicit val targetCommentEncoder: Encoder[TargetComment] =
+    Encoder.encodeString.contramap(_.value)
+
+  implicit val targetCommentDecoder: Decoder[TargetComment] =
+    Decoder.decodeString.map(TargetComment)
 
   case class CommentRequest(comment: TargetComment)
 
@@ -33,6 +36,10 @@ object Requests {
 
   case class ExpireNotBeforeRequest(expireAt: Instant)
 
-  implicit val refreshRequestEncoder: Encoder[ExpireNotBeforeRequest] = io.circe.generic.semiauto.deriveEncoder[ExpireNotBeforeRequest]
-  implicit val refreshRequestDecoder: Decoder[ExpireNotBeforeRequest] = io.circe.generic.semiauto.deriveDecoder[ExpireNotBeforeRequest]
+  implicit val refreshRequestEncoder: Encoder[ExpireNotBeforeRequest] =
+    io.circe.generic.semiauto.deriveEncoder[ExpireNotBeforeRequest]
+
+  implicit val refreshRequestDecoder: Decoder[ExpireNotBeforeRequest] =
+    io.circe.generic.semiauto.deriveDecoder[ExpireNotBeforeRequest]
+
 }

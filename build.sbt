@@ -1,5 +1,4 @@
-
-def itFilter(name: String): Boolean = name endsWith "IntegrationSpec"
+def itFilter(name: String): Boolean = name.endsWith("IntegrationSpec")
 
 def unitFilter(name: String): Boolean = !itFilter(name)
 
@@ -20,7 +19,7 @@ lazy val commonDeps = libraryDependencies ++= {
     "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided,
     "io.github.uptane" %% "libats" % libatsVersion,
     "org.scalatest" %% "scalatest" % scalaTestV % "test",
-    "org.typelevel" %% "cats-core" % catsV,
+    "org.typelevel" %% "cats-core" % catsV
   )
 }
 
@@ -36,7 +35,6 @@ lazy val serverDependencies = libraryDependencies ++= {
     "com.typesafe.akka" %% "akka-slf4j" % akkaV,
     "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpV % "test",
     "com.softwaremill.sttp.client" %% "akka-http-backend" % "2.3.0" % "test",
-
     "io.github.uptane" %% "libats-http" % libatsVersion,
     "io.github.uptane" %% "libats-http-tracing" % libatsVersion,
     "io.github.uptane" %% "libats-messaging" % libatsVersion,
@@ -48,7 +46,6 @@ lazy val serverDependencies = libraryDependencies ++= {
   )
 }
 
-
 lazy val commonSettings = Seq(
   organization := "io.github.uptane",
   scalaVersion := "2.13.12",
@@ -56,12 +53,15 @@ lazy val commonSettings = Seq(
   organizationHomepage := Some(url("https://uptane.github.io/")),
   scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8", "-Xasync", "-Xsource:3"),
   Compile / console / scalacOptions ~= (_.filterNot(_ == "-Ywarn-unused-import")),
-  resolvers += "sonatype-snapshots" at "https://s01.oss.sonatype.org/content/repositories/snapshots",
-  resolvers += "sonatype-releases" at "https://s01.oss.sonatype.org/content/repositories/releases",
+  resolvers += "sonatype-snapshots".at(
+    "https://s01.oss.sonatype.org/content/repositories/snapshots"
+  ),
+  resolvers += "sonatype-releases".at("https://s01.oss.sonatype.org/content/repositories/releases"),
   licenses += ("MPL-2.0", url("http://mozilla.org/MPL/2.0/")),
   description := "scala tuf implementation support",
   buildInfoOptions += BuildInfoOption.ToMap,
-  buildInfoOptions += BuildInfoOption.BuildTime) ++
+  buildInfoOptions += BuildInfoOption.BuildTime
+) ++
   Seq(inConfig(ItTest)(Defaults.testTasks): _*) ++
   Seq(inConfig(UnitTest)(Defaults.testTasks): _*) ++
   (UnitTest / testOptions := Seq(Tests.Filter(unitFilter))) ++
@@ -71,13 +71,13 @@ lazy val commonSettings = Seq(
 
 lazy val libtuf = (project in file("libtuf"))
   .enablePlugins(Versioning.Plugin, BuildInfoPlugin)
-  .configs(commonConfigs:_*)
+  .configs(commonConfigs: _*)
   .settings(commonSettings)
   .settings(Publish.settings)
 
 lazy val libtuf_server = (project in file("libtuf-server"))
   .enablePlugins(Versioning.Plugin, BuildInfoPlugin)
-  .configs(commonConfigs:_*)
+  .configs(commonConfigs: _*)
   .settings(commonSettings)
   .settings(serverDependencies)
   .settings(Publish.settings)
@@ -85,7 +85,7 @@ lazy val libtuf_server = (project in file("libtuf-server"))
 
 lazy val keyserver = (project in file("keyserver"))
   .enablePlugins(BuildInfoPlugin, Versioning.Plugin, JavaAppPackaging)
-  .configs(commonConfigs:_*)
+  .configs(commonConfigs: _*)
   .settings(commonSettings)
   .settings(Packaging.docker("tuf-keyserver"))
   .settings(Publish.disable)
@@ -96,7 +96,7 @@ lazy val keyserver = (project in file("keyserver"))
 
 lazy val reposerver = (project in file("reposerver"))
   .enablePlugins(BuildInfoPlugin, Versioning.Plugin, JavaAppPackaging)
-  .configs(commonConfigs:_*)
+  .configs(commonConfigs: _*)
   .settings(commonSettings)
   .settings(serverDependencies)
   .settings(Packaging.docker("tuf-reposerver"))
@@ -107,7 +107,7 @@ lazy val reposerver = (project in file("reposerver"))
 
 lazy val tuf_server = (project in file("tuf-server"))
   .enablePlugins(BuildInfoPlugin, Versioning.Plugin, JavaAppPackaging)
-  .configs(commonConfigs:_*)
+  .configs(commonConfigs: _*)
   .settings(commonSettings)
   .settings(serverDependencies)
   .settings(Packaging.docker("tuf-server"))
@@ -119,7 +119,7 @@ lazy val tuf_server = (project in file("tuf-server"))
 
 lazy val cli = (project in file("cli"))
   .enablePlugins(BuildInfoPlugin, Versioning.Plugin, JavaAppPackaging)
-  .configs(commonConfigs:_*)
+  .configs(commonConfigs: _*)
   .settings(commonSettings)
   .settings(Publish.disable)
   .settings(BuildInfoSettings("com.advancedtelematic.tuf.cli"))
@@ -127,12 +127,11 @@ lazy val cli = (project in file("cli"))
     topLevelDirectory := Some("uptane-sign"),
     executableScriptName := "uptane-sign",
     Universal / mappings += (file("cli/LICENSE") -> "docs/LICENSE"),
-    libraryDependencies += "com.typesafe" % "config" % "1.4.3" % Test)
+    libraryDependencies += "com.typesafe" % "config" % "1.4.3" % Test
+  )
   .dependsOn(libtuf)
 
 lazy val ota_tuf = (project in file("."))
   .settings(Publish.disable)
   .settings(Release.settings(libtuf, libtuf_server, keyserver, reposerver))
   .aggregate(libtuf_server, libtuf, keyserver, reposerver, cli)
-
-

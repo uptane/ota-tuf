@@ -7,12 +7,12 @@ import xerial.sbt.Sonatype.autoImport._
 import java.net.URI
 
 object Publish {
-  private def readSettings(envKey: String, propKey: Option[String] = None): String = {
+
+  private def readSettings(envKey: String, propKey: Option[String] = None): String =
     sys.env
       .get(envKey)
       .orElse(propKey.flatMap(sys.props.get(_)))
       .getOrElse("")
-  }
 
   lazy val repoHost = URI.create(repoUrl).getHost
 
@@ -38,9 +38,9 @@ object Publish {
         sonatypePublishToBundle.value
       } else {
         if (isSnapshot.value)
-          Some("snapshots" at repoUrl)
+          Some("snapshots".at(repoUrl))
         else
-          Some("releases" at repoUrl)
+          Some("releases".at(repoUrl))
       }
     }
   )
@@ -54,4 +54,5 @@ object Publish {
     publishTo := None,
     publishLocal := (())
   )
+
 }

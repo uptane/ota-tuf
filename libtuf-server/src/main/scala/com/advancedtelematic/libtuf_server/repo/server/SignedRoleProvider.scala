@@ -8,7 +8,7 @@ import java.time.Instant
 import scala.concurrent.Future
 
 trait SignedRoleProvider {
-  def find[T : TufRole](repoId: RepoId): Future[SignedRole[T]]
+  def find[T: TufRole](repoId: RepoId): Future[SignedRole[T]]
 
   def persistAll(repoId: RepoId, roles: List[SignedRole[_]]): Future[List[SignedRole[_]]]
 

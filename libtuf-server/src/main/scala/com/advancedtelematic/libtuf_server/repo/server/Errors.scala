@@ -6,9 +6,13 @@ import com.advancedtelematic.libtuf.data.TufDataType.RepoId
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 
 object Errors {
-  implicit val showRepoIdError: Show[(RepoId, RoleType)] = Show.show { case (repoId: RepoId, roleType: RoleType) =>
-    s"$repoId/$roleType"
+
+  implicit val showRepoIdError: Show[(RepoId, RoleType)] = Show.show {
+    case (repoId: RepoId, roleType: RoleType) =>
+      s"$repoId/$roleType"
   }
 
-  def SignedRoleNotFound(repoId: RepoId, roleType: RoleType) = MissingEntityId[(RepoId, RoleType)](repoId -> roleType)
+  def SignedRoleNotFound(repoId: RepoId, roleType: RoleType) =
+    MissingEntityId[(RepoId, RoleType)](repoId -> roleType)
+
 }

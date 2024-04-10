@@ -4,7 +4,7 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.coding.Coders
 import akka.http.scaladsl.model.headers.HttpEncodings.{deflate, gzip}
-import akka.http.scaladsl.model.headers.{HttpEncodings, RawHeader, `Accept-Encoding`}
+import akka.http.scaladsl.model.headers.{`Accept-Encoding`, HttpEncodings, RawHeader}
 import akka.http.scaladsl.model.{HttpEntity, HttpMethods, HttpRequest, HttpResponse, Uri}
 import akka.http.scaladsl.unmarshalling.{FromEntityUnmarshaller, Unmarshaller}
 import akka.http.scaladsl.util.FastFuture
@@ -15,45 +15,59 @@ import scala.async.Async._
 import scala.concurrent.{ExecutionContext, Future}
 
 trait RemoteDelegationClient {
-  def fetch[Resp](uri: Uri, headers: Map[String, String])(implicit um: FromEntityUnmarshaller[Resp]): Future[Resp]
+
+  def fetch[Resp](uri: Uri, headers: Map[String, String])(
+    implicit um: FromEntityUnmarshaller[Resp]): Future[Resp]
+
 }
 
-class HttpRemoteDelegationClient()(implicit val ec: ExecutionContext, system: ActorSystem) extends RemoteDelegationClient {
+class HttpRemoteDelegationClient()(implicit val ec: ExecutionContext, system: ActorSystem)
+    extends RemoteDelegationClient {
   private val _http = Http()
 
   private lazy val log = LoggerFactory.getLogger(this.getClass)
 
-  override def fetch[Resp](uri: Uri, headers: Map[String, String])(implicit um: FromEntityUnmarshaller[Resp]): Future[Resp] = async {
-    val req = HttpRequest(HttpMethods.GET, uri).addHeader(`Accept-Encoding`(gzip, deflate, HttpEncodings.identity))
+  override def fetch[Resp](uri: Uri, headers: Map[String, String])(
+    implicit um: FromEntityUnmarshaller[Resp]): Future[Resp] = async {
+    val req = HttpRequest(HttpMethods.GET, uri).addHeader(
+      `Accept-Encoding`(gzip, deflate, HttpEncodings.identity)
+    )
     val reqWithHeaders = headers.foldLeft(req) { case (r, (n, v)) => r.addHeader(RawHeader(n, v)) }
     val resp = await(_http.singleRequest(reqWithHeaders).map(decodeResponse))
 
-    val f = if(resp.status.isFailure())
-      unmarshallStringOrError(resp.entity)
-        .flatMap { statusStr => FastFuture.failed(Errors.DelegationRemoteFetchFailed(uri, resp.status, statusStr)) }
-    else
-      unmarshallJsonOrError(resp.entity)
-        .recoverWith { case err => FastFuture.failed(Errors.DelegationRemoteParseFailed(uri, err.getMessage)) }
+    val f =
+      if (resp.status.isFailure())
+        unmarshallStringOrError(resp.entity)
+          .flatMap { statusStr =>
+            FastFuture.failed(Errors.DelegationRemoteFetchFailed(uri, resp.status, statusStr))
+          }
+      else
+        unmarshallJsonOrError(resp.entity)
+          .recoverWith { case err =>
+            FastFuture.failed(Errors.DelegationRemoteParseFailed(uri, err.getMessage))
+          }
 
     await(f)
   }
 
-  private def unmarshallJsonOrError[R](entity: HttpEntity)(implicit um: FromEntityUnmarshaller[R]): Future[R] = {
+  private def unmarshallJsonOrError[R](entity: HttpEntity)(
+    implicit um: FromEntityUnmarshaller[R]): Future[R] =
     um.apply(entity)
       .recoverWith { case err =>
-        if(log.isDebugEnabled) {
-          unmarshallStringOrError(entity).recover { case err => err.getMessage }.foreach { payload =>
-            log.warn("Could not unmarshall remote response. Response was: " + payload)
+        if (log.isDebugEnabled) {
+          unmarshallStringOrError(entity).recover { case err => err.getMessage }.foreach {
+            payload =>
+              log.warn("Could not unmarshall remote response. Response was: " + payload)
           }
         }
 
         FastFuture.failed(err)
       }
-  }
 
   private def unmarshallStringOrError(entity: HttpEntity): Future[String] =
-    Unmarshaller.stringUnmarshaller.apply(entity).recover { case err => s"Could not unmarshall response: ${err.getMessage}" }
-
+    Unmarshaller.stringUnmarshaller.apply(entity).recover { case err =>
+      s"Could not unmarshall response: ${err.getMessage}"
+    }
 
   private def decodeResponse(response: HttpResponse): HttpResponse = {
     val decoder = response.encoding match {
@@ -70,4 +84,5 @@ class HttpRemoteDelegationClient()(implicit val ec: ExecutionContext, system: Ac
 
     decoder.decodeMessage(response)
   }
+
 }

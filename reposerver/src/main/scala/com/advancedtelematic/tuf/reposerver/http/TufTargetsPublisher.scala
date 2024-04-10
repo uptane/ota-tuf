@@ -15,32 +15,44 @@ import com.advancedtelematic.tuf.reposerver.data.RepoDataType.TargetItem
 
 import scala.util.Try
 
-
 class TufTargetsPublisher(messageBus: MessageBusPublisher)(implicit ec: ExecutionContext) {
-  def targetAdded(namespace: Namespace, item: TargetItem): Future[Try[Unit]] = {
+
+  def targetAdded(namespace: Namespace, item: TargetItem): Future[Try[Unit]] =
     for {
-      t <- messageBus.publishSafe(TufTargetAdded(namespace, item.filename, item.checksum, item.length, item.custom))
+      t <- messageBus.publishSafe(
+        TufTargetAdded(namespace, item.filename, item.checksum, item.length, item.custom)
+      )
       _ <- targetsMetaModified(namespace)
     } yield t
-  }
 
-  def newTargetsAdded(namespace: Namespace, allTargets: Map[TargetFilename, ClientTargetItem], existing: Seq[TargetItem]): Future[Unit] = {
+  def newTargetsAdded(namespace: Namespace,
+                      allTargets: Map[TargetFilename, ClientTargetItem],
+                      existing: Seq[TargetItem]): Future[Unit] =
     for {
-      res <- newTargetsFromExisting(allTargets, existing.map(_.filename)).toList.traverse_ {case (filename, checksum, clientTargetItem) =>
-        messageBus.publishSafe(TufTargetAdded (namespace, filename, checksum,
-        clientTargetItem.length, clientTargetItem.customParsed[TargetCustom]))
+      res <- newTargetsFromExisting(allTargets, existing.map(_.filename)).toList.traverse_ {
+        case (filename, checksum, clientTargetItem) =>
+          messageBus.publishSafe(
+            TufTargetAdded(
+              namespace,
+              filename,
+              checksum,
+              clientTargetItem.length,
+              clientTargetItem.customParsed[TargetCustom]
+            )
+          )
       }
-      _ <- targetsMetaModified (namespace)
+      _ <- targetsMetaModified(namespace)
     } yield res
-  }
-  
+
   def targetsMetaModified(namespace: Namespace): Future[Try[Unit]] =
     messageBus.publishSafe(TufTargetsModified(namespace))
 
-  private def newTargetsFromExisting(allTargets: Map[TargetFilename, ClientTargetItem], existing: Seq[TargetFilename]) =
+  private def newTargetsFromExisting(allTargets: Map[TargetFilename, ClientTargetItem],
+                                     existing: Seq[TargetFilename]) =
     (allTargets -- existing.toSet).flatMap { case (targetFilename, clientTargetItem) =>
       clientTargetItem.hashes.headOption.map { case (hashMethod, validChecksum) =>
         (targetFilename, Checksum(hashMethod, validChecksum), clientTargetItem)
       }
     }
+
 }

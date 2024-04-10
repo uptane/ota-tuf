@@ -7,21 +7,23 @@ import com.advancedtelematic.libats.data.DataType.Namespace
 import scala.util.Random
 
 object NamespaceSpecOps {
+
   trait NamespaceTag {
     val value: String
   }
 
-  def withNamespace[T](ns: String)(fn: NamespaceTag => T): T = {
+  def withNamespace[T](ns: String)(fn: NamespaceTag => T): T =
     fn.apply(new NamespaceTag {
       override val value = ns
     })
-  }
 
   def withRandomNamepace[T](fn: NamespaceTag => T) = withNamespace(genName)(fn)
 
   implicit class Namespaced(value: HttpRequest) {
+
     def namespaced(implicit namespaceTag: NamespaceTag): HttpRequest =
       value.addHeader(RawHeader("x-ats-namespace", namespaceTag.value))
+
   }
 
   def genName = Random.alphanumeric.take(10).mkString
