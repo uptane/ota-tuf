@@ -12,8 +12,13 @@ import com.advancedtelematic.libats.test.MysqlDatabaseSpec
 
 import scala.concurrent.ExecutionContext
 
-class KeysToJsonEncodedMigrationSpec extends TufKeyserverSpec with TestKitBase with MysqlDatabaseSpec with PatienceConfiguration with LongTest
-  with KeyRepositorySupport {
+class KeysToJsonEncodedMigrationSpec
+    extends TufKeyserverSpec
+    with TestKitBase
+    with MysqlDatabaseSpec
+    with PatienceConfiguration
+    with LongTest
+    with KeyRepositorySupport {
 
   override implicit lazy val system: ActorSystem = ActorSystem(this.getClass.getSimpleName)
 
@@ -27,7 +32,8 @@ class KeysToJsonEncodedMigrationSpec extends TufKeyserverSpec with TestKitBase w
   }
 
   test("updates a key from old encoding to new encoding") {
-    val keyId = "fdd99c4f6447e10d6d5373d80622d4e26b227e67a22b2b3963914b8ed75f7555".refineTry[ValidKeyId].get
+    val keyId =
+      "fdd99c4f6447e10d6d5373d80622d4e26b227e67a22b2b3963914b8ed75f7555".refineTry[ValidKeyId].get
 
     val sql =
       sqlu"""insert into `keys` (key_id, repo_id, role_type, key_type, public_key, private_key) VALUES (
@@ -45,4 +51,5 @@ class KeysToJsonEncodedMigrationSpec extends TufKeyserverSpec with TestKitBase w
 
     keyRepo.find(keyId).futureValue.publicKey shouldBe a[RSATufKey]
   }
+
 }

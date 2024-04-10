@@ -30,8 +30,7 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.{Duration, FiniteDuration}
-import scala.concurrent.{Future, duration}
-
+import scala.concurrent.{duration, Future}
 
 trait Settings {
 
@@ -55,8 +54,10 @@ trait Settings {
   lazy val azureSettings = {
     val azureConfig = _config.getConfig("storage.azure")
     val connectionString = azureConfig.getString("connectionString")
-    val signatureTtl = FiniteDuration.apply(azureConfig.getDuration("signatureTtl").getSeconds, duration.SECONDS)
-    reposerver.target_store.AzureTargetStoreEngine.BlobStorageSettings(connectionString, signatureTtl)
+    val signatureTtl =
+      FiniteDuration.apply(azureConfig.getDuration("signatureTtl").getSeconds, duration.SECONDS)
+    reposerver.target_store.AzureTargetStoreEngine
+      .BlobStorageSettings(connectionString, signatureTtl)
   }
 
   lazy val outOfBandUploadLimit = _config.getBytes("storage.outOfBandUploadLimit")
@@ -70,27 +71,29 @@ trait Settings {
   lazy val userRepoSizeLimit = _config.getLong("http.server.sizeLimit")
 
   // not using Config.getDuration() here because that parses different formats than what Akka uses
-  lazy val userRepoUploadRequestTimeout = Duration(_config.getString("http.server.uploadRequestTimeout"))
+  lazy val userRepoUploadRequestTimeout = Duration(
+    _config.getString("http.server.uploadRequestTimeout")
+  )
 
   lazy val akkaRequestTimeout = _config.getString("akka.http.server.request-timeout")
 
   lazy val akkaIdleTimeout = _config.getString("akka.http.server.idle-timeout")
 }
 
-
 class ReposerverBoot(override val globalConfig: Config,
                      override val dbConfig: Config,
-                     override val metricRegistry: MetricRegistry)
-                    (implicit override val system: ActorSystem) extends BootApp
-  with Directives
-  with Settings
-  with VersionInfo
-  with DatabaseSupport
-  with BootMigrations
-  with MetricsSupport
-  with DatabaseMetrics
-  with AkkaHttpRequestMetrics
-  with PrometheusMetricsSupport {
+                     override val metricRegistry: MetricRegistry)(
+  implicit override val system: ActorSystem)
+    extends BootApp
+    with Directives
+    with Settings
+    with VersionInfo
+    with DatabaseSupport
+    with BootMigrations
+    with MetricsSupport
+    with DatabaseMetrics
+    with AkkaHttpRequestMetrics
+    with PrometheusMetricsSupport {
 
   private lazy val log = LoggerFactory.getLogger(this.getClass)
 
@@ -99,7 +102,9 @@ class ReposerverBoot(override val globalConfig: Config,
   def bind(): Future[ServerBinding] = {
     log.info(s"Starting ${nameVersion} on http://$host:$port")
 
-    def keyStoreClient(implicit requestTracing: ServerRequestTracing) = KeyserverHttpClient(keyServerUri)
+    def keyStoreClient(implicit requestTracing: ServerRequestTracing) = KeyserverHttpClient(
+      keyServerUri
+    )
 
     val messageBusPublisher = MessageBus.publisher(system, globalConfig)
 
@@ -111,7 +116,8 @@ class ReposerverBoot(override val globalConfig: Config,
       LocalTargetStoreEngine(targetStoreRoot)
     }
 
-    def targetStore(implicit requestTracing: ServerRequestTracing) = TargetStore(keyStoreClient, targetStoreEngine, messageBusPublisher)
+    def targetStore(implicit requestTracing: ServerRequestTracing) =
+      TargetStore(keyStoreClient, targetStoreEngine, messageBusPublisher)
 
     val keyserverHealthCheck = new ServiceHealthCheck(keyServerUri)
 
@@ -120,25 +126,32 @@ class ReposerverBoot(override val globalConfig: Config,
     implicit val tracing = Tracing.fromConfig(globalConfig, "reposerver")
 
     val routes: Route =
-      (versionHeaders(nameVersion) & requestMetrics(metricRegistry) & logResponseMetrics(projectName) & logRequestResult(("reposerver", Logging.DebugLevel))) {
+      (versionHeaders(nameVersion) & requestMetrics(metricRegistry) & logResponseMetrics(
+        projectName
+      ) & logRequestResult(("reposerver", Logging.DebugLevel))) {
         tracing.traceRequests { implicit requestTracing =>
-          new TufReposerverRoutes(keyStoreClient, NamespaceValidation.withDatabase, targetStore,
+          new TufReposerverRoutes(
+            keyStoreClient,
+            NamespaceValidation.withDatabase,
+            targetStore,
             messageBusPublisher,
             remoteDelegationClient,
             prometheusMetricsRoutes,
-            Seq(keyserverHealthCheck), metricRegistry).routes
+            Seq(keyserverHealthCheck),
+            metricRegistry
+          ).routes
         }
       }
 
     Http().newServerAt(host, port).bindFlow(routes)
   }
-}
 
+}
 
 object Boot extends BootAppDefaultConfig with VersionInfo with BootAppDatabaseConfig {
   Security.addProvider(new BouncyCastleProvider)
 
-  def main(args: Array[String]): Unit = {
+  def main(args: Array[String]): Unit =
     new ReposerverBoot(globalConfig, dbConfig, MetricsSupport.metricRegistry).bind()
-  }
+
 }

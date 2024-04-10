@@ -20,52 +20,51 @@ import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
 
-
 object KeyGeneratorLeader {
   case object Tick
 
   def props()(implicit db: Database, ec: ExecutionContext): Props =
     Props(new KeyGeneratorLeader(DefaultKeyGenerationOp()))
 
-
   def props(keyGenerationOp: KeyGenRequest => Future[Seq[Key]])(implicit db: Database): Props =
     Props(new KeyGeneratorLeader(keyGenerationOp))
+
 }
 
-class KeyGeneratorLeader(keyGenerationOp: KeyGenRequest => Future[Seq[Key]])(implicit val db: Database) extends Actor with ActorLogging with KeyGenRequestSupport {
+class KeyGeneratorLeader(keyGenerationOp: KeyGenRequest => Future[Seq[Key]])(
+  implicit val db: Database)
+    extends Actor
+    with ActorLogging
+    with KeyGenRequestSupport {
 
-  implicit val ec : scala.concurrent.ExecutionContextExecutor= context.dispatcher
+  implicit val ec: scala.concurrent.ExecutionContextExecutor = context.dispatcher
 
   private val WORKER_COUNT = 10
 
-  override def preStart(): Unit = {
+  override def preStart(): Unit =
     self ! Tick
-  }
 
   private val router = {
     val routerProps = RoundRobinPool(WORKER_COUNT)
       .withSupervisorStrategy(SupervisorStrategy.defaultStrategy)
       .props(KeyGeneratorWorker.props(keyGenerationOp))
 
-     context.system.actorOf(routerProps)
+    context.system.actorOf(routerProps)
   }
 
   def waiting(totalTasks: Int, remaining: Int): Receive =
-    if(remaining == 0) {
-      val nextInterval = if(totalTasks > 0) 0.seconds else 3.seconds
+    if (remaining == 0) {
+      val nextInterval = if (totalTasks > 0) 0.seconds else 3.seconds
       log.info("Finished generating {} keys", totalTasks)
       context.system.scheduler.scheduleOnce(nextInterval, self, Tick)
       receive
     } else {
-      {
-        case Status.Success(_) =>
-          context.become(waiting(totalTasks, remaining - 1))
-        case Status.Failure(ex) =>
-          log.error(ex, "Could not generate key")
-          context.become(waiting(totalTasks, remaining - 1))
-      }
+      case Status.Success(_) =>
+        context.become(waiting(totalTasks, remaining - 1))
+      case Status.Failure(ex) =>
+        log.error(ex, "Could not generate key")
+        context.become(waiting(totalTasks, remaining - 1))
     }
-
 
   override def receive: Receive = {
     case Status.Failure(ex) =>
@@ -73,18 +72,19 @@ class KeyGeneratorLeader(keyGenerationOp: KeyGenRequest => Future[Seq[Key]])(imp
 
     case taskCount: Int =>
       log.info("Waiting for {} key generation tasks to complete", taskCount)
-      context become waiting(taskCount, taskCount)
+      context.become(waiting(taskCount, taskCount))
 
     case Tick =>
       log.info("Tick")
 
       val f = keyGenRepo.findPending(limit = WORKER_COUNT * 4).map { m =>
-        m.foreach { router ! _ }
+        m.foreach(router ! _)
         m.size
       }
 
       f.pipeTo(self)
   }
+
 }
 
 object KeyGenerationOp {
@@ -92,12 +92,14 @@ object KeyGenerationOp {
 }
 
 object DefaultKeyGenerationOp {
-  def apply()(implicit db: Database,  ec: ExecutionContext): DefaultKeyGenerationOp =
+
+  def apply()(implicit db: Database, ec: ExecutionContext): DefaultKeyGenerationOp =
     new DefaultKeyGenerationOp()
+
 }
 
 class DefaultKeyGenerationOp()(implicit val db: Database, val ec: ExecutionContext)
-  extends KeyGenerationOp
+    extends KeyGenerationOp
     with KeyGenRequestSupport
     with KeyRepositorySupport {
 
@@ -122,33 +124,37 @@ class DefaultKeyGenerationOp()(implicit val db: Database, val ec: ExecutionConte
       _log.info("Generated keys {}", keys.map(_.id.value).mkString(","))
       keys
     }
+
 }
 
 object KeyGeneratorWorker {
-  def props(keyGenerationOp: KeyGenRequest => Future[Seq[Key]])(implicit db: Database): Props = {
+
+  def props(keyGenerationOp: KeyGenRequest => Future[Seq[Key]])(implicit db: Database): Props =
     Props(new KeyGeneratorWorker(keyGenerationOp))
-  }
+
 }
 
-class KeyGeneratorWorker(keyGenerationOp: KeyGenRequest => Future[Seq[Key]])(implicit val db: Database) extends Actor
-  with ActorLogging
-  with KeyGenRequestSupport
-  with KeyRepositorySupport {
+class KeyGeneratorWorker(keyGenerationOp: KeyGenRequest => Future[Seq[Key]])(
+  implicit val db: Database)
+    extends Actor
+    with ActorLogging
+    with KeyGenRequestSupport
+    with KeyRepositorySupport {
 
-  implicit val ec : scala.concurrent.ExecutionContextExecutor= context.dispatcher
+  implicit val ec: scala.concurrent.ExecutionContextExecutor = context.dispatcher
 
-  override def receive: Receive = {
-    case kgr: KeyGenRequest =>
-      log.info(s"Received key gen request for {}", kgr.id.show)
+  override def receive: Receive = { case kgr: KeyGenRequest =>
+    log.info(s"Received key gen request for {}", kgr.id.show)
 
-      keyGenerationOp(kgr)
-        .map(Success)
-        .recoverWith {
-          case ex =>
-            log.error("Key generation failed: {}", ex.getMessage)
-            keyGenRepo
-              .setStatus(kgr.id, KeyGenRequestStatus.ERROR, Option(ex))
-              .map(_ => Failure(ex))
-        }.pipeTo(sender())
+    keyGenerationOp(kgr)
+      .map(Success)
+      .recoverWith { case ex =>
+        log.error("Key generation failed: {}", ex.getMessage)
+        keyGenRepo
+          .setStatus(kgr.id, KeyGenRequestStatus.ERROR, Option(ex))
+          .map(_ => Failure(ex))
+      }
+      .pipeTo(sender())
   }
+
 }

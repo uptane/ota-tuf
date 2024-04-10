@@ -16,9 +16,12 @@ import java.time.temporal.ChronoUnit
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.ExecutionContext.Implicits
 
-
 // TODO: Should be moved to libtuf_server and tested without TufRepoProviders
-class SignedRoleGenerationSpec extends TufReposerverSpec with MysqlDatabaseSpec with SignedRoleRepositorySupport with ScalaFutures {
+class SignedRoleGenerationSpec
+    extends TufReposerverSpec
+    with MysqlDatabaseSpec
+    with SignedRoleRepositorySupport
+    with ScalaFutures {
   override implicit val ec: ExecutionContext = Implicits.global
 
   override implicit def patienceConfig = PatienceConfig().copy(timeout = Span(5, Seconds))
@@ -26,7 +29,13 @@ class SignedRoleGenerationSpec extends TufReposerverSpec with MysqlDatabaseSpec 
   val fakeKeyserverClient: FakeKeyserverClient = new FakeKeyserverClient
 
   val signedRoleGeneration = TufRepoSignedRoleGeneration(fakeKeyserverClient)
-  implicit val roleRefresh: com.advancedtelematic.libtuf_server.repo.server.RepoRoleRefresh = new RepoRoleRefresh(fakeKeyserverClient, new TufRepoSignedRoleProvider(), new TufRepoTargetItemsProvider())
+
+  implicit val roleRefresh: com.advancedtelematic.libtuf_server.repo.server.RepoRoleRefresh =
+    new RepoRoleRefresh(
+      fakeKeyserverClient,
+      new TufRepoSignedRoleProvider(),
+      new TufRepoTargetItemsProvider()
+    )
 
   def setupRepo(): Future[RepoId] = for {
     repoId <- FastFuture.successful(RepoId.generate())
@@ -40,11 +49,18 @@ class SignedRoleGenerationSpec extends TufReposerverSpec with MysqlDatabaseSpec 
     val oldTimestamps = signedRoleGeneration.findRole[TimestampRole](repoId).futureValue
     val oldSnapshots = signedRoleGeneration.findRole[SnapshotRole](repoId).futureValue
 
-    signedRoleRepository.persist[SnapshotRole](repoId, oldSnapshots.copy(expiresAt = Instant.now().minusSeconds(60)), forceVersion = true).futureValue
+    signedRoleRepository
+      .persist[SnapshotRole](
+        repoId,
+        oldSnapshots.copy(expiresAt = Instant.now().minusSeconds(60)),
+        forceVersion = true
+      )
+      .futureValue
 
     val renewedSnapshots = signedRoleGeneration.findRole[SnapshotRole](repoId).futureValue
     val renewedTimestampsDb = signedRoleRepository.find[TimestampRole](repoId).futureValue
-    val (_, renewedSnapshotsHash) = renewedTimestampsDb.role.meta(RoleType.SNAPSHOT.metaPath).hashes.head
+    val (_, renewedSnapshotsHash) =
+      renewedTimestampsDb.role.meta(RoleType.SNAPSHOT.metaPath).hashes.head
 
     renewedSnapshots.checksum shouldNot be(oldSnapshots.checksum)
     renewedSnapshots.version shouldBe oldSnapshots.version + 1
@@ -60,12 +76,19 @@ class SignedRoleGenerationSpec extends TufReposerverSpec with MysqlDatabaseSpec 
     val oldSnapshots = signedRoleGeneration.findRole[SnapshotRole](repoId).futureValue
     val oldTimestamps = signedRoleGeneration.findRole[TimestampRole](repoId).futureValue
 
-    signedRoleRepository.persist[TargetsRole](repoId, oldTargets.copy(expiresAt = Instant.now().minusSeconds(60)), forceVersion = true).futureValue
+    signedRoleRepository
+      .persist[TargetsRole](
+        repoId,
+        oldTargets.copy(expiresAt = Instant.now().minusSeconds(60)),
+        forceVersion = true
+      )
+      .futureValue
 
     val renewedTargets = signedRoleGeneration.findRole[TargetsRole](repoId).futureValue
     val renewedSnapshots = signedRoleRepository.find[SnapshotRole](repoId).futureValue
     val renewedTimestamps = signedRoleGeneration.findRole[TimestampRole](repoId).futureValue
-    val (_, renewedSnapshotsHash) = renewedTimestamps.role.meta(RoleType.SNAPSHOT.metaPath).hashes.head
+    val (_, renewedSnapshotsHash) =
+      renewedTimestamps.role.meta(RoleType.SNAPSHOT.metaPath).hashes.head
 
     val renewedSnaphotsParsed = renewedSnapshots.role
     val (_, renewedTargetsHash) = renewedSnaphotsParsed.meta(RoleType.TARGETS.metaPath).hashes.head
@@ -83,7 +106,13 @@ class SignedRoleGenerationSpec extends TufReposerverSpec with MysqlDatabaseSpec 
     val oldTargets = signedRoleGeneration.findRole[TargetsRole](repoId).futureValue
     val oldSnapshots = signedRoleGeneration.findRole[SnapshotRole](repoId).futureValue
 
-    signedRoleRepository.persist[TargetsRole](repoId, oldTargets.copy(expiresAt = Instant.now().minus(365, ChronoUnit.DAYS)), forceVersion = true).futureValue
+    signedRoleRepository
+      .persist[TargetsRole](
+        repoId,
+        oldTargets.copy(expiresAt = Instant.now().minus(365, ChronoUnit.DAYS)),
+        forceVersion = true
+      )
+      .futureValue
 
     val renewedSnapshots = signedRoleGeneration.findRole[SnapshotRole](repoId).futureValue
 
@@ -101,14 +130,23 @@ class SignedRoleGenerationSpec extends TufReposerverSpec with MysqlDatabaseSpec 
     val oldSnapshots = signedRoleGeneration.findRole[SnapshotRole](repoId).futureValue
     val oldTimestamps = signedRoleGeneration.findRole[TimestampRole](repoId).futureValue
 
-    signedRoleRepository.persist[TargetsRole](repoId, oldTargets.copy(expiresAt = Instant.now().minus(365, ChronoUnit.DAYS)), forceVersion = true).futureValue
+    signedRoleRepository
+      .persist[TargetsRole](
+        repoId,
+        oldTargets.copy(expiresAt = Instant.now().minus(365, ChronoUnit.DAYS)),
+        forceVersion = true
+      )
+      .futureValue
 
     val renewedTimestamps = signedRoleGeneration.findRole[TimestampRole](repoId).futureValue
 
     renewedTimestamps.version shouldBe oldTimestamps.version + 1
-    renewedTimestamps.role.meta(RoleType.SNAPSHOT.metaPath).version shouldBe oldSnapshots.version + 1
+    renewedTimestamps.role
+      .meta(RoleType.SNAPSHOT.metaPath)
+      .version shouldBe oldSnapshots.version + 1
 
     val renewedTargets = signedRoleGeneration.findRole[TargetsRole](repoId).futureValue
     renewedTargets.version shouldBe oldTargets.version + 1
   }
+
 }

@@ -25,9 +25,10 @@ import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-class RootRoleResource()
-                      (implicit val db: Database, val ec: ExecutionContext)
-  extends KeyGenRequestSupport with Settings {
+class RootRoleResource()(implicit val db: Database, val ec: ExecutionContext)
+    extends KeyGenRequestSupport
+    with Settings {
+
   import ClientRootGenRequest.*
   import akka.http.scaladsl.server.Directives.*
 
@@ -36,13 +37,18 @@ class RootRoleResource()
   val rootRoleKeyEdit = new RootRoleKeyEdit()
   val roleSigning = new RoleSigning()
 
-    private def createRootNow(repoId: RepoId, genRequest: ClientRootGenRequest) = {
+  private def createRootNow(repoId: RepoId, genRequest: ClientRootGenRequest) = {
     require(genRequest.threshold > 0, "threshold must be greater than 0")
 
     val keyGenerationOp = DefaultKeyGenerationOp()
 
     val f = for { // use ERROR so the daemon doesn't pickup this request
-      reqs <- keyGenerationRequests.createDefaultGenRequest(repoId, genRequest.threshold, genRequest.keyType, KeyGenRequestStatus.ERROR)
+      reqs <- keyGenerationRequests.createDefaultGenRequest(
+        repoId,
+        genRequest.threshold,
+        genRequest.keyType,
+        KeyGenRequestStatus.ERROR
+      )
       _ <- Future.traverse(reqs)(keyGenerationOp)
       _ <- signedRootRoles.findFreshAndPersist(repoId) // Force generation of root.json role now
     } yield StatusCodes.Created -> reqs.map(_.id)
@@ -54,7 +60,12 @@ class RootRoleResource()
     require(genRequest.threshold > 0, "threshold must be greater than 0")
 
     val f = keyGenerationRequests
-      .createDefaultGenRequest(repoId, genRequest.threshold, genRequest.keyType, KeyGenRequestStatus.REQUESTED)
+      .createDefaultGenRequest(
+        repoId,
+        genRequest.threshold,
+        genRequest.keyType,
+        KeyGenRequestStatus.REQUESTED
+      )
       .map(StatusCodes.Accepted -> _.map(_.id))
 
     complete(f)
@@ -67,117 +78,139 @@ class RootRoleResource()
           val f = keyGenerationRequests.forceRetry(repoId).map(_ => StatusCodes.OK)
           complete(f)
         } ~
-        (post & entity(as[ClientRootGenRequest])) {
-          case genRequest if genRequest.forceSync.contains(true) || genRequest.forceSync.isEmpty   =>
-            createRootNow(repoId, genRequest)
-          case genRequest =>
-            createRootLater(repoId, genRequest)
-        } ~
-        (get & optionalHeaderValueByName("x-trx-expire-not-before").map(_.map(Instant.parse))) { expireNotBefore =>
-          val f = signedRootRoles.findFreshAndPersist(repoId, expireNotBefore)
-          complete(f)
-        }
-      } ~
-      (path("rotate") & put) {
-        onSuccess(rootRoleKeyEdit.rotate(repoId)) {
-          complete(StatusCodes.OK)
-        }
-      } ~
-      path("1") {
-        val f = signedRootRoles
-          .findByVersion(repoId, version = 1)
-          .recoverWith {
-            case SignedRootRoleRepository.MissingSignedRole =>
-              signedRootRoles.findFreshAndPersist(repoId)
+          (post & entity(as[ClientRootGenRequest])) {
+            case genRequest
+                if genRequest.forceSync.contains(true) || genRequest.forceSync.isEmpty =>
+              createRootNow(repoId, genRequest)
+            case genRequest =>
+              createRootLater(repoId, genRequest)
+          } ~
+          (get & optionalHeaderValueByName("x-trx-expire-not-before").map(_.map(Instant.parse))) {
+            expireNotBefore =>
+              val f = signedRootRoles.findFreshAndPersist(repoId, expireNotBefore)
+              complete(f)
           }
-
-        complete(f)
       } ~
-      path(IntNumber) { version =>
-        onComplete(signedRootRoles.findByVersion(repoId, version)) {
-          case Success(role) =>
-            complete(role)
-
-          case Failure(err) if err ==  MissingSignedRole =>
-            onSuccess(signedRootRoles.findFreshAndPersist(repoId)) { latestRoot =>
-              if(latestRoot.signed.version == version)
-                complete(latestRoot)
-              else {
-                val notFoundErrRepr = ErrorRepresentation(MissingSignedRole.code, MissingSignedRole.msg, None, Option(MissingSignedRole.errorId)).asJson
-                val refreshErr = ErrorRepresentation(MissingSignedRole.code, "Root role not found and role not refreshed", Option(notFoundErrRepr), Option(MissingSignedRole.errorId))
-                complete(StatusCodes.NotFound -> refreshErr.asJson) // Avoids logging error by returning ready respond instead of using failWith
-              }
+        (path("rotate") & put) {
+          onSuccess(rootRoleKeyEdit.rotate(repoId)) {
+            complete(StatusCodes.OK)
+          }
+        } ~
+        path("1") {
+          val f = signedRootRoles
+            .findByVersion(repoId, version = 1)
+            .recoverWith { case SignedRootRoleRepository.MissingSignedRole =>
+              signedRootRoles.findFreshAndPersist(repoId)
             }
 
-          case Failure(ex) =>
-            failWith(ex)
-        }
-      } ~
-      pathPrefix("private_keys") {
-        path(KeyIdPath) { keyId =>
-          delete {
-            val f = signedRootRoles
-              .findFreshAndPersist(repoId)
-              .flatMap(_ => rootRoleKeyEdit.deletePrivateKey(repoId, keyId))
-              .map(_ => StatusCodes.NoContent)
+          complete(f)
+        } ~
+        path(IntNumber) { version =>
+          onComplete(signedRootRoles.findByVersion(repoId, version)) {
+            case Success(role) =>
+              complete(role)
 
+            case Failure(err) if err == MissingSignedRole =>
+              onSuccess(signedRootRoles.findFreshAndPersist(repoId)) { latestRoot =>
+                if (latestRoot.signed.version == version)
+                  complete(latestRoot)
+                else {
+                  val notFoundErrRepr = ErrorRepresentation(
+                    MissingSignedRole.code,
+                    MissingSignedRole.msg,
+                    None,
+                    Option(MissingSignedRole.errorId)
+                  ).asJson
+                  val refreshErr = ErrorRepresentation(
+                    MissingSignedRole.code,
+                    "Root role not found and role not refreshed",
+                    Option(notFoundErrRepr),
+                    Option(MissingSignedRole.errorId)
+                  )
+                  complete(
+                    StatusCodes.NotFound -> refreshErr.asJson
+                  ) // Avoids logging error by returning ready respond instead of using failWith
+                }
+              }
+
+            case Failure(ex) =>
+              failWith(ex)
+          }
+        } ~
+        pathPrefix("private_keys") {
+          path(KeyIdPath) { keyId =>
+            delete {
+              val f = signedRootRoles
+                .findFreshAndPersist(repoId)
+                .flatMap(_ => rootRoleKeyEdit.deletePrivateKey(repoId, keyId))
+                .map(_ => StatusCodes.NoContent)
+
+              complete(f)
+            }
+          }
+        } ~
+        path(RoleTypePath) { roleType =>
+          (post & entity(as[Json])) { payload =>
+            val f = roleSigning.signWithRole(repoId, roleType, payload)
             complete(f)
           }
-        }
-      } ~
-      path(RoleTypePath) { roleType =>
-        (post & entity(as[Json])) { payload =>
-          val f = roleSigning.signWithRole(repoId, roleType, payload)
-          complete(f)
-        }
-      } ~
-      (path("roles" / "offline-updates") & put) {
-        val f = for {
-          _ <- signedRootRoles.addRolesIfNotPresent(repoId, RoleType.OFFLINE_UPDATES, RoleType.OFFLINE_SNAPSHOT)
-        } yield StatusCodes.OK
+        } ~
+        (path("roles" / "offline-updates") & put) {
+          val f = for {
+            _ <- signedRootRoles.addRolesIfNotPresent(
+              repoId,
+              RoleType.OFFLINE_UPDATES,
+              RoleType.OFFLINE_SNAPSHOT
+            )
+          } yield StatusCodes.OK
 
-        complete(f)
-      } ~
-      (path("roles" / "remote-sessions") & put) {
-        val f = for {
-          _ <- signedRootRoles.addRolesIfNotPresent(repoId, RoleType.REMOTE_SESSIONS)
-        } yield StatusCodes.OK
-
-        complete(f)
-      } ~
-      path("unsigned") {
-        get {
-          val f = signedRootRoles.findForSign(repoId)
           complete(f)
         } ~
-        (post & entity(as[JsonSignedPayload])) { signedPayload =>
-          val f: Future[ToResponseMarshallable] =
-            signedRootRoles.persistUserSigned(repoId, signedPayload).map {
-              case Valid(_) =>
-                StatusCodes.NoContent
-              case Invalid(errors) =>
-                val err = ErrorRepresentation(ErrorCodes.KeyServer.InvalidRootRole, "Invalid user signed root", Option(errors.asJson))
-                StatusCodes.BadRequest -> err
+        (path("roles" / "remote-sessions") & put) {
+          val f = for {
+            _ <- signedRootRoles.addRolesIfNotPresent(repoId, RoleType.REMOTE_SESSIONS)
+          } yield StatusCodes.OK
+
+          complete(f)
+        } ~
+        path("unsigned") {
+          get {
+            val f = signedRootRoles.findForSign(repoId)
+            complete(f)
+          } ~
+            (post & entity(as[JsonSignedPayload])) { signedPayload =>
+              val f: Future[ToResponseMarshallable] =
+                signedRootRoles.persistUserSigned(repoId, signedPayload).map {
+                  case Valid(_) =>
+                    StatusCodes.NoContent
+                  case Invalid(errors) =>
+                    val err = ErrorRepresentation(
+                      ErrorCodes.KeyServer.InvalidRootRole,
+                      "Invalid user signed root",
+                      Option(errors.asJson)
+                    )
+                    StatusCodes.BadRequest -> err
+                }
+              complete(f)
             }
-          complete(f)
-        }
-      } ~
-      pathPrefix("keys") {
-        (get & path(KeyIdPath)) { keyId =>
-          complete(rootRoleKeyEdit.findKeyPair(repoId, keyId))
         } ~
-        pathPrefix("targets") { // TODO: This should be param roleType=targets
-          path("pairs") { // TODO: This should be pathEnd
-            get {
-              onSuccess(rootRoleKeyEdit.findAllKeyPairs(repoId, RoleType.TARGETS)) {
-                case pairs if pairs.nonEmpty => complete(pairs)
-                case _ => complete(StatusCodes.NotFound)
+        pathPrefix("keys") {
+          (get & path(KeyIdPath)) { keyId =>
+            complete(rootRoleKeyEdit.findKeyPair(repoId, keyId))
+          } ~
+            pathPrefix("targets") { // TODO: This should be param roleType=targets
+              path("pairs") { // TODO: This should be pathEnd
+                get {
+                  onSuccess(rootRoleKeyEdit.findAllKeyPairs(repoId, RoleType.TARGETS)) {
+                    case pairs if pairs.nonEmpty => complete(pairs)
+                    case _                       => complete(StatusCodes.NotFound)
+                  }
+                }
               }
             }
-          }
         }
-      }
     }
+
 }
 
 object ClientRootGenRequest {
@@ -185,4 +218,6 @@ object ClientRootGenRequest {
   implicit val decoder: Decoder[ClientRootGenRequest] = io.circe.generic.semiauto.deriveDecoder
 }
 
-case class ClientRootGenRequest(threshold: Int = 1, keyType: KeyType = KeyType.default, forceSync: Option[Boolean] = Some(true))
+case class ClientRootGenRequest(threshold: Int = 1,
+                                keyType: KeyType = KeyType.default,
+                                forceSync: Option[Boolean] = Some(true))

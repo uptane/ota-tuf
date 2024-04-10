@@ -9,16 +9,26 @@ import com.advancedtelematic.libtuf.crypt.CanonicalJson.*
 import com.advancedtelematic.libtuf.data.ClientDataType.DelegatedRoleName
 import com.advancedtelematic.libtuf.data.TufCodecs
 import com.advancedtelematic.libtuf.data.TufDataType.TargetFormat.TargetFormat
-import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RoleType, TargetFormat, ValidKeyId}
+import com.advancedtelematic.libtuf.data.TufDataType.{
+  JsonSignedPayload,
+  RoleType,
+  TargetFormat,
+  ValidKeyId
+}
 
 import scala.util.Try
 
 object Marshalling {
-  implicit val targetFormatFromStringUnmarshaller: akka.http.scaladsl.unmarshalling.Unmarshaller[String,com.advancedtelematic.libtuf.data.TufDataType.TargetFormat.TargetFormat] = Unmarshaller.strict[String, TargetFormat](s => TargetFormat.withName(s.toUpperCase))
+
+  implicit val targetFormatFromStringUnmarshaller: akka.http.scaladsl.unmarshalling.Unmarshaller[
+    String,
+    com.advancedtelematic.libtuf.data.TufDataType.TargetFormat.TargetFormat
+  ] = Unmarshaller.strict[String, TargetFormat](s => TargetFormat.withName(s.toUpperCase))
 
   val KeyIdPath = PathMatchers.Segment.flatMap(_.refineTry[ValidKeyId].toOption)
 
-  val RoleTypePath = PathMatchers.Segment.flatMap(v => Try(RoleType.withName(v.toUpperCase)).toOption)
+  val RoleTypePath =
+    PathMatchers.Segment.flatMap(v => Try(RoleType.withName(v.toUpperCase)).toOption)
 
   val JsonRoleTypeMetaPath = PathMatchers.Segment.flatMap { str =>
     val (roleTypeStr, _) = str.splitAt(str.indexOf(".json"))
@@ -33,11 +43,14 @@ object Marshalling {
     val (roleName, _) = str.splitAt(str.indexOf(".json"))
     roleName.isEmpty() match {
       case false => Some(roleName)
-      case _ => None
+      case _     => None
     }
   }
 
-  implicit val jsonSignedPayloadMarshaller: ToEntityMarshaller[JsonSignedPayload] = Marshaller.stringMarshaller(MediaTypes.`application/json`).compose[JsonSignedPayload](jsonSignedPayload =>
-    TufCodecs.jsonSignedPayloadEncoder.apply(jsonSignedPayload).canonical
-  )
+  implicit val jsonSignedPayloadMarshaller: ToEntityMarshaller[JsonSignedPayload] = Marshaller
+    .stringMarshaller(MediaTypes.`application/json`)
+    .compose[JsonSignedPayload](jsonSignedPayload =>
+      TufCodecs.jsonSignedPayloadEncoder.apply(jsonSignedPayload).canonical
+    )
+
 }

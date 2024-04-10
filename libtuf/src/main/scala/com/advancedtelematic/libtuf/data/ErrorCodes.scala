@@ -3,6 +3,7 @@ package com.advancedtelematic.libtuf.data
 import com.advancedtelematic.libats.data.ErrorCode
 
 object ErrorCodes {
+
   object KeyServer {
     val KeysNotReady = ErrorCode("keys_not_ready")
     val RoleKeysNotFound = ErrorCode("role_keys_not_found")
@@ -19,4 +20,5 @@ object ErrorCodes {
     val PayloadTooLarge = ErrorCode("payload_too_large")
     val NotImplemented = ErrorCode("not_implemented")
   }
+
 }

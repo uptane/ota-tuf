@@ -18,22 +18,42 @@ import scala.concurrent.ExecutionContext
 import com.advancedtelematic.tuf.reposerver.util.NamespaceSpecOps._
 import com.advancedtelematic.tuf.reposerver.util._
 
-class RepoResourceNamespaceExtractionSpec extends TufReposerverSpec
-  with ResourceSpec with BeforeAndAfterAll with Inspectors with Whenever with PatienceConfiguration with RepoNamespaceRepositorySupport {
+class RepoResourceNamespaceExtractionSpec
+    extends TufReposerverSpec
+    with ResourceSpec
+    with BeforeAndAfterAll
+    with Inspectors
+    with Whenever
+    with PatienceConfiguration
+    with RepoNamespaceRepositorySupport {
 
-  override val ec : scala.concurrent.ExecutionContextExecutor= this.executor
+  override val ec: scala.concurrent.ExecutionContextExecutor = this.executor
 
   val dbValidation = new DatabaseNamespaceValidation(NamespaceDirectives.defaultNamespaceExtractor)
 
   private val tufTargetsPublisher = new TufTargetsPublisher(messageBusPublisher)
 
   override lazy val routes: Route = ErrorHandler.handleErrors {
-    new RepoResource(fakeKeyserverClient, dbValidation, targetStore, tufTargetsPublisher, fakeRemoteDelegationClient).route
+    new RepoResource(
+      fakeKeyserverClient,
+      dbValidation,
+      targetStore,
+      tufTargetsPublisher,
+      fakeRemoteDelegationClient
+    ).route
   }
 
   val testFile = {
     val checksum = Sha256Digest.digest("hi".getBytes)
-    RequestTargetItem(Uri.Empty, checksum, targetFormat = None, name = None, version = None, hardwareIds = Seq.empty, length = "hi".getBytes.length)
+    RequestTargetItem(
+      Uri.Empty,
+      checksum,
+      targetFormat = None,
+      name = None,
+      version = None,
+      hardwareIds = Seq.empty,
+      length = "hi".getBytes.length
+    )
   }
 
   test("reject when repo does not belong to namespace") {
@@ -58,7 +78,9 @@ class RepoResourceNamespaceExtractionSpec extends TufReposerverSpec
         status shouldBe StatusCodes.OK
       }
 
-      Post(s"/repo/${repoId.show}/targets/myfile", testFile).namespaced ~> Route.seal(routes) ~> check {
+      Post(s"/repo/${repoId.show}/targets/myfile", testFile).namespaced ~> Route.seal(
+        routes
+      ) ~> check {
         status shouldBe StatusCodes.OK
       }
 
@@ -84,11 +106,14 @@ class RepoResourceNamespaceExtractionSpec extends TufReposerverSpec
         status shouldBe StatusCodes.OK
       }
 
-
-      Put(s"/user_repo/comments/myfile", CommentRequest(TargetComment("comment"))).namespaced ~> Route.seal(routes) ~> check {
+      Put(
+        s"/user_repo/comments/myfile",
+        CommentRequest(TargetComment("comment"))
+      ).namespaced ~> Route.seal(routes) ~> check {
         status shouldBe StatusCodes.OK
       }
 
     }
   }
+
 }

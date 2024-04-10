@@ -17,9 +17,9 @@ import slick.jdbc.MySQLProfile.api._
 import scala.async.Async.{async, await}
 import scala.concurrent.{ExecutionContext, Future}
 
-class RootRoleKeyEdit()
-                      (implicit val db: Database, val ec: ExecutionContext)
-  extends KeyRepositorySupport with SignedRootRoleSupport {
+class RootRoleKeyEdit()(implicit val db: Database, val ec: ExecutionContext)
+    extends KeyRepositorySupport
+    with SignedRootRoleSupport {
   val roleSigning = new RoleSigning()
   val signedRootRole = new SignedRootRoles()
 
@@ -28,32 +28,33 @@ class RootRoleKeyEdit()
     _ <- keyRepo.delete(keyId)
   } yield ()
 
-
   def rotate(repoId: RepoId): Future[Unit] = async {
     val unsigned = await(signedRootRole.findForSign(repoId))
     var newRoot = unsigned
 
-    val newRootKeys = List.fill(newRoot.roles.get(RoleType.ROOT).map(_.keyids).toList.flatten.size) {
-      TufCrypto.generateKeyPair(KeyType.default, KeyType.default.crypto.defaultKeySize)
-    }
-
-    val newTargetsKeys = List.fill(newRoot.roles.get(RoleType.TARGETS).map(_.keyids).toList.flatten.size) {
+    val newRootKeys =
+      List.fill(newRoot.roles.get(RoleType.ROOT).map(_.keyids).toList.flatten.size) {
         TufCrypto.generateKeyPair(KeyType.default, KeyType.default.crypto.defaultKeySize)
-    }
+      }
+
+    val newTargetsKeys =
+      List.fill(newRoot.roles.get(RoleType.TARGETS).map(_.keyids).toList.flatten.size) {
+        TufCrypto.generateKeyPair(KeyType.default, KeyType.default.crypto.defaultKeySize)
+      }
 
     if (newTargetsKeys.nonEmpty) {
-      newRoot = newRoot.withRoleKeys(RoleType.TARGETS, newTargetsKeys.map(_.pubkey):_*)
+      newRoot = newRoot.withRoleKeys(RoleType.TARGETS, newTargetsKeys.map(_.pubkey): _*)
     }
 
     if (newRootKeys.nonEmpty) {
-      newRoot = newRoot.withRoleKeys(RoleType.ROOT, newRootKeys.map(_.pubkey):_*)
+      newRoot = newRoot.withRoleKeys(RoleType.ROOT, newRootKeys.map(_.pubkey): _*)
     }
 
     val oldPrivateKeys = await {
-      keyRepo.findAll(unsigned.roleKeys(RoleType.ROOT).map(_.id))
-        .recoverWith {
-          case KeyNotFound =>
-            FastFuture.failed(Errors.KeysOffline)
+      keyRepo
+        .findAll(unsigned.roleKeys(RoleType.ROOT).map(_.id))
+        .recoverWith { case KeyNotFound =>
+          FastFuture.failed(Errors.KeysOffline)
         }
     }
 
@@ -63,14 +64,12 @@ class RootRoleKeyEdit()
 
     val signedPayload = roleSigning.signWithPrivateKeys(newRoot, newRootKeys ++ oldKeyPairs)
 
-    val newKeys = Map(
-      RoleType.ROOT -> newRootKeys,
-      RoleType.TARGETS -> newTargetsKeys,
+    val newKeys = Map(RoleType.ROOT -> newRootKeys, RoleType.TARGETS -> newTargetsKeys)
+
+    await(
+      signedRootRoleRepo.persistWithKeys(keyRepo)(signedPayload.toDbSignedRole(repoId), newKeys)
     )
-
-    await(signedRootRoleRepo.persistWithKeys(keyRepo)(signedPayload.toDbSignedRole(repoId), newKeys))
   }
-
 
   def findAllKeyPairs(repoId: RepoId, roleType: RoleType): Future[Seq[TufKeyPair]] =
     for {
@@ -81,16 +80,16 @@ class RootRoleKeyEdit()
       keyPairs <- Future.fromTry(keyPairsT.toList.sequence)
     } yield keyPairs
 
-  def findKeyPair(repoId: RepoId, keyId: KeyId): Future[TufKeyPair] = {
+  def findKeyPair(repoId: RepoId, keyId: KeyId): Future[TufKeyPair] =
     for {
       _ <- ensureIsRepoKey(repoId, keyId)
       key <- keyRepo.find(keyId)
       keyPair <- Future.fromTry(key.toTufKeyPair)
     } yield keyPair
-  }
 
   private def ensureIsRepoKey(repoId: RepoId, keyId: KeyId): Future[KeyId] = async {
     val publicKey = await(keyRepo.repoKeys(repoId)).find(_.id == keyId)
     publicKey.map(_.id).getOrElse(throw KeyNotFound)
   }
+
 }

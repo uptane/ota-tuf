@@ -18,10 +18,10 @@ import java.security.Security
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 
-class ChangeEncryptionKey(implicit
-                          val db: Database,
-                          val system: ActorSystem,
-                          val ec: ExecutionContext) {
+class ChangeEncryptionKey(
+  implicit val db: Database,
+  val system: ActorSystem,
+  val ec: ExecutionContext) {
 
   private lazy val log = LoggerFactory.getLogger(this.getClass)
 
@@ -34,8 +34,10 @@ class ChangeEncryptionKey(implicit
     SlickCrypto(salt, pass).encrypt(payload)
 
   def updateKey(keyId: KeyId, oldPayload: String, payload: String): Future[(KeyId, Boolean)] = {
-    val backup = sql"""insert into `key_enc_migration` (key_id, old_payload) values (${keyId.value}, $oldPayload)""".asUpdate
-    val update = sql"""update `keys` set private_key = $payload where key_id = ${keyId.value}""".asUpdate
+    val backup =
+      sql"""insert into `key_enc_migration` (key_id, old_payload) values (${keyId.value}, $oldPayload)""".asUpdate
+    val update =
+      sql"""update `keys` set private_key = $payload where key_id = ${keyId.value}""".asUpdate
     db.run((backup >> update).map(i => (keyId, i == 1)).transactionally)
   }
 
@@ -66,14 +68,18 @@ class ChangeEncryptionKey(implicit
       keyId -> payload
     }
 
-    val stream_sql = sql"""select key_id, private_key from `keys` where key_id not in (select key_id from key_enc_migration)""".as[(KeyId, String)]
+    val stream_sql =
+      sql"""select key_id, private_key from `keys` where key_id not in (select key_id from key_enc_migration)"""
+        .as[(KeyId, String)]
 
     val source = Source.fromPublisher(db.stream(stream_sql))
 
-    val pipeline = source.map { case (keyId, oldPayload) =>
-      log.info(s"Processing $keyId")
-      (keyId, oldPayload, encryptNew(decryptOld(oldPayload)))
-    } .mapAsync(10)((updateKey _).tupled)
+    val pipeline = source
+      .map { case (keyId, oldPayload) =>
+        log.info(s"Processing $keyId")
+        (keyId, oldPayload, encryptNew(decryptOld(oldPayload)))
+      }
+      .mapAsync(10)((updateKey _).tupled)
       .runForeach {
         case (keyId, true) =>
           log.info(s"Processed key ${keyId.value} successfully")
@@ -83,9 +89,14 @@ class ChangeEncryptionKey(implicit
 
     await(pipeline)
   }
+
 }
 
-object ChangeEncryptionKey extends BootAppDefaultConfig with BootAppDatabaseConfig with VersionInfo with LibatsDbSupport {
+object ChangeEncryptionKey
+    extends BootAppDefaultConfig
+    with BootAppDatabaseConfig
+    with VersionInfo
+    with LibatsDbSupport {
   Security.addProvider(new BouncyCastleProvider)
 
   def main(args: Array[String]): Unit = {
@@ -94,4 +105,5 @@ object ChangeEncryptionKey extends BootAppDefaultConfig with BootAppDatabaseConf
     }
     Await.result(f, Duration.Inf)
   }
+
 }

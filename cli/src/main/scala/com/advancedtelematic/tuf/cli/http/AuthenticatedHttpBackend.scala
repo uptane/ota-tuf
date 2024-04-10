@@ -17,9 +17,13 @@ import sttp.client.ws.WebSocketResponse
 import scala.jdk.CollectionConverters._
 import scala.concurrent.Future
 
-protected class AuthPlusCliHttpBackend[F[_], S, WS_HANDLER[_]](token: OAuth2Token, delegate: SttpBackend[F, S, WS_HANDLER]) extends SttpBackend[F, S, WS_HANDLER] {
+protected class AuthPlusCliHttpBackend[F[_], S, WS_HANDLER[_]](
+  token: OAuth2Token,
+  delegate: SttpBackend[F, S, WS_HANDLER])
+    extends SttpBackend[F, S, WS_HANDLER] {
+
   override def send[T](request: Request[T, S]): F[Response[T]] = {
-    val authReq = if(request.uri.host.endsWith(".amazonaws.com")) {
+    val authReq = if (request.uri.host.endsWith(".amazonaws.com")) {
       request
     } else {
       request.auth.bearer(token.value)
@@ -27,7 +31,9 @@ protected class AuthPlusCliHttpBackend[F[_], S, WS_HANDLER[_]](token: OAuth2Toke
     delegate.send(authReq)
   }
 
-  override def openWebsocket[T, WS_RESULT](request: Request[T, S], handler: WS_HANDLER[WS_RESULT]): F[WebSocketResponse[WS_RESULT]] = {
+  override def openWebsocket[T, WS_RESULT](
+    request: Request[T, S],
+    handler: WS_HANDLER[WS_RESULT]): F[WebSocketResponse[WS_RESULT]] = {
     val authReq = request.auth.bearer(token.value)
     delegate.openWebsocket(authReq, handler)
   }
@@ -43,13 +49,14 @@ object AuthenticatedHttpBackend {
 
   def none: CliHttpBackend = defaultSttpBackend
 
-  def authPlusHttpBackend(token: OAuth2Token): CliHttpBackend = {
+  def authPlusHttpBackend(token: OAuth2Token): CliHttpBackend =
     new AuthPlusCliHttpBackend[Future, Nothing, Nothing](token, defaultSttpBackend)
-  }
 
   private def defaultSttpBackend = {
     val sttpBackend = AsyncHttpClientFutureBackend()
-    Slf4jLoggingBackend[Future, Nothing, Nothing](Slf4jCurlBackend[Future, Nothing, Nothing](sttpBackend))
+    Slf4jLoggingBackend[Future, Nothing, Nothing](
+      Slf4jCurlBackend[Future, Nothing, Nothing](sttpBackend)
+    )
   }
 
   def mutualTls(tlsCertPath: Path, serverCertPath: Option[Path]): CliHttpBackend = {
@@ -72,10 +79,15 @@ object AuthenticatedHttpBackend {
     val context = SSLContext.getInstance("TLS")
     context.init(keyManagerFactory.getKeyManagers, trustManagers.orNull, new SecureRandom())
 
-    val trustManager = trustManagers.flatMap(_.headOption).map(_.asInstanceOf[X509TrustManager]).orNull
+    val trustManager =
+      trustManagers.flatMap(_.headOption).map(_.asInstanceOf[X509TrustManager]).orNull
 
-    val sslContext = SslContextBuilder.forClient.startTls(true)
-      .ciphers(context.getDefaultSSLParameters.getCipherSuites.toList.asJava, SupportedCipherSuiteFilter.INSTANCE)
+    val sslContext = SslContextBuilder.forClient
+      .startTls(true)
+      .ciphers(
+        context.getDefaultSSLParameters.getCipherSuites.toList.asJava,
+        SupportedCipherSuiteFilter.INSTANCE
+      )
       .trustManager(trustManager)
       .protocols(context.getDefaultSSLParameters.getProtocols.toList.asJava)
       .keyManager(keyManagerFactory)
@@ -83,4 +95,5 @@ object AuthenticatedHttpBackend {
 
     AsyncHttpClientFutureBackend.usingConfigBuilder(builder => builder.setSslContext(sslContext))
   }
+
 }

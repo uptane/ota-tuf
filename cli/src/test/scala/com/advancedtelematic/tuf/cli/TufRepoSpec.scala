@@ -10,14 +10,33 @@ import com.advancedtelematic.libtuf.crypt.SignedPayloadSignatureOps._
 import com.advancedtelematic.libtuf.crypt.TufCrypto
 import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.libtuf.data.ClientDataType.TufRole._
-import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, RootRole, TargetCustom, TargetsRole}
+import com.advancedtelematic.libtuf.data.ClientDataType.{
+  ClientTargetItem,
+  RootRole,
+  TargetCustom,
+  TargetsRole
+}
 import com.advancedtelematic.libtuf.data.TufCodecs._
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType._
-import com.advancedtelematic.libtuf.data.TufDataType.{KeyType, RoleType, RsaKeyType, SignedPayload, TargetFormat, TargetName, TargetVersion, ValidSignature, ValidTargetFilename}
+import com.advancedtelematic.libtuf.data.TufDataType.{
+  KeyType,
+  RoleType,
+  RsaKeyType,
+  SignedPayload,
+  TargetFormat,
+  TargetName,
+  TargetVersion,
+  ValidSignature,
+  ValidTargetFilename
+}
 import com.advancedtelematic.tuf.cli.DataType.KeyName
 import com.advancedtelematic.tuf.cli.repo.{CliKeyStorage, RepoServerRepo}
 import com.advancedtelematic.tuf.cli.repo.TufRepo.{RoleMissing, RootPullError}
-import com.advancedtelematic.tuf.cli.util.{CliSpec, FakeReposerverTufServerClient, KeyTypeSpecSupport}
+import com.advancedtelematic.tuf.cli.util.{
+  CliSpec,
+  FakeReposerverTufServerClient,
+  KeyTypeSpecSupport
+}
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.refineV
 import io.circe.jawn._
@@ -32,9 +51,11 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
 
   import com.advancedtelematic.tuf.cli.util.TufRepoInitializerUtil._
 
-  def reposerverTest(name: String)(fn: (RepoServerRepo, FakeReposerverTufServerClient) => Any)(implicit pos: Position): Unit = {
-    keyTypeTest(name) { keyType => fn(initRepo[RepoServerRepo](keyType), new FakeReposerverTufServerClient(keyType)) }
-  }
+  def reposerverTest(name: String)(fn: (RepoServerRepo, FakeReposerverTufServerClient) => Any)(
+    implicit pos: Position): Unit =
+    keyTypeTest(name) { keyType =>
+      fn(initRepo[RepoServerRepo](keyType), new FakeReposerverTufServerClient(keyType))
+    }
 
   val fakeTargetFilename = refineV[ValidTargetFilename]("fake-one-1.2.3").toOption.get
 
@@ -42,8 +63,18 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
     val name = TargetName("fake-one")
     val version = TargetVersion("1.2.3")
 
-    val custom = TargetCustom(name, version, Seq.empty, Option(TargetFormat.BINARY), Option(URI.create("https://ats.com")))
-    val clientHashes = Map(HashMethod.SHA256 -> refineV[ValidChecksum]("03aa3f5e2779b625a455651b54866447f995a2970d164581b4073044435359ed").toOption.get)
+    val custom = TargetCustom(
+      name,
+      version,
+      Seq.empty,
+      Option(TargetFormat.BINARY),
+      Option(URI.create("https://ats.com"))
+    )
+    val clientHashes = Map(
+      HashMethod.SHA256 -> refineV[ValidChecksum](
+        "03aa3f5e2779b625a455651b54866447f995a2970d164581b4073044435359ed"
+      ).toOption.get
+    )
 
     ClientTargetItem(clientHashes, length = 100, custom = Option(custom.asJson))
   }
@@ -95,17 +126,26 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
     val role = parseFile(path.toFile).flatMap(_.as[TargetsRole]).valueOr(throw _)
 
     role.targets.keys.map(_.value) should contain("fake-one-1.2.3")
-    role.targets.values.head.customParsed[TargetCustom].flatMap(_.uri) should contain(new URI("https://ats.com"))
+    role.targets.values.head.customParsed[TargetCustom].flatMap(_.uri) should contain(
+      new URI("https://ats.com")
+    )
   }
 
   test("adds a target to an existing targets with specified format") {
     val repo = initRepo[RepoServerRepo]()
 
-    val custom = fakeTargetItem.customParsed[TargetCustom].get.copy(targetFormat = TargetFormat.OSTREE.some).asJson
+    val custom = fakeTargetItem
+      .customParsed[TargetCustom]
+      .get
+      .copy(targetFormat = TargetFormat.OSTREE.some)
+      .asJson
     val path = repo.addTarget(fakeTargetFilename, fakeTargetItem.copy(custom = custom.some)).get
     val role = parseFile(path.toFile).flatMap(_.as[TargetsRole]).valueOr(throw _)
 
-    val format = role.targets.get(fakeTargetFilename).flatMap(_.customParsed[TargetCustom]).flatMap(_.targetFormat)
+    val format = role.targets
+      .get(fakeTargetFilename)
+      .flatMap(_.customParsed[TargetCustom])
+      .flatMap(_.targetFormat)
     format should contain(TargetFormat.OSTREE)
   }
 
@@ -162,7 +202,13 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
     repo.addRoleKeys(RoleType.ROOT, List(targetsKeyName)).success
     repo.signRoot(Seq(KeyName("root")), defaultExpiration).success
 
-    repo.signTargets(Seq.empty, defaultExpiration, signatures = Some(Map(targetsKeyName -> signature))).get
+    repo
+      .signTargets(
+        Seq.empty,
+        defaultExpiration,
+        signatures = Some(Map(targetsKeyName -> signature))
+      )
+      .get
   }
 
   // TODO: This is only supported for RSA Keys, make this explicit when calling Cli
@@ -203,7 +249,13 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
     repo.addRoleKeys(RoleType.ROOT, List(targetsKeyName)).get
     repo.signRoot(Seq(KeyName("root")), defaultExpiration).get
 
-    val newPath = repo.signTargets(Seq.empty, defaultExpiration, signatures = Some(Map(targetsKeyName -> signature))).get
+    val newPath = repo
+      .signTargets(
+        Seq.empty,
+        defaultExpiration,
+        signatures = Some(Map(targetsKeyName -> signature))
+      )
+      .get
     newPath shouldBe path
     val newTargetsJson = parseFile(path.toFile).flatMap(_.as[SignedPayload[TargetsRole]]).value
     newTargetsJson shouldBe targetsJson
@@ -216,7 +268,9 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
     val targetsKey1Pair = repo.genKeys(targetsKey1Name, KeyType.default).success.value
     val targetsKey2Pair = repo.genKeys(targetsKey2Name, KeyType.default).success.value
 
-    val wrongSignature = Refined.unsafeApply[String, ValidSignature](Base64.getEncoder.encodeToString("wrong signature".getBytes))
+    val wrongSignature = Refined.unsafeApply[String, ValidSignature](
+      Base64.getEncoder.encodeToString("wrong signature".getBytes)
+    )
     val unsignedTargets = repo.readUnsignedRole[TargetsRole].success.value
     val signature2 = TufCrypto.signPayload(targetsKey2Pair.privkey, unsignedTargets.asJson).sig
 
@@ -242,7 +296,7 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
     val repo = initRepo[RepoServerRepo]()
     val unsignedJson = repo.canonicalRoot
 
-    unsignedJson.get shouldNot endWith ("\n")
+    unsignedJson.get shouldNot endWith("\n")
   }
 
   test("get canonical unsigned targets") {
@@ -250,7 +304,12 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
     val unsignedJson = repo.canonicalTargets
 
     import com.advancedtelematic.libtuf.crypt.CanonicalJson._
-    unsignedJson.success.value shouldBe repo.readUnsignedRole[TargetsRole].success.value.asJson.canonical
+    unsignedJson.success.value shouldBe repo
+      .readUnsignedRole[TargetsRole]
+      .success
+      .value
+      .asJson
+      .canonical
   }
 
   test("add external RSA signature to root") {
@@ -263,7 +322,15 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
     val unsignedRoot = repo.readUnsignedRole[RootRole].success.value
     val signature = TufCrypto.signPayload(privateRootKey, unsignedRoot.asJson).sig
 
-    repo.signRoot(Seq.empty, defaultExpiration, keyName = Some(rootKeyName), sigs = Some(Map(rootKeyName -> signature))).success.value
+    repo
+      .signRoot(
+        Seq.empty,
+        defaultExpiration,
+        keyName = Some(rootKeyName),
+        sigs = Some(Map(rootKeyName -> signature))
+      )
+      .success
+      .value
   }
 
   test("compare old and new 'root sign'") {
@@ -280,7 +347,10 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
     // signing has bumped the version, so update the unsigned root.json
     repo.writeUnsignedRole[RootRole](rootJson.signed)
 
-    val newPath = repo.signRoot(Seq.empty, defaultExpiration, sigs = Some(Map(rootKeyName -> signature))).success.value
+    val newPath = repo
+      .signRoot(Seq.empty, defaultExpiration, sigs = Some(Map(rootKeyName -> signature)))
+      .success
+      .value
 
     newPath shouldBe path
 
@@ -302,7 +372,15 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
     repo.writeUnsignedRole[RootRole](rootJson.signed)
 
     val signature = rootJson.signatures.head.sig
-    val newPath = repo.signRoot(Seq.empty, identity, keyName = Some(rootKeyName), sigs = Some(Map(rootKeyName -> signature))).success.value
+    val newPath = repo
+      .signRoot(
+        Seq.empty,
+        identity,
+        keyName = Some(rootKeyName),
+        sigs = Some(Map(rootKeyName -> signature))
+      )
+      .success
+      .value
 
     newPath shouldBe path
 
@@ -321,10 +399,21 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
   test("cannot add invalid signature to root") {
     val repo = initRepo[RepoServerRepo](RsaKeyType)
     val rootKeyName = KeyName("root")
-    val wrongSignature = Refined.unsafeApply[String, ValidSignature](Base64.getEncoder.encodeToString("wrong signature".getBytes))
+    val wrongSignature = Refined.unsafeApply[String, ValidSignature](
+      Base64.getEncoder.encodeToString("wrong signature".getBytes)
+    )
 
-    repo.signRoot(Seq.empty, defaultExpiration, keyName = Some(rootKeyName), sigs = Some(Map(rootKeyName -> wrongSignature)))
-      .failure.exception.getMessage startsWith("wrong signature")
+    repo
+      .signRoot(
+        Seq.empty,
+        defaultExpiration,
+        keyName = Some(rootKeyName),
+        sigs = Some(Map(rootKeyName -> wrongSignature))
+      )
+      .failure
+      .exception
+      .getMessage
+      .startsWith("wrong signature")
   }
 
   reposerverTest("saves targets.json and checksum to file when pulling") { (repo, client) =>
@@ -334,19 +423,22 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
 
     repo.readUnsignedRole[TargetsRole].get shouldBe a[TargetsRole]
 
-    Files.readAllLines(repo.repoPath.resolve("roles/targets.json.checksum")).get(0) shouldNot be(empty)
+    Files.readAllLines(repo.repoPath.resolve("roles/targets.json.checksum")).get(0) shouldNot be(
+      empty
+    )
   }
 
-  reposerverTest("can pull a root.json when no local root is available, when forcing") { (repo, client) =>
-    val newRoot = repo.pullRoot(client, userSkipsLocalValidation = true).futureValue
+  reposerverTest("can pull a root.json when no local root is available, when forcing") {
+    (repo, client) =>
+      val newRoot = repo.pullRoot(client, userSkipsLocalValidation = true).futureValue
 
-    val signed = repo.readSignedRole[RootRole]
-    signed shouldBe a[Success[_]]
+      val signed = repo.readSignedRole[RootRole]
+      signed shouldBe a[Success[_]]
 
-    signed.get.asJson shouldBe newRoot.asJson
+      signed.get.asJson shouldBe newRoot.asJson
 
-    val rootRole = repo.readUnsignedRole[RootRole]
-    rootRole.get.asJson shouldBe newRoot.signed.asJson
+      val rootRole = repo.readUnsignedRole[RootRole]
+      rootRole.get.asJson shouldBe newRoot.signed.asJson
   }
 
   reposerverTest("adds root key to unsigned root") { (repo, _) =>
@@ -408,18 +500,21 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
     removeKeyIdTest(repo, RoleType.TARGETS)
   }
 
-  reposerverTest("pull succeeds when new root.json is valid against local root.json") { (repo, server) =>
-    val oldRoot = repo.pullRoot(server, userSkipsLocalValidation = true).futureValue
+  reposerverTest("pull succeeds when new root.json is valid against local root.json") {
+    (repo, server) =>
+      val oldRoot = repo.pullRoot(server, userSkipsLocalValidation = true).futureValue
 
-    val newUnsignedRoot = oldRoot.signed.copy(version = oldRoot.signed.version + 1)
-    val newRoot = server.sign(newUnsignedRoot)
+      val newUnsignedRoot = oldRoot.signed.copy(version = oldRoot.signed.version + 1)
+      val newRoot = server.sign(newUnsignedRoot)
 
-    server.pushSignedRoot(newRoot).futureValue
+      server.pushSignedRoot(newRoot).futureValue
 
-    repo.pullRoot(server, userSkipsLocalValidation = false).futureValue
+      repo.pullRoot(server, userSkipsLocalValidation = false).futureValue
   }
 
-  reposerverTest("pull fails when new root.json is not the same as old root but has same version numbers") { (repo, client) =>
+  reposerverTest(
+    "pull fails when new root.json is not the same as old root but has same version numbers"
+  ) { (repo, client) =>
     val oldSignedRoot = repo.pullRoot(client, userSkipsLocalValidation = true).futureValue
 
     val newRoot = oldSignedRoot.signed.copy(expires = Instant.now().plus(100, ChronoUnit.DAYS))
@@ -428,7 +523,10 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
     val error = repo.pullRoot(client, userSkipsLocalValidation = false).failed.futureValue
 
     error shouldBe a[RootPullError]
-    error.asInstanceOf[RootPullError].errors.head shouldBe "New root has same version as old root but is not the same root.json"
+    error
+      .asInstanceOf[RootPullError]
+      .errors
+      .head shouldBe "New root has same version as old root but is not the same root.json"
   }
 
   reposerverTest("pull succeeds when new root.json is the same as old json") { (repo, client) =>
@@ -437,38 +535,41 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
     repo.pullRoot(client, userSkipsLocalValidation = false).futureValue shouldBe a[SignedPayload[_]]
   }
 
+  reposerverTest("pull fails when new root.json is not valid against local root.json") {
+    (repo, client) =>
+      val oldRoot = repo.pullRoot(client, userSkipsLocalValidation = true).futureValue
 
-  reposerverTest("pull fails when new root.json is not valid against local root.json") { (repo, client) =>
-    val oldRoot = repo.pullRoot(client, userSkipsLocalValidation = true).futureValue
+      val newUnsignedRoot = oldRoot.signed.copy(version = oldRoot.signed.version + 1)
+      client.setRoot(SignedPayload(Seq.empty, newUnsignedRoot, newUnsignedRoot.asJson))
 
-    val newUnsignedRoot = oldRoot.signed.copy(version = oldRoot.signed.version + 1)
-    client.setRoot(SignedPayload(Seq.empty, newUnsignedRoot, newUnsignedRoot.asJson))
+      val error = repo.pullRoot(client, userSkipsLocalValidation = false).failed.futureValue
 
-    val error = repo.pullRoot(client, userSkipsLocalValidation = false).failed.futureValue
+      val oldKeyId = oldRoot.signed.roles(RoleType.ROOT).keyids.head
 
-    val oldKeyId = oldRoot.signed.roles(RoleType.ROOT).keyids.head
-
-    error shouldBe a[RootPullError]
-    error.getMessage should include(s"No signature found for key $oldKeyId")
-    error.getMessage should include(s"root.json version 1 requires 1 valid signatures for root.json version 2, 0 supplied")
+      error shouldBe a[RootPullError]
+      error.getMessage should include(s"No signature found for key $oldKeyId")
+      error.getMessage should include(
+        s"root.json version 1 requires 1 valid signatures for root.json version 2, 0 supplied"
+      )
   }
 
-  reposerverTest("fails with proper error when cannot find root at specified version") { (repo, client) =>
-    val oldRoot = repo.pullRoot(client, userSkipsLocalValidation = true).futureValue
+  reposerverTest("fails with proper error when cannot find root at specified version") {
+    (repo, client) =>
+      val oldRoot = repo.pullRoot(client, userSkipsLocalValidation = true).futureValue
 
-    val newUnsignedRoot = oldRoot.signed.copy(version = oldRoot.signed.version + 10)
-    client.setRoot(SignedPayload(Seq.empty, newUnsignedRoot, newUnsignedRoot.asJson))
+      val newUnsignedRoot = oldRoot.signed.copy(version = oldRoot.signed.version + 10)
+      client.setRoot(SignedPayload(Seq.empty, newUnsignedRoot, newUnsignedRoot.asJson))
 
-    val error = repo.pullRoot(client, userSkipsLocalValidation = false).failed.futureValue
+      val error = repo.pullRoot(client, userSkipsLocalValidation = false).failed.futureValue
 
-    error shouldBe a[RootPullError]
-    error.getMessage should include(s"role with version 2 not found")
+      error shouldBe a[RootPullError]
+      error.getMessage should include(s"role with version 2 not found")
   }
 
   reposerverTest("validates a root chain") { (repo, client) =>
     val oldRoot = repo.pullRoot(client, userSkipsLocalValidation = true).futureValue
 
-    for(i <- 1 until 10) {
+    for (i <- 1 until 10) {
       val newUnsignedRoot = oldRoot.signed.copy(version = oldRoot.signed.version + i)
       val newRoot = client.sign(newUnsignedRoot)
       client.pushSignedRoot(newRoot).futureValue
@@ -522,7 +623,6 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
   }
 
   reposerverTest("inc-version for unsigned root") { (repo, _) =>
-
     val currRootRole = repo.readUnsignedRole[RootRole].success.value
 
     currRootRole.version shouldBe 1
@@ -535,7 +635,6 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
   }
 
   reposerverTest("inc-version for unsigned target") { (repo, _) =>
-
     val currTargetRole = repo.readUnsignedRole[TargetsRole].success.value
 
     currTargetRole.version shouldBe 11
@@ -546,4 +645,5 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
 
     resultTargetRole.version shouldBe 12
   }
+
 }

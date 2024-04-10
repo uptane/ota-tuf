@@ -19,12 +19,10 @@ object SignatureMethodMigration {
 }
 
 class SignatureMethodMigration(dBIO: StreamingDBIO[Vector[Row], Row],
-                               replaceFn: Row => Future[Unit])
-                              (implicit
-                               val db: Database,
-                               val mat: Materializer,
-                               val system: ActorSystem
-                              ) {
+                               replaceFn: Row => Future[Unit])(
+  implicit val db: Database,
+  val mat: Materializer,
+  val system: ActorSystem) {
 
   implicit val ec: scala.concurrent.ExecutionContextExecutor = system.dispatcher
 
@@ -35,7 +33,8 @@ class SignatureMethodMigration(dBIO: StreamingDBIO[Vector[Row], Row],
     val source = Source.fromPublisher(db.stream(dBIO))
 
     val convertFlow = Flow[Row].mapAsync(3) { row =>
-      val oldMethodE = row.payload.hcursor.downField("signatures").downArray.downField("method").as[String]
+      val oldMethodE =
+        row.payload.hcursor.downField("signatures").downArray.downField("method").as[String]
 
       oldMethodE match {
         case Left(err) =>
@@ -59,6 +58,5 @@ class SignatureMethodMigration(dBIO: StreamingDBIO[Vector[Row], Row],
 
     source.via(convertFlow).runWith(sink)
   }
+
 }
-
-

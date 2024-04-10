@@ -10,14 +10,15 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.ExecutionContext
 import slick.jdbc.MySQLProfile.api._
 
-
 abstract class NamespaceValidation(val extractor: Directive1[Namespace]) {
   def apply(repoId: RepoId): Directive1[Namespace]
 }
 
-class DatabaseNamespaceValidation(extractor: Directive1[Namespace])
-                                 (implicit val ec: ExecutionContext, val db: Database)
-  extends NamespaceValidation(extractor) with RepoNamespaceRepositorySupport {
+class DatabaseNamespaceValidation(extractor: Directive1[Namespace])(
+  implicit val ec: ExecutionContext,
+  val db: Database)
+    extends NamespaceValidation(extractor)
+    with RepoNamespaceRepositorySupport {
 
   import Directives._
 
@@ -32,6 +33,7 @@ class DatabaseNamespaceValidation(extractor: Directive1[Namespace])
         reject(AuthorizationFailedRejection)
     }
   }
+
 }
 
 object NamespaceValidation {
@@ -39,4 +41,5 @@ object NamespaceValidation {
 
   def withDatabase(implicit ec: ExecutionContext, db: Database): NamespaceValidation =
     new DatabaseNamespaceValidation(default)
+
 }
