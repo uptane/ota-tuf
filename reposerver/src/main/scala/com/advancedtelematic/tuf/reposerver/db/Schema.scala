@@ -10,23 +10,48 @@ import com.advancedtelematic.libtuf.data.ClientDataType.{
 }
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RepoId, TargetFilename}
-import slick.jdbc.MySQLProfile.api._
-import SlickMappings._
+import slick.jdbc.MySQLProfile.api.*
+import SlickMappings.*
 import com.advancedtelematic.libtuf_server.data.Requests.TargetComment
 import com.advancedtelematic.tuf.reposerver.db.DBDataType.{DbDelegation, DbSignedRole}
 import SlickMappings.delegatedRoleNameMapper
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.StorageMethod.StorageMethod
-import com.advancedtelematic.tuf.reposerver.data.RepoDataType.TargetItem
+import com.advancedtelematic.tuf.reposerver.data.RepoDataType.{DelegatedTargetItem, TargetItem}
+import io.circe.Json
 
 object Schema {
 
-  import com.advancedtelematic.libats.slick.codecs.SlickRefined._
-  import com.advancedtelematic.libats.slick.db.SlickUUIDKey._
-  import com.advancedtelematic.libats.slick.db.SlickUriMapper._
-  import com.advancedtelematic.libats.slick.db.SlickAnyVal._
-  import com.advancedtelematic.libats.slick.db.SlickCirceMapper._
-  import com.advancedtelematic.libtuf_server.data.TufSlickMappings._
+  import com.advancedtelematic.libats.slick.codecs.SlickRefined.*
+  import com.advancedtelematic.libats.slick.db.SlickUUIDKey.*
+  import com.advancedtelematic.libats.slick.db.SlickUriMapper.*
+  import com.advancedtelematic.libats.slick.db.SlickAnyVal.*
+  import com.advancedtelematic.libats.slick.db.SlickCirceMapper.*
+  import com.advancedtelematic.libtuf_server.data.TufSlickMappings.*
   import com.advancedtelematic.libats.slick.db.SlickExtensions.javaInstantMapping
+
+  class DelegatedItemTable(tag: Tag) extends Table[DelegatedTargetItem](tag, "delegated_items") {
+    def repoId = column[RepoId]("repo_id")
+    def filename = column[TargetFilename]("filename")
+    def roleName = column[DelegatedRoleName]("rolename")
+    def custom = column[Option[Json]]("custom")
+    def checksum = column[Checksum]("checksum")
+    def length = column[Long]("length")
+    def updatedAt = column[Instant]("updated_at")(javaInstantMapping)
+
+    def pk = primaryKey("delegated_items_pk", (repoId, roleName, filename))
+
+    override def * = (
+      repoId,
+      filename,
+      roleName,
+      checksum,
+      length,
+      custom
+    ) <> ((DelegatedTargetItem.apply _).tupled, DelegatedTargetItem.unapply)
+
+  }
+
+  val delegatedTargetItems = TableQuery[DelegatedItemTable]
 
   class TargetItemTable(tag: Tag) extends Table[TargetItem](tag, "target_items") {
     def repoId = column[RepoId]("repo_id")

@@ -403,12 +403,15 @@ trait ResourceSpec
     with MysqlDatabaseSpec
     with FakeHttpClientSpec
     with LongHttpRequest
-    with Directives {
+    with Directives
+    with RepositoryTestOps {
 
   import cats.syntax.show._
   import org.scalatest.OptionValues._
 
   def apiUri(path: String): String = "/api/v1/" + path
+
+  def apiUriV2(path: String): String = "/api/v2/" + path
 
   val fakeKeyserverClient: FakeKeyserverClient = new FakeKeyserverClient
 

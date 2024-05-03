@@ -77,10 +77,10 @@ PATCH `/targets/:target-filename` Edit a target metadata. Custom fields can also
 PUT `/targets.json` Upload an offline signed `targets.json`
 
 GET `/target-items` Get filtered, paginated list of target items
-GET `/target-items/:target-filename` Get list of target items available for this repository
+GET `/target-items/:target-filename` Get the target-item resourcewwwww
 PUT `/target-items/:target-filename/comments` Add a comment to a target-item
 GET `/target-items/:target-filename/comments` Get all comments for a target-item
-
+    
 GET `/comments` Get paginated list of comments. Support filtering by target name.
 
 `uptane-sign` will be updated to use the new APIs, but favour operations that manipulate tuf metadata directly and use the existing API endpoints.

@@ -2,8 +2,18 @@ package com.advancedtelematic.tuf.reposerver.data
 
 import akka.http.scaladsl.model.Uri
 import com.advancedtelematic.libats.data.DataType.Checksum
-import com.advancedtelematic.libtuf.data.ClientDataType._
-import com.advancedtelematic.libtuf.data.TufDataType.{RepoId, TargetFilename}
+import com.advancedtelematic.libtuf.data.ClientDataType.*
+import com.advancedtelematic.libtuf.data.TufDataType.{
+  HardwareIdentifier,
+  RepoId,
+  TargetFilename,
+  TargetName,
+  TargetVersion
+}
+import com.advancedtelematic.tuf.reposerver.data.RepoDataType.Package.TargetOrigin
+import eu.timepit.refined.api.Refined
+import eu.timepit.refined.predicates.all.NonEmpty
+import io.circe.{Codec, Json}
 
 import java.time.Instant
 
@@ -26,6 +36,17 @@ object RepoDataType {
                         custom: Option[TargetCustom] = None,
                         storageMethod: StorageMethod = Managed)
 
+  // But if they are the same, should be in the same table?
+
+  // Try to make this the same as TargetItem, just a different flag? Or two? Delegated/remote delegated?
+  case class DelegatedTargetItem(repoId: RepoId,
+                                 filename: TargetFilename,
+                                 roleName: DelegatedRoleName,
+//                                 uri: Option[Uri],
+                                 checksum: Checksum,
+                                 length: Long,
+                                 custom: Option[Json])
+
   case class AddDelegationFromRemoteRequest(uri: Uri,
                                             remoteHeaders: Option[Map[String, String]] = None,
                                             friendlyName: Option[DelegationFriendlyName] = None)
@@ -33,5 +54,34 @@ object RepoDataType {
   case class DelegationInfo(lastFetched: Option[Instant],
                             remoteUri: Option[Uri],
                             friendlyName: Option[DelegationFriendlyName] = None)
+
+  // TODO: This is not a good name
+  object Package {
+
+    type ValidTargetOrigin = NonEmpty
+    type TargetOrigin = Refined[String, ValidTargetOrigin]
+
+    import com.advancedtelematic.libtuf.data.ClientCodecs.*
+    import com.advancedtelematic.libats.codecs.CirceRefined.*
+    import com.advancedtelematic.libats.http.HttpCodecs.*
+    import com.advancedtelematic.libtuf.data.TufCodecs.*
+    import com.advancedtelematic.libats.codecs.CirceAts.*
+
+    // TODO: Should be in codecs
+    implicit val packageCodec: Codec[Package] =
+      io.circe.generic.semiauto.deriveCodec[Package]
+
+  }
+
+  case class Package(name: TargetName,
+                     version: TargetVersion,
+                     filename: TargetFilename,
+                     origin: TargetOrigin,
+                     length: Long,
+                     hashes: ClientHashes,
+                     uri: Option[Uri],
+                     hardwareIds: List[HardwareIdentifier],
+                     createdAt: Instant,
+                     customData: Option[Json])
 
 }

@@ -48,11 +48,7 @@ import com.advancedtelematic.libats.data.{ErrorRepresentation, PaginationResult}
 import com.advancedtelematic.libtuf.data.{ClientCodecs, TufCodecs}
 import com.advancedtelematic.libtuf.data.TufDataType.*
 import com.advancedtelematic.libtuf_server.data.Marshalling.*
-import com.advancedtelematic.libtuf_server.data.Requests.{
-  CommentRequest,
-  CreateRepositoryRequest,
-  *
-}
+import com.advancedtelematic.libtuf_server.data.Requests.*
 import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient
 import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient.RootRoleNotFound
 import com.advancedtelematic.libtuf_server.repo.client.ReposerverClient.{
@@ -87,7 +83,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 import com.advancedtelematic.tuf.reposerver.data.RepoCodecs.*
 import com.advancedtelematic.tuf.reposerver.http.CustomParameterUnmarshallers.nonNegativeLong
-import com.advancedtelematic.tuf.reposerver.http.PaginationParams.PaginationResultOps
+import com.advancedtelematic.tuf.reposerver.http.PaginationParamsOps.PaginationResultOps
 import com.advancedtelematic.tuf.reposerver.data.RepoCodecs.*
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport
 import eu.timepit.refined.api.Refined
@@ -177,14 +173,6 @@ class RepoResource(keyserverClient: KeyserverClient,
 
   private val TargetFilenamePath = Segments.flatMap {
     _.mkString("/").refineTry[ValidTargetFilename].toOption
-  }
-
-  private def UserRepoId(namespace: Namespace): Directive1[RepoId] = Directive.Empty.tflatMap { _ =>
-    onComplete(repoNamespaceRepo.findFor(namespace)).flatMap {
-      case Success(repoId)              => provide(repoId)
-      case Failure(_: MissingEntity[_]) => failWith(NoRepoForNamespace(namespace))
-      case Failure(ex)                  => failWith(ex)
-    }
   }
 
   private def createRepo(namespace: Namespace, repoId: RepoId, keyType: KeyType): Route =
@@ -548,7 +536,10 @@ class RepoResource(keyserverClient: KeyserverClient,
                       }
                   }
                 }
-            case Invalid(errList) => complete(Errors.InvalidDelegationName(errList))
+            case Invalid(errList) =>
+              complete(
+                Errors.InvalidDelegationName(errList)
+              ) // TODO: Unmarshaller should do this, just throw/reject with the exception will be handled and converted to response
           }
         } ~
         pathPrefix("delegations_items") {
@@ -721,9 +712,7 @@ class RepoResource(keyserverClient: KeyserverClient,
               .findByFilename(repoId, filename)
               .map { targetItem =>
                 val someClientHashes: ClientHashes =
-                  Map[HashMethod, Refined[String, ValidChecksum]](
-                    targetItem.checksum.method -> targetItem.checksum.hash
-                  )
+                  Map(targetItem.checksum.method -> targetItem.checksum.hash)
                 ClientTargetItem(
                   someClientHashes,
                   targetItem.length,
@@ -755,7 +744,7 @@ class RepoResource(keyserverClient: KeyserverClient,
         val repoId = RepoId.generate()
         createRepo(namespace, repoId)
       } ~
-        UserRepoId(namespace) { repoId =>
+        UserRepoId(namespace, repoNamespaceRepo.findFor) { repoId =>
           modifyRepoRoutes(repoId)
         }
     } ~

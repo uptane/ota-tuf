@@ -34,19 +34,24 @@ class TufReposerverRoutes(keyserverClient: KeyserverClient,
   val routes: Route =
     handleRejections(rejectionHandler) {
       ErrorHandler.handleErrors {
-        pathPrefix("api" / "v1") {
-          new RepoResource(
-            keyserverClient,
-            namespaceValidation,
-            targetStore,
-            new TufTargetsPublisher(messageBusPublisher),
-            remoteDelegationClient
-          ).route
-        } ~ DbHealthResource(
-          versionMap,
-          dependencies = dependencyChecks,
-          metricRegistry = metricRegistry
-        ).route ~ metricsRoutes
+        concat(
+          pathPrefix("api" / "v1") {
+            new RepoResource(
+              keyserverClient,
+              namespaceValidation,
+              targetStore,
+              new TufTargetsPublisher(messageBusPublisher),
+              remoteDelegationClient
+            ).route
+          },
+          pathPrefix("api" / "v2")(new RepoTargetsResource(namespaceValidation).route),
+          DbHealthResource(
+            versionMap,
+            dependencies = dependencyChecks,
+            metricRegistry = metricRegistry
+          ).route,
+          metricsRoutes
+        )
       }
     }
 

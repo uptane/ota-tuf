@@ -3,13 +3,14 @@ package com.advancedtelematic.tuf.reposerver.util
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import akka.http.scaladsl.model.{StatusCodes, Uri}
-import cats.syntax.option._
-import cats.syntax.show._
+import cats.syntax.option.*
+import cats.syntax.show.*
 import com.advancedtelematic.libats.data.DataType.{HashMethod, ValidChecksum}
 import com.advancedtelematic.libtuf.crypt.TufCrypto
-import com.advancedtelematic.libtuf.data.ClientCodecs._
-import com.advancedtelematic.libtuf.data.ClientDataType.DelegatedPathPattern._
+import com.advancedtelematic.libtuf.data.ClientCodecs.*
+import com.advancedtelematic.libtuf.data.ClientDataType.DelegatedPathPattern.*
 import com.advancedtelematic.libtuf.data.ClientDataType.{
+  ClientTargetItem,
   DelegatedPathPattern,
   DelegatedRoleName,
   Delegation,
@@ -17,7 +18,7 @@ import com.advancedtelematic.libtuf.data.ClientDataType.{
   SnapshotRole,
   TargetsRole
 }
-import com.advancedtelematic.libtuf.data.TufCodecs._
+import com.advancedtelematic.libtuf.data.TufCodecs.*
 import com.advancedtelematic.libtuf.data.{ClientDataType, TufDataType}
 import com.advancedtelematic.libtuf.data.TufDataType.{
   Ed25519KeyType,
@@ -27,22 +28,23 @@ import com.advancedtelematic.libtuf.data.TufDataType.{
   TufKey,
   TufKeyPair
 }
-import com.advancedtelematic.libtuf.data.ValidatedString._
+import com.advancedtelematic.libtuf.data.ValidatedString.*
 import com.advancedtelematic.libtuf_server.crypto.Sha256Digest
 import com.advancedtelematic.libtuf_server.repo.server.RepoRoleRefresh
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.AddDelegationFromRemoteRequest
-import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
-import io.circe.syntax._
+import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
+import io.circe.syntax.*
 import org.scalactic.source.Position
 
 import scala.concurrent.Future
-import com.advancedtelematic.tuf.reposerver.data.RepoCodecs._
+import com.advancedtelematic.tuf.reposerver.data.RepoCodecs.*
 import com.advancedtelematic.tuf.reposerver.http.{
   TufRepoSignedRoleProvider,
   TufRepoTargetItemsProvider
 }
 import eu.timepit.refined.api.Refined
 import com.advancedtelematic.libtuf_server.data.Marshalling.*
+import io.circe.Json
 
 trait RepoResourceDelegationsSpecUtil extends RepoResourceSpecUtil {
   lazy val keyPair = Ed25519KeyType.crypto.generateKeyPair()
@@ -63,8 +65,17 @@ trait RepoResourceDelegationsSpecUtil extends RepoResourceSpecUtil {
   val delegations = Delegations(Map(keyPair.pubkey.id -> keyPair.pubkey), List(delegation))
 
   val testTargets: Map[TufDataType.TargetFilename, ClientDataType.ClientTargetItem] = Map(
-    Refined.unsafeApply("mypath/mytargetName") -> ClientDataType
-      .ClientTargetItem(Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash), 0, None)
+    Refined.unsafeApply("mypath/mytargetName") -> ClientTargetItem(
+      Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash),
+      2,
+      Json
+        .obj(
+          "name" -> "mytargetName".asJson,
+          "version" -> "0.0.2".asJson,
+          "hardwareIds" -> List("delegated-hardware-id-001").asJson
+        )
+        .some
+    )
   )
 
   def uploadOfflineSignedTargetsRole(
