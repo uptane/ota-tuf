@@ -1,5 +1,6 @@
 package com.advancedtelematic.tuf.reposerver.http
 
+import com.advancedtelematic.tuf.reposerver.data.RepoCodecs.*
 import org.scalatest.LoneElement.*
 import cats.implicits.*
 import io.circe.syntax.*

@@ -8,6 +8,7 @@ import com.advancedtelematic.libtuf.data.TufDataType.{HardwareIdentifier, ValidH
 import com.advancedtelematic.tuf.reposerver.db.RepoNamespaceRepositorySupport
 import com.advancedtelematic.tuf.reposerver.http.PaginationParamsOps.PaginationParams
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
+import com.advancedtelematic.tuf.reposerver.data.RepoCodecs.*
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.refineV
 import slick.jdbc.MySQLProfile.api.*

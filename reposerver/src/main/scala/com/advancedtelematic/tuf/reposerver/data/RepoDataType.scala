@@ -35,14 +35,10 @@ object RepoDataType {
                         length: Long,
                         custom: Option[TargetCustom] = None,
                         storageMethod: StorageMethod = Managed)
-
-  // But if they are the same, should be in the same table?
-
-  // Try to make this the same as TargetItem, just a different flag? Or two? Delegated/remote delegated?
+  
   case class DelegatedTargetItem(repoId: RepoId,
                                  filename: TargetFilename,
                                  roleName: DelegatedRoleName,
-//                                 uri: Option[Uri],
                                  checksum: Checksum,
                                  length: Long,
                                  custom: Option[Json])
@@ -55,21 +51,10 @@ object RepoDataType {
                             remoteUri: Option[Uri],
                             friendlyName: Option[DelegationFriendlyName] = None)
 
-  // TODO: This is not a good name
   object Package {
 
     type ValidTargetOrigin = NonEmpty
     type TargetOrigin = Refined[String, ValidTargetOrigin]
-
-    import com.advancedtelematic.libtuf.data.ClientCodecs.*
-    import com.advancedtelematic.libats.codecs.CirceRefined.*
-    import com.advancedtelematic.libats.http.HttpCodecs.*
-    import com.advancedtelematic.libtuf.data.TufCodecs.*
-    import com.advancedtelematic.libats.codecs.CirceAts.*
-
-    // TODO: Should be in codecs
-    implicit val packageCodec: Codec[Package] =
-      io.circe.generic.semiauto.deriveCodec[Package]
 
   }
 

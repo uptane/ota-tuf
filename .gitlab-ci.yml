@@ -40,7 +40,7 @@ test:
     - if: $CI_COMMIT_REF_NAME == "master"
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
   services:
-    - name: advancedtelematic/tuf-nginx:latest
+    - name: uptane/tuf-nginx:latest
       alias: tuf-nginx
     - name: mariadb:10.4
       alias: db

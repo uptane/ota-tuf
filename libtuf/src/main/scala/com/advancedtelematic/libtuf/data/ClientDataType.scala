@@ -196,6 +196,7 @@ object ClientDataType {
       )
     }
 
+    // TODO: Should be in cvodecs
     implicit val delegatedPatternCodec: io.circe.Codec.AsObject[
       com.advancedtelematic.libtuf.data.ClientDataType.DelegatedPathPattern
     ] = deriveCodec[DelegatedPathPattern]
