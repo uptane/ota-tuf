@@ -35,7 +35,7 @@ object RepoDataType {
                         length: Long,
                         custom: Option[TargetCustom] = None,
                         storageMethod: StorageMethod = Managed)
-  
+
   case class DelegatedTargetItem(repoId: RepoId,
                                  filename: TargetFilename,
                                  roleName: DelegatedRoleName,

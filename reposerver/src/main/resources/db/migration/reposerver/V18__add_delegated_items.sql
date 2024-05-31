@@ -12,3 +12,31 @@ CREATE TABLE `delegated_items` (
   CONSTRAINT delegated_item_delegations_fk FOREIGN KEY (repo_id, rolename) REFERENCES delegations (repo_id, name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci
 ;
+
+create view aggregated_items AS
+              SELECT 'targets.json' origin,
+                  JSON_UNQUOTE(JSON_EXTRACT(custom, '$.name')) name,
+                  JSON_UNQUOTE(JSON_EXTRACT(custom, '$.version')) version,
+                  filename,
+                  checksum,
+                  length,
+                  uri,
+                  IFNULL(JSON_EXTRACT(custom, '$.hardwareIds'),'[]') hardwareids,
+                  created_at,
+                  repo_id,
+                  custom
+              from target_items
+              UNION
+              select JSON_UNQUOTE(rolename) origin,
+                  JSON_UNQUOTE(JSON_EXTRACT(custom, '$.name')) name,
+                  JSON_UNQUOTE(JSON_EXTRACT(custom, '$.version')) version,
+                  filename,
+                  checksum,
+                  length,
+                  NULL uri,
+                  IFNULL(JSON_EXTRACT(custom, '$.hardwareIds'),'[]') hardwareids,
+                  created_at,
+                  repo_id,
+                  custom
+              FROM delegated_items
+;

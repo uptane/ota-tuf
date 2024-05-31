@@ -5,11 +5,15 @@ import com.advancedtelematic.libats.codecs.CirceRefined
 import com.advancedtelematic.libats.data.DataType.Checksum
 import com.advancedtelematic.libats.slick.db.{SlickCirceMapper, SlickUriMapper}
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.Package
-import com.advancedtelematic.tuf.reposerver.data.RepoDataType.Package.ValidTargetOrigin
+import com.advancedtelematic.tuf.reposerver.data.RepoDataType.Package.{
+  TargetOrigin,
+  ValidTargetOrigin
+}
 import slick.jdbc.{GetResult, SetParameter}
 import slick.jdbc.MySQLProfile.api.*
 import slick.sql.SqlStreamingAction
 
+import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
 
 class PackageSearch()(implicit db: Database) {
@@ -70,6 +74,15 @@ class PackageSearch()(implicit db: Database) {
 
   }
 
+  private implicit val setHardwareString = SetParameter[Seq[HardwareIdentifier]] { (value, pp) =>
+    import io.circe.syntax.*
+    pp.setString(value.asJson.noSpaces)
+  }
+
+  private implicit val setSeqString = SetParameter[Seq[String]] { (value, pp) =>
+    pp.setString(value.mkString(","))
+  }
+
   private def buildQuery[Q](
     targetsQuery: TargetsQuery[Q],
     repoId: RepoId,
@@ -77,47 +90,12 @@ class PackageSearch()(implicit db: Database) {
     limit: Long,
     searchParams: PackageSearchParameters): SqlStreamingAction[Vector[Q], Q, Effect] = {
 
-    implicit val setHardwareString = SetParameter[Seq[HardwareIdentifier]] { (value, pp) =>
-      import io.circe.syntax.*
-      pp.setString(value.asJson.noSpaces)
-    }
-
-    implicit val setSeqString = SetParameter[Seq[String]] { (value, pp) =>
-      pp.setString(value.mkString(","))
-    }
-
     implicit val getResult: GetResult[Q] = targetsQuery.getResult
 
     val querySqlAction =
       sql"""
       SELECT #${targetsQuery.select}
-      FROM(
-              SELECT 'targets.json' origin,
-                  JSON_UNQUOTE(JSON_EXTRACT(custom, '$$.name')) name,
-                  JSON_UNQUOTE(JSON_EXTRACT(custom, '$$.version')) version,
-                  filename,
-                  checksum,
-                  length,
-                  uri,
-                  IFNULL(JSON_EXTRACT(custom, '$$.hardwareIds'),'[]') hardwareids,
-                  created_at,
-                  repo_id,
-                  custom
-              from target_items
-              UNION
-              select JSON_UNQUOTE(rolename) origin,
-                  JSON_UNQUOTE(JSON_EXTRACT(custom, '$$.name')) name,
-                  JSON_UNQUOTE(JSON_EXTRACT(custom, '$$.version')) version,
-                  filename,
-                  checksum,
-                  length,
-                  NULL uri,
-                  IFNULL(JSON_EXTRACT(custom, '$$.hardwareIds'),'[]') hardwareids,
-                  created_at,
-                  repo_id,
-                  custom
-              FROM delegated_items
-      ) s1
+      FROM aggregated_items
       WHERE repo_id = ${repoId.show} AND
         IF(${searchParams.origin.isEmpty}, true, FIND_IN_SET(origin, ${searchParams.origin}) > 0) AND
         IF(${searchParams.name.isEmpty}, true, name = ${searchParams.name}) AND
@@ -149,6 +127,62 @@ class PackageSearch()(implicit db: Database) {
            limit: Long,
            searchParams: PackageSearchParameters): Future[Seq[Package]] = {
     val q = buildQuery(ResultQuery, repoId, offset, limit, searchParams)
+    db.run(q)
+  }
+
+  case class AggregatedPackage(name: TargetName,
+                               versions: Seq[TargetVersion],
+                               hardwareIds: Seq[HardwareIdentifier],
+                               lastCreatedAt: Instant)
+
+  def findAggregated(repoId: RepoId,
+                     offset: Long,
+                     limit: Long,
+                     searchParams: PackageSearchParameters): Future[Seq[AggregatedPackage]] = {
+
+    // first filter values using group by, distinct, limit+offset
+
+    // get all found values grouped by
+
+    // group into a datastructure that makes sense in memory, possibly *NOT* Map[TargetVersion, Seq[Pacakge]]
+
+    // with GROUP_CONCAT we should be able to do this all in one query?
+
+    implicit val getAggregatedPkgs: GetResult[AggregatedPackage] = GetResult { pr =>
+      val versions = pr.rs.getString("versions").split(",").map(TargetVersion.apply)
+
+      val hardwareIds = pr.rs.getString("hardwareIds").split(",").toList.flatMap { hwidJsonStr =>
+        io.circe.parser.decode[List[HardwareIdentifier]](hwidJsonStr).toList.flatten
+      }
+
+      val lastCreatedAt = pr.rs.getTimestamp("last_created_at").toInstant
+
+      AggregatedPackage(
+        TargetName(Option(pr.rs.getString("name")).getOrElse("")),
+        versions,
+        hardwareIds,
+        lastCreatedAt
+      )
+    }
+
+    val q =
+      sql"""
+      SELECT name,
+             GROUP_CONCAT(version ORDER BY version SEPARATOR ',') versions,
+             GROUP_CONCAT(hardwareids ORDER BY hardwareids SEPARATOR ',' ) hardwareIds,
+             MAX(created_at) last_version,
+             GROUP BY name
+      FROM aggregated_items
+      WHERE repo_id = ${repoId.show} AND
+        IF(${searchParams.origin.isEmpty}, true, FIND_IN_SET(origin, ${searchParams.origin}) > 0) AND
+        IF(${searchParams.nameContains.isEmpty}, true, LOCATE(${searchParams.nameContains}, name) > 0) AND
+        IF(${searchParams.hardwareIds.isEmpty}, true, JSON_CONTAINS(hardwareids, JSON_QUOTE(${searchParams.hardwareIds.headOption
+          .map(_.value)})))
+      ORDER BY
+          #${searchParams.sortBy.column},
+          1 ASC, 2 ASC, 3 DESC
+      LIMIT $limit OFFSET $offset""".as[AggregatedPackage]
+
     db.run(q)
   }
 
