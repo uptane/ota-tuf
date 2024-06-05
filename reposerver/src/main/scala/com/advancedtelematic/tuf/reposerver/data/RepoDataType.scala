@@ -69,4 +69,10 @@ object RepoDataType {
                      createdAt: Instant,
                      customData: Option[Json])
 
+  case class AggregatedPackage(name: TargetName,
+                               versions: Seq[TargetVersion],
+                               hardwareIds: Seq[HardwareIdentifier],
+                               origins: Seq[TargetOrigin],
+                               lastVersionAt: Instant)
+
 }

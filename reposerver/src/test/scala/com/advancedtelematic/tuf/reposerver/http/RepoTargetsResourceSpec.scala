@@ -278,7 +278,6 @@ class RepoTargetsResourceSpec
     }
   }
 
-
   testWithRepo("filters by nameContains") { implicit ns => implicit repoId =>
     addTargetToRepo(repoId)
 
@@ -351,4 +350,140 @@ class RepoTargetsResourceSpec
       values shouldBe empty
     }
   }
+
+  testWithRepo("grouped-search gets packages aggregated by version") {
+    implicit ns => implicit repoId =>
+      addTargetToRepo(repoId)
+
+      // targets with no `custom` are ignored, no name/version
+      Get(apiUriV2(s"user_repo/grouped-search")).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val response = responseAs[PaginationResult[AggregatedPackage]]
+
+        response.total shouldBe 0
+        response.values shouldBe empty
+      }
+
+      uploadOfflineSignedTargetsRole()
+
+      val signedDelegationRole = buildSignedDelegatedTargets()
+
+      pushSignedDelegatedMetadataOk(signedDelegationRole)
+
+      Get(apiUriV2(s"user_repo/grouped-search")).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val response = responseAs[PaginationResult[AggregatedPackage]]
+
+        println(responseAs[Json].spaces2)
+
+        response.total shouldBe 1
+        val item = response.values.loneElement
+
+        item.name.value shouldBe "mytargetName"
+        item.versions.loneElement.value shouldBe "0.0.2"
+        item.hardwareIds.loneElement.value shouldBe "delegated-hardware-id-001"
+        item.origins.loneElement.value shouldBe "my-delegation.test.ok_"
+      }
+
+  }
+
+  testWithRepo("filters grouped target items") { implicit ns => implicit repoId =>
+    addTargetToRepo(repoId)
+
+    uploadOfflineSignedTargetsRole()
+
+    val signedDelegationRole = buildSignedDelegatedTargets()
+
+    pushSignedDelegatedMetadataOk(signedDelegationRole)
+
+    Put(
+      apiUri("user_repo/targets/mypkg?name=library&version=0.0.1&hardwareIds=myid001"),
+      testEntity
+    ).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+
+    Get(apiUriV2(s"user_repo/grouped-search?hardwareIds=myid001")).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[AggregatedPackage]].values
+      values should have size 1
+    }
+
+    Get(
+      apiUriV2(s"user_repo/grouped-search?hardwareIds=delegated-hardware-id-001")
+    ).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[AggregatedPackage]].values
+      values should have size 1
+    }
+
+    Get(
+      apiUriV2(s"user_repo/grouped-search?hardwareIds=somethingelse")
+    ).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[AggregatedPackage]].values
+      values shouldBe empty
+    }
+
+    Get(apiUriV2(s"user_repo/grouped-search?nameContains=lib")).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[AggregatedPackage]].values
+      values should have size 1
+    }
+
+    Get(
+      apiUriV2(s"user_repo/grouped-search?nameContains=doesnotexist")
+    ).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[AggregatedPackage]].values
+      values shouldBe empty
+    }
+
+    Get(apiUriV2(s"user_repo/grouped-search?origin=doesnotexist")).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[AggregatedPackage]].values
+      values shouldBe empty
+    }
+
+    Get(apiUriV2(s"user_repo/grouped-search?origin=targets.json")).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[AggregatedPackage]].values
+      values should have size 1
+    }
+
+  }
+
+  testWithRepo("sorts grouped target items") { implicit ns => implicit repoId =>
+    addTargetToRepo(repoId)
+
+    uploadOfflineSignedTargetsRole()
+
+    val signedDelegationRole = buildSignedDelegatedTargets()
+
+    pushSignedDelegatedMetadataOk(signedDelegationRole)
+
+    Put(
+      apiUri("user_repo/targets/zotherpackage?name=zlibrary&version=0.0.1&hardwareIds=myid001"),
+      testEntity
+    ).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+
+    Get(apiUriV2(s"user_repo/grouped-search?sortBy=name")).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[AggregatedPackage]].values
+      values should have size 2
+
+      values.map(_.name.value) shouldBe List("mytargetName", "zlibrary")
+    }
+
+    Get(apiUriV2(s"user_repo/grouped-search?sortBy=lastVersionAt")).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[AggregatedPackage]].values
+      values should have size 2
+
+      values.map(_.name.value) shouldBe List("zlibrary", "mytargetName")
+    }
+  }
+
 }

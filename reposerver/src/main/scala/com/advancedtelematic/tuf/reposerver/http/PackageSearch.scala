@@ -4,16 +4,12 @@ import cats.syntax.show.*
 import com.advancedtelematic.libats.codecs.CirceRefined
 import com.advancedtelematic.libats.data.DataType.Checksum
 import com.advancedtelematic.libats.slick.db.{SlickCirceMapper, SlickUriMapper}
-import com.advancedtelematic.tuf.reposerver.data.RepoDataType.Package
-import com.advancedtelematic.tuf.reposerver.data.RepoDataType.Package.{
-  TargetOrigin,
-  ValidTargetOrigin
-}
+import com.advancedtelematic.tuf.reposerver.data.RepoDataType.{AggregatedPackage, Package}
+import com.advancedtelematic.tuf.reposerver.data.RepoDataType.Package.ValidTargetOrigin
 import slick.jdbc.{GetResult, SetParameter}
 import slick.jdbc.MySQLProfile.api.*
 import slick.sql.SqlStreamingAction
 
-import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
 
 class PackageSearch()(implicit db: Database) {
@@ -74,21 +70,22 @@ class PackageSearch()(implicit db: Database) {
 
   }
 
-  private implicit val setHardwareString = SetParameter[Seq[HardwareIdentifier]] { (value, pp) =>
-    import io.circe.syntax.*
-    pp.setString(value.asJson.noSpaces)
+  private implicit val setHardwareString: SetParameter[Seq[HardwareIdentifier]] = SetParameter {
+    (value, pp) =>
+      import io.circe.syntax.*
+      pp.setString(value.asJson.noSpaces)
   }
 
-  private implicit val setSeqString = SetParameter[Seq[String]] { (value, pp) =>
+  private implicit val setSeqString: SetParameter[Seq[String]] = SetParameter { (value, pp) =>
     pp.setString(value.mkString(","))
   }
 
-  private def buildQuery[Q](
-    targetsQuery: TargetsQuery[Q],
-    repoId: RepoId,
-    offset: Long,
-    limit: Long,
-    searchParams: PackageSearchParameters): SqlStreamingAction[Vector[Q], Q, Effect] = {
+  private def findQuery[Q](targetsQuery: TargetsQuery[Q],
+                           repoId: RepoId,
+                           offset: Long,
+                           limit: Long,
+                           searchParams: PackageSearchParameters,
+                           sortBy: TargetItemsSort): SqlStreamingAction[Vector[Q], Q, Effect] = {
 
     implicit val getResult: GetResult[Q] = targetsQuery.getResult
 
@@ -103,7 +100,7 @@ class PackageSearch()(implicit db: Database) {
         IF(${searchParams.hardwareIds.isEmpty}, true, JSON_CONTAINS(hardwareids, JSON_QUOTE(${searchParams.hardwareIds.headOption
           .map(_.value)})))
       ORDER BY
-          #${searchParams.sortBy.column},
+          #${sortBy.column},
           version,
           length
       LIMIT $limit OFFSET $offset""".as[Q]
@@ -118,70 +115,120 @@ class PackageSearch()(implicit db: Database) {
 
   def count(repoId: RepoId, searchParams: PackageSearchParameters)(
     implicit ec: ExecutionContext): Future[Long] = {
-    val q = buildQuery(CountQuery, repoId, 0, 1, searchParams)
+    val q = findQuery(CountQuery, repoId, 0, 1, searchParams, TargetItemsSort.CreatedAt)
     db.run(q.map(_.sum))
   }
 
   def find(repoId: RepoId,
            offset: Long,
            limit: Long,
-           searchParams: PackageSearchParameters): Future[Seq[Package]] = {
-    val q = buildQuery(ResultQuery, repoId, offset, limit, searchParams)
+           searchParams: PackageSearchParameters,
+           sortBy: TargetItemsSort): Future[Seq[Package]] = {
+    val q = findQuery(ResultQuery, repoId, offset, limit, searchParams, sortBy)
     db.run(q)
   }
 
-  case class AggregatedPackage(name: TargetName,
-                               versions: Seq[TargetVersion],
-                               hardwareIds: Seq[HardwareIdentifier],
-                               lastCreatedAt: Instant)
+  private sealed trait AggregatedTargetsQuery[T] {
+    implicit def getResult: GetResult[T]
+    def select: String
+  }
 
-  def findAggregated(repoId: RepoId,
-                     offset: Long,
-                     limit: Long,
-                     searchParams: PackageSearchParameters): Future[Seq[AggregatedPackage]] = {
+  private case object AggregatedCountQuery extends AggregatedTargetsQuery[Long] {
+    override implicit def getResult: GetResult[Long] = GetResult.GetLong
 
-    // first filter values using group by, distinct, limit+offset
+    override def select: String = "count(*), 0 versions, null last_version_at"
+  }
 
-    // get all found values grouped by
+  private case object AggregatedResultQuery extends AggregatedTargetsQuery[AggregatedPackage] {
 
-    // group into a datastructure that makes sense in memory, possibly *NOT* Map[TargetVersion, Seq[Pacakge]]
+    override implicit def getResult: GetResult[AggregatedPackage] = GetResult { pr =>
+      val versions = Option(pr.rs.getString("versions"))
+        .map(_.split(",").map(TargetVersion.apply))
+        .toList
+        .flatten
 
-    // with GROUP_CONCAT we should be able to do this all in one query?
+      val origins = Option(pr.rs.getString("origins"))
+        .map(_.split(",").flatMap(str => refineV[ValidTargetOrigin](str).toOption))
+        .toList
+        .flatten
 
-    implicit val getAggregatedPkgs: GetResult[AggregatedPackage] = GetResult { pr =>
-      val versions = pr.rs.getString("versions").split(",").map(TargetVersion.apply)
+      val hardwareIds = Option(
+        pr.rs
+          .getString("hardwareIds")
+      ).map(
+        _.split(",")
+          .flatMap { hwidJsonStr =>
+            io.circe.parser.decode[List[HardwareIdentifier]](hwidJsonStr).toList.flatten.toSet
+          }
+      ).toList
+        .flatten
 
-      val hardwareIds = pr.rs.getString("hardwareIds").split(",").toList.flatMap { hwidJsonStr =>
-        io.circe.parser.decode[List[HardwareIdentifier]](hwidJsonStr).toList.flatten
-      }
-
-      val lastCreatedAt = pr.rs.getTimestamp("last_created_at").toInstant
+      val lastCreatedAt = pr.rs.getTimestamp("last_version_at").toInstant
 
       AggregatedPackage(
         TargetName(Option(pr.rs.getString("name")).getOrElse("")),
         versions,
         hardwareIds,
+        origins,
         lastCreatedAt
       )
     }
 
+    override def select: String =
+      """
+        |name,
+        |GROUP_CONCAT(version ORDER BY created_at DESC SEPARATOR ',') versions,
+        |GROUP_CONCAT(hardwareids ORDER BY created_at DESC SEPARATOR ',' ) hardwareIds,
+        |GROUP_CONCAT(origin ORDER BY origin DESC SEPARATOR ',' ) origins,
+        |MAX(created_at) last_version_at""".stripMargin
+
+  }
+
+  def findAggregatedCount(repoId: RepoId, searchParams: PackageSearchParameters)(
+    implicit ec: ExecutionContext): Future[Long] = {
+    val q = findAggregatedQuery(
+      AggregatedCountQuery,
+      repoId,
+      0,
+      1,
+      searchParams,
+      AggregatedTargetItemsSort.LastVersionAt
+    )
+    q.map(_.sum)
+  }
+
+  def findAggregated(repoId: RepoId,
+                     offset: Long,
+                     limit: Long,
+                     searchParams: PackageSearchParameters,
+                     sortBy: AggregatedTargetItemsSort)(
+    implicit ec: ExecutionContext): Future[Seq[AggregatedPackage]] =
+    findAggregatedQuery(AggregatedResultQuery, repoId, offset, limit, searchParams, sortBy)
+
+  private def findAggregatedQuery[Q](query: AggregatedTargetsQuery[Q],
+                                     repoId: RepoId,
+                                     offset: Long,
+                                     limit: Long,
+                                     searchParams: PackageSearchParameters,
+                                     sortBy: AggregatedTargetItemsSort): Future[Seq[Q]] = {
+    import query.getResult
+
     val q =
       sql"""
-      SELECT name,
-             GROUP_CONCAT(version ORDER BY version SEPARATOR ',') versions,
-             GROUP_CONCAT(hardwareids ORDER BY hardwareids SEPARATOR ',' ) hardwareIds,
-             MAX(created_at) last_version,
-             GROUP BY name
+      SELECT #${query.select}
       FROM aggregated_items
       WHERE repo_id = ${repoId.show} AND
+        name is not null AND
+        version is not null AND
         IF(${searchParams.origin.isEmpty}, true, FIND_IN_SET(origin, ${searchParams.origin}) > 0) AND
         IF(${searchParams.nameContains.isEmpty}, true, LOCATE(${searchParams.nameContains}, name) > 0) AND
         IF(${searchParams.hardwareIds.isEmpty}, true, JSON_CONTAINS(hardwareids, JSON_QUOTE(${searchParams.hardwareIds.headOption
           .map(_.value)})))
+      GROUP BY name
       ORDER BY
-          #${searchParams.sortBy.column},
-          1 ASC, 2 ASC, 3 DESC
-      LIMIT $limit OFFSET $offset""".as[AggregatedPackage]
+          #${sortBy.column},
+          name ASC, versions ASC, last_version_at DESC, hardwareIds ASC
+      LIMIT $limit OFFSET $offset""".as[Q]
 
     db.run(q)
   }
