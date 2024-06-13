@@ -51,7 +51,8 @@ lazy val serverDependencies = libraryDependencies ++= {
     "io.github.uptane" %% "libats-logging" % libatsVersion,
     "org.mariadb.jdbc" % "mariadb-java-client" % "3.3.3",
     "com.beachape" %% "enumeratum" % enumeratumV,
-    "com.beachape" %% "enumeratum-circe" % enumeratumV
+    "com.beachape" %% "enumeratum-circe" % enumeratumV,
+    "io.scalaland" %% "chimney" % "1.1.0",
   )
 }
 

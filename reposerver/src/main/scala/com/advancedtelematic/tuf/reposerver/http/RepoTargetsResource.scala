@@ -1,6 +1,6 @@
 package com.advancedtelematic.tuf.reposerver.http
 
-import akka.http.scaladsl.server.{Directive, Directive1}
+import io.scalaland.chimney.dsl._
 import akka.http.scaladsl.unmarshalling.PredefinedFromStringUnmarshallers.CsvSeq
 import akka.http.scaladsl.unmarshalling.Unmarshaller
 import com.advancedtelematic.libats.data.PaginationResult
@@ -10,8 +10,7 @@ import com.advancedtelematic.tuf.reposerver.http.PaginationParamsOps.PaginationP
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
 import com.advancedtelematic.tuf.reposerver.data.RepoCodecs.*
 import com.advancedtelematic.libtuf.data.ClientCodecs.*
-import com.advancedtelematic.libtuf.data.ClientDataType
-import com.advancedtelematic.libtuf.data.ClientDataType.{AggregatedTargetItemsSort, TargetItemsSort}
+import com.advancedtelematic.libtuf.data.ClientDataType.{AggregatedTargetItemsSort, ClientAggregatedPackage, ClientPackage, TargetItemsSort}
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.Package.*
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.refineV
@@ -84,9 +83,10 @@ class RepoTargetsResource(namespaceValidation: NamespaceValidation)(
             val f = for {
               count <- (new PackageSearch()).count(repoId, searchParams)
               values <- (new PackageSearch()).find(repoId, offset, limit, searchParams, sortBy, sortDirection)
-            } yield
-              PaginationResult(values.map(_.toClientPackage()), count, offset, limit)
-              
+            } yield {
+              PaginationResult(values.map(_.transformInto[ClientPackage]), count, offset, limit)
+            }
+
             complete(f)
           }
         },
@@ -96,7 +96,7 @@ class RepoTargetsResource(namespaceValidation: NamespaceValidation)(
               count <- (new PackageSearch()).findAggregatedCount(repoId, searchParams)
               values <- (new PackageSearch()).findAggregated(repoId, offset, limit, searchParams, sortBy, sortDirection)
             } yield
-              PaginationResult(values.map(_.toClientAggregatedPackage()), count, offset, limit)
+              PaginationResult(values.map(_.transformInto[ClientAggregatedPackage]), count, offset, limit)
 
             complete(f)
           }
