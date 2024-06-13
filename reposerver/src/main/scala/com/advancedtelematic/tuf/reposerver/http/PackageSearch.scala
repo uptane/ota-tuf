@@ -4,6 +4,11 @@ import cats.syntax.show.*
 import com.advancedtelematic.libats.codecs.CirceRefined
 import com.advancedtelematic.libats.data.DataType.Checksum
 import com.advancedtelematic.libats.slick.db.{SlickCirceMapper, SlickUriMapper}
+import com.advancedtelematic.libtuf.data.ClientDataType.{
+  AggregatedTargetItemsSort,
+  SortDirection,
+  TargetItemsSort
+}
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.Package.ValidTargetOrigin
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.{AggregatedPackage, Package}
 import slick.jdbc.MySQLProfile.api.*
@@ -205,7 +210,7 @@ class PackageSearch()(implicit db: Database) {
       Long.MaxValue,
       searchParams,
       AggregatedTargetItemsSort.LastVersionAt,
-      SortDirection.Desc,
+      SortDirection.Desc
     )
     q.map(_.sum)
   }

@@ -56,6 +56,18 @@ object RepoDataType {
     type ValidTargetOrigin = NonEmpty
     type TargetOrigin = Refined[String, ValidTargetOrigin]
 
+
+    implicit class ClientPackageConversion(p:Package) {
+      def toClientPackage(): ClientPackage = {
+        ClientPackage(p.name, p.version, p.filename, p.origin, p.length, p.hashes, p.uri, p.hardwareIds, p.createdAt, p.customData)
+      }
+    }
+
+    implicit class ClientAggregatedPackageConversion(p:AggregatedPackage) {
+      def toClientAggregatedPackage(): ClientAggregatedPackage = {
+        ClientAggregatedPackage(p.name, p.versions, p.hardwareIds, p.origins, p.lastVersionAt)
+      }
+    }
   }
 
   case class Package(name: TargetName,

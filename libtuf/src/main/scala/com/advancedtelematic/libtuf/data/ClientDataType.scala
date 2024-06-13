@@ -2,11 +2,11 @@ package com.advancedtelematic.libtuf.data
 
 import java.net.URI
 import java.time.Instant
-
-import cats.syntax.show._
+import cats.syntax.show.*
 import com.advancedtelematic.libats.data.DataType.HashMethod.HashMethod
 import com.advancedtelematic.libats.data.DataType.ValidChecksum
 import com.advancedtelematic.libats.data.RefinedUtils.RefineTry
+import com.advancedtelematic.libtuf.data.ClientDataType.ClientPackage.TargetOrigin
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 import com.advancedtelematic.libtuf.data.TufDataType.TargetFormat.TargetFormat
 import com.advancedtelematic.libtuf.data.TufDataType.{
@@ -23,8 +23,16 @@ import com.advancedtelematic.libtuf.data.ValidatedString.{
   ValidatedStringValidation
 }
 import eu.timepit.refined.api.{Refined, Validate}
+import eu.timepit.refined.predicates.all.NonEmpty
 import io.circe.{Decoder, Json}
-import io.circe.generic.semiauto._
+import io.circe.generic.semiauto.*
+import akka.http.scaladsl.model.Uri
+import akka.http.scaladsl.unmarshalling.Unmarshaller
+import enumeratum.*
+import com.advancedtelematic.libats.codecs.CirceRefined.*
+//import com.advancedtelematic.libats.http.HttpCodecs.*
+import io.circe.Codec
+import io.circe.generic.semiauto.*
 
 object ClientDataType {
   type ClientHashes = Map[HashMethod, Refined[String, ValidChecksum]]
@@ -255,4 +263,75 @@ object ClientDataType {
   case class PubKeyInfo(pubkey: String, meta: Option[PubKeyMeta])
 
   case class PubKeyMeta(name: String)
+
+  trait EnumeratumUnmarshaller[T <: EnumEntry] { this: Enum[T] =>
+
+    implicit val unmarshaller: Unmarshaller[String, T] = Unmarshaller.strict { str =>
+      this.withNameInsensitive(str)
+    }
+
+  }
+
+  sealed abstract class SortDirection extends EnumEntry
+
+  object SortDirection extends Enum[SortDirection] with EnumeratumUnmarshaller[SortDirection] {
+
+    import scala.annotation.unused
+
+    val values = findValues
+
+    @unused
+    case object Asc extends SortDirection
+
+    case object Desc extends SortDirection
+  }
+
+  sealed abstract class TargetItemsSort(val column: String) extends EnumEntry
+
+  object TargetItemsSort
+      extends Enum[TargetItemsSort]
+      with EnumeratumUnmarshaller[TargetItemsSort] {
+
+    val values = findValues
+
+    case object Filename extends TargetItemsSort("filename")
+
+    case object CreatedAt extends TargetItemsSort("created_at")
+  }
+
+  sealed abstract class AggregatedTargetItemsSort(val column: String) extends EnumEntry
+
+  object AggregatedTargetItemsSort
+      extends Enum[AggregatedTargetItemsSort]
+      with EnumeratumUnmarshaller[AggregatedTargetItemsSort] {
+    val values = findValues
+    case object Name extends AggregatedTargetItemsSort("name")
+
+    case object LastVersionAt extends AggregatedTargetItemsSort("last_version_at")
+  }
+
+  object ClientPackage {
+
+    type ValidTargetOrigin = NonEmpty
+    type TargetOrigin = Refined[String, ValidTargetOrigin]
+
+  }
+
+  case class ClientPackage(name: TargetName,
+                           version: TargetVersion,
+                           filename: TargetFilename,
+                           origin: TargetOrigin,
+                           length: Long,
+                           hashes: ClientHashes,
+                           uri: Option[Uri],
+                           hardwareIds: List[HardwareIdentifier],
+                           createdAt: Instant,
+                           customData: Option[Json])
+
+  case class ClientAggregatedPackage(name: TargetName,
+                                     versions: Seq[TargetVersion],
+                                     hardwareIds: Seq[HardwareIdentifier],
+                                     origins: Seq[TargetOrigin],
+                                     lastVersionAt: Instant)
+
 }
