@@ -415,11 +415,13 @@ class ReposerverHttpClient(reposerverUri: Uri,
           Query(
             paginationParams(offset, limit)
               ++ (if (origins.isEmpty) { Map.empty[String, String] }
-                  else { Map("origin" -> origins.mkString(",").dropRight(1)) })
+                  else { Map("origin" -> origins.mkString(",")) })
               ++ nameContains.map(n => Map("nameContains" -> n)).getOrElse(Map.empty)
               ++ name.map(n => Map("name" -> n)).getOrElse(Map.empty)
               ++ (if (hardwareIds.isEmpty) { Map.empty[String, String] }
-                  else { Map("hardwareIds" -> hardwareIds.mkString(",").dropRight(1)) })
+                  else {
+                    Map("hardwareIds" -> hardwareIds.map(_.value).mkString(","))
+                  })
               ++ sortBy.map(s => Map("sortBy" -> s.column)).getOrElse(Map.empty)
               ++ sortDirection.map(sortD => Map("sortBy" -> sortD.entryName)).getOrElse(Map.empty)
           )
@@ -445,11 +447,13 @@ class ReposerverHttpClient(reposerverUri: Uri,
           Query(
             paginationParams(offset, limit)
               ++ (if (origins.isEmpty) { Map.empty[String, String] }
-                  else { Map("origin" -> origins.mkString(",").dropRight(1)) })
+                  else { Map("origin" -> origins.mkString(",")) })
               ++ nameContains.map(n => Map("nameContains" -> n)).getOrElse(Map.empty)
               ++ name.map(n => Map("name" -> n)).getOrElse(Map.empty)
               ++ (if (hardwareIds.isEmpty) { Map.empty[String, String] }
-                  else { Map("hardwareIds" -> hardwareIds.mkString(",").dropRight(1)) })
+                  else {
+                    Map("hardwareIds" -> hardwareIds.map(_.value).mkString(","))
+                  })
               ++ sortBy.map(s => Map("sortBy" -> s.column)).getOrElse(Map.empty)
               ++ sortDirection
                 .map(sortD => Map("sortDirection" -> sortD.entryName))
