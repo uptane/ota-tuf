@@ -96,6 +96,7 @@ class PackageSearch()(implicit db: Database) {
       WHERE repo_id = ${repoId.show} AND
         IF(${searchParams.origin.isEmpty}, true, FIND_IN_SET(origin, ${searchParams.origin}) > 0) AND
         IF(${searchParams.name.isEmpty}, true, name = ${searchParams.name}) AND
+        IF(${searchParams.version.isEmpty}, true, version = ${searchParams.version}) AND
         IF(${searchParams.nameContains.isEmpty}, true, LOCATE(${searchParams.nameContains}, name) > 0) AND
         IF(${searchParams.hardwareIds.isEmpty}, true, JSON_CONTAINS(hardwareids, JSON_QUOTE(${searchParams.hardwareIds.headOption
           .map(_.value)})))
@@ -222,6 +223,7 @@ class PackageSearch()(implicit db: Database) {
         version is not null AND
         IF(${searchParams.origin.isEmpty}, true, FIND_IN_SET(origin, ${searchParams.origin}) > 0) AND
         IF(${searchParams.nameContains.isEmpty}, true, LOCATE(${searchParams.nameContains}, name) > 0) AND
+        IF(${searchParams.version.isEmpty}, true, version = ${searchParams.version}) AND
         IF(${searchParams.hardwareIds.isEmpty}, true, JSON_CONTAINS(hardwareids, JSON_QUOTE(${searchParams.hardwareIds.headOption
           .map(_.value)})))
       GROUP BY name

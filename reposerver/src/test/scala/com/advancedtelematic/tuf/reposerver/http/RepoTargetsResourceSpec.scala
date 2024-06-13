@@ -188,7 +188,7 @@ class RepoTargetsResourceSpec
     }
   }
 
-  testWithRepo("filters by name") { implicit ns => implicit repoId =>
+  testWithRepo("filters by name, version") { implicit ns => implicit repoId =>
     addTargetToRepo(repoId)
 
     uploadOfflineSignedTargetsRole()
@@ -215,10 +215,23 @@ class RepoTargetsResourceSpec
       val values = responseAs[PaginationResult[Package]].values
       values should have size 1
     }
+
     Get(apiUriV2(s"user_repo/search?name=doesnotexist")).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[Package]].values
       values shouldBe empty
+    }
+
+    Get(apiUriV2(s"user_repo/search?version=doesnotexist")).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[Package]].values
+      values shouldBe empty
+    }
+
+    Get(apiUriV2(s"user_repo/search?version=0.0.1")).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[Package]].values
+      values should have size 1
     }
   }
 
@@ -374,8 +387,6 @@ class RepoTargetsResourceSpec
         status shouldBe StatusCodes.OK
         val response = responseAs[PaginationResult[AggregatedPackage]]
 
-        println(responseAs[Json].spaces2)
-
         response.total shouldBe 1
         val item = response.values.loneElement
 
@@ -446,6 +457,12 @@ class RepoTargetsResourceSpec
     }
 
     Get(apiUriV2(s"user_repo/grouped-search?origin=targets.json")).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[AggregatedPackage]].values
+      values should have size 1
+    }
+
+    Get(apiUriV2(s"user_repo/grouped-search?version=0.0.1")).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[AggregatedPackage]].values
       values should have size 1

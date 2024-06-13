@@ -51,6 +51,7 @@ object AggregatedTargetItemsSort extends Enum[AggregatedTargetItemsSort] {
 case class PackageSearchParameters(origin: Seq[String],
                                    nameContains: Option[String],
                                    name: Option[String],
+                                   version: Option[String],
                                    hardwareIds: Seq[HardwareIdentifier])
 
 class RepoTargetsResource(namespaceValidation: NamespaceValidation)(
@@ -75,20 +76,24 @@ class RepoTargetsResource(namespaceValidation: NamespaceValidation)(
   )
 
   val SortByAggregatedTargetItemsParam: Directive1[AggregatedTargetItemsSort] = parameters(
-    "sortBy".as[AggregatedTargetItemsSort].?[AggregatedTargetItemsSort](AggregatedTargetItemsSort.LastVersionAt)
+    "sortBy"
+      .as[AggregatedTargetItemsSort]
+      .?[AggregatedTargetItemsSort](AggregatedTargetItemsSort.LastVersionAt)
   )
 
   val SearchParams: Directive1[PackageSearchParameters] = parameters(
     "origin".as(CsvSeq[String]).?,
     "nameContains".as[String].?,
     "name".as[String].?,
+    "version".as[String].?,
     "hardwareIds".as(CsvSeq[HardwareIdentifier]).?
-  ).tflatMap { case (origin, nameContains, name, hardwareIds) =>
+  ).tflatMap { case (origin, nameContains, name, version, hardwareIds) =>
     provide(
       PackageSearchParameters(
         origin.getOrElse(Seq.empty),
         nameContains,
         name,
+        version,
         hardwareIds.getOrElse(Seq.empty)
       )
     )
