@@ -191,7 +191,7 @@ class PackageSearch()(implicit db: Database) {
       AggregatedCountQuery,
       repoId,
       0,
-      1,
+      Long.MaxValue,
       searchParams,
       AggregatedTargetItemsSort.LastVersionAt
     )
