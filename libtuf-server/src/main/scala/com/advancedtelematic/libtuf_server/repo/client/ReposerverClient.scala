@@ -407,7 +407,7 @@ class ReposerverHttpClient(reposerverUri: Uri,
     origins: Seq[String],
     nameContains: Option[String],
     name: Option[String],
-                      version: Option[String],
+    version: Option[String],
     hardwareIds: Seq[HardwareIdentifier],
     sortBy: Option[TargetItemsSort],
     sortDirection: Option[SortDirection]): Future[PaginationResult[ClientPackage]] = {
@@ -427,7 +427,9 @@ class ReposerverHttpClient(reposerverUri: Uri,
                     Map("hardwareIds" -> hardwareIds.map(_.value).mkString(","))
                   })
               ++ sortBy.map(s => Map("sortBy" -> s.entryName)).getOrElse(Map.empty)
-              ++ sortDirection.map(sortD => Map("sortBy" -> sortD.entryName)).getOrElse(Map.empty)
+              ++ sortDirection
+                .map(sortD => Map("sortDirection" -> sortD.entryName))
+                .getOrElse(Map.empty)
           )
         )
     )
@@ -441,7 +443,7 @@ class ReposerverHttpClient(reposerverUri: Uri,
     origins: Seq[String],
     nameContains: Option[String],
     name: Option[String],
-                             version: Option[String],
+    version: Option[String],
     hardwareIds: Seq[HardwareIdentifier],
     sortBy: Option[AggregatedTargetItemsSort],
     sortDirection: Option[SortDirection]): Future[PaginationResult[ClientAggregatedPackage]] = {

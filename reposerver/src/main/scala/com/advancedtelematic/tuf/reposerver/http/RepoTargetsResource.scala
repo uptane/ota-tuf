@@ -1,6 +1,7 @@
 package com.advancedtelematic.tuf.reposerver.http
 
-import io.scalaland.chimney.dsl._
+import akka.http.scaladsl.server.{Directive, Directive1}
+import io.scalaland.chimney.dsl.*
 import akka.http.scaladsl.unmarshalling.PredefinedFromStringUnmarshallers.CsvSeq
 import akka.http.scaladsl.unmarshalling.Unmarshaller
 import com.advancedtelematic.libats.data.PaginationResult
@@ -10,6 +11,7 @@ import com.advancedtelematic.tuf.reposerver.http.PaginationParamsOps.PaginationP
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
 import com.advancedtelematic.tuf.reposerver.data.RepoCodecs.*
 import com.advancedtelematic.libtuf.data.ClientCodecs.*
+import com.advancedtelematic.libtuf.data.ClientDataType
 import com.advancedtelematic.libtuf.data.ClientDataType.{
   AggregatedTargetItemsSort,
   ClientAggregatedPackage,
