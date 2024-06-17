@@ -1,6 +1,7 @@
 package com.advancedtelematic.tuf.reposerver.http
 
 import akka.http.scaladsl.server.{Directive, Directive1}
+import io.scalaland.chimney.dsl.*
 import akka.http.scaladsl.unmarshalling.PredefinedFromStringUnmarshallers.CsvSeq
 import akka.http.scaladsl.unmarshalling.Unmarshaller
 import com.advancedtelematic.libats.data.PaginationResult
@@ -9,56 +10,20 @@ import com.advancedtelematic.tuf.reposerver.db.RepoNamespaceRepositorySupport
 import com.advancedtelematic.tuf.reposerver.http.PaginationParamsOps.PaginationParams
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
 import com.advancedtelematic.tuf.reposerver.data.RepoCodecs.*
+import com.advancedtelematic.libtuf.data.ClientCodecs.*
+import com.advancedtelematic.libtuf.data.ClientDataType
+import com.advancedtelematic.libtuf.data.ClientDataType.{
+  AggregatedTargetItemsSort,
+  ClientAggregatedPackage,
+  ClientPackage,
+  TargetItemsSort
+}
+import com.advancedtelematic.tuf.reposerver.data.RepoDataType.Package.*
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.refineV
 import slick.jdbc.MySQLProfile.api.*
 
 import scala.concurrent.ExecutionContext
-import enumeratum.*
-
-import scala.annotation.unused
-
-trait EnumeratumUnmarshaller[T <: EnumEntry] { this: Enum[T] =>
-
-  implicit val unmarshaller: Unmarshaller[String, T] = Unmarshaller.strict { str =>
-    this.withNameInsensitive(str)
-  }
-
-}
-
-sealed abstract class SortDirection extends EnumEntry
-
-object SortDirection extends Enum[SortDirection] with EnumeratumUnmarshaller[SortDirection] {
-  val values = findValues
-
-  @unused
-  case object Asc extends SortDirection
-
-  case object Desc extends SortDirection
-}
-
-sealed abstract class TargetItemsSort(val column: String) extends EnumEntry
-
-object TargetItemsSort extends Enum[TargetItemsSort] with EnumeratumUnmarshaller[TargetItemsSort] {
-
-  val values = findValues
-
-  case object Filename extends TargetItemsSort("filename")
-  case object CreatedAt extends TargetItemsSort("created_at")
-}
-
-sealed abstract class AggregatedTargetItemsSort(val column: String) extends EnumEntry
-
-object AggregatedTargetItemsSort
-    extends Enum[AggregatedTargetItemsSort]
-    with EnumeratumUnmarshaller[AggregatedTargetItemsSort] {
-
-  val values = findValues
-
-  case object Name extends AggregatedTargetItemsSort("name")
-  case object LastVersionAt extends AggregatedTargetItemsSort("last_version_at")
-
-}
 
 case class PackageSearchParameters(origin: Seq[String],
                                    nameContains: Option[String],
@@ -74,8 +39,7 @@ class RepoTargetsResource(namespaceValidation: NamespaceValidation)(
   import akka.http.scaladsl.server.Directives.*
   import cats.syntax.either.*
   import TargetItemsSort.*
-  import AggregatedTargetItemsSort.*
-  import SortDirection.*
+  import com.advancedtelematic.libtuf.data.ClientDataType.SortDirection
 
   private implicit val hardwareIdentifierUnmarshaller
     : Unmarshaller[String, Refined[String, ValidHardwareIdentifier]] = Unmarshaller.strict { str =>
@@ -84,10 +48,11 @@ class RepoTargetsResource(namespaceValidation: NamespaceValidation)(
     )
   }
 
-  val SortByTargetItemsParam: Directive[(TargetItemsSort, SortDirection)] = parameters(
-    "sortBy".as[TargetItemsSort].?[TargetItemsSort](TargetItemsSort.CreatedAt),
-    "sortDirection".as[SortDirection].?[SortDirection](SortDirection.Desc)
-  )
+  val SortByTargetItemsParam: Directive[(TargetItemsSort, ClientDataType.SortDirection)] =
+    parameters(
+      "sortBy".as[TargetItemsSort].?[TargetItemsSort](TargetItemsSort.CreatedAt),
+      "sortDirection".as[SortDirection].?[SortDirection](SortDirection.Desc)
+    )
 
   val SortByAggregatedTargetItemsParam: Directive[(AggregatedTargetItemsSort, SortDirection)] =
     parameters(
@@ -125,9 +90,10 @@ class RepoTargetsResource(namespaceValidation: NamespaceValidation)(
             val f = for {
               count <- (new PackageSearch()).count(repoId, searchParams)
               values <- (new PackageSearch()).find(repoId, offset, limit, searchParams, sortBy, sortDirection)
-            } yield
-              PaginationResult(values, count, offset, limit)
-              
+            } yield {
+              PaginationResult(values.map(_.transformInto[ClientPackage]), count, offset, limit)
+            }
+
             complete(f)
           }
         },
@@ -137,7 +103,7 @@ class RepoTargetsResource(namespaceValidation: NamespaceValidation)(
               count <- (new PackageSearch()).findAggregatedCount(repoId, searchParams)
               values <- (new PackageSearch()).findAggregated(repoId, offset, limit, searchParams, sortBy, sortDirection)
             } yield
-              PaginationResult(values, count, offset, limit)
+              PaginationResult(values.map(_.transformInto[ClientAggregatedPackage]), count, offset, limit)
 
             complete(f)
           }

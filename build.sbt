@@ -13,19 +13,26 @@ val libatsVersion = "2.6.5-39-g05e9ed4-SNAPSHOT"
 lazy val commonDeps = libraryDependencies ++= {
   val scalaTestV = "3.2.18"
   lazy val catsV = "2.10.0"
+  lazy val akkaHttpV = "10.5.2"
+  lazy val enumeratumV = "1.7.3"
 
   Seq(
     "org.scala-lang.modules" %% "scala-async" % "1.0.1",
     "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided,
     "io.github.uptane" %% "libats" % libatsVersion,
     "org.scalatest" %% "scalatest" % scalaTestV % "test",
-    "org.typelevel" %% "cats-core" % catsV
+    "org.typelevel" %% "cats-core" % catsV,
+    "com.typesafe.akka" %% "akka-http" % akkaHttpV,
+    "com.beachape" %% "enumeratum" % enumeratumV,
+    "com.beachape" %% "enumeratum-circe" % enumeratumV,
+    "io.github.uptane" %% "libats-http" % libatsVersion,
   )
 }
 
 lazy val serverDependencies = libraryDependencies ++= {
   lazy val akkaV = "2.8.5"
   lazy val akkaHttpV = "10.5.2"
+  lazy val enumeratumV = "1.7.3"
 
   Seq(
     "com.typesafe.akka" %% "akka-actor" % akkaV,
@@ -43,8 +50,9 @@ lazy val serverDependencies = libraryDependencies ++= {
     "io.github.uptane" %% "libats-slick" % libatsVersion,
     "io.github.uptane" %% "libats-logging" % libatsVersion,
     "org.mariadb.jdbc" % "mariadb-java-client" % "3.3.3",
-    "com.beachape" %% "enumeratum" % "1.7.3",
-    "com.beachape" %% "enumeratum-circe" % "1.7.3"
+    "com.beachape" %% "enumeratum" % enumeratumV,
+    "com.beachape" %% "enumeratum-circe" % enumeratumV,
+    "io.scalaland" %% "chimney" % "1.1.0",
   )
 }
 
