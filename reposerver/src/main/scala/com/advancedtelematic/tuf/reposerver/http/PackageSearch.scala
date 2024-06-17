@@ -4,10 +4,10 @@ import cats.syntax.show.*
 import com.advancedtelematic.libats.codecs.CirceRefined
 import com.advancedtelematic.libats.data.DataType.Checksum
 import com.advancedtelematic.libats.slick.db.{SlickCirceMapper, SlickUriMapper}
-import com.advancedtelematic.tuf.reposerver.data.RepoDataType.{AggregatedPackage, Package}
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.Package.ValidTargetOrigin
-import slick.jdbc.{GetResult, SetParameter}
+import com.advancedtelematic.tuf.reposerver.data.RepoDataType.{AggregatedPackage, Package}
 import slick.jdbc.MySQLProfile.api.*
+import slick.jdbc.{GetResult, SetParameter}
 import slick.sql.SqlStreamingAction
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -80,12 +80,14 @@ class PackageSearch()(implicit db: Database) {
     pp.setString(value.mkString(","))
   }
 
-  private def findQuery[Q](targetsQuery: TargetsQuery[Q],
-                           repoId: RepoId,
-                           offset: Long,
-                           limit: Long,
-                           searchParams: PackageSearchParameters,
-                           sortBy: TargetItemsSort): SqlStreamingAction[Vector[Q], Q, Effect] = {
+  private def findQuery[Q](
+    targetsQuery: TargetsQuery[Q],
+    repoId: RepoId,
+    offset: Long,
+    limit: Long,
+    searchParams: PackageSearchParameters,
+    sortBy: TargetItemsSort,
+    sortDirection: SortDirection): SqlStreamingAction[Vector[Q], Q, Effect] = {
 
     implicit val getResult: GetResult[Q] = targetsQuery.getResult
 
@@ -101,7 +103,7 @@ class PackageSearch()(implicit db: Database) {
         IF(${searchParams.hardwareIds.isEmpty}, true, JSON_CONTAINS(hardwareids, JSON_QUOTE(${searchParams.hardwareIds.headOption
           .map(_.value)})))
       ORDER BY
-          #${sortBy.column},
+          #${sortBy.column} #${sortDirection.entryName},
           version,
           length
       LIMIT $limit OFFSET $offset""".as[Q]
@@ -116,7 +118,15 @@ class PackageSearch()(implicit db: Database) {
 
   def count(repoId: RepoId, searchParams: PackageSearchParameters)(
     implicit ec: ExecutionContext): Future[Long] = {
-    val q = findQuery(CountQuery, repoId, 0, 1, searchParams, TargetItemsSort.CreatedAt)
+    val q = findQuery(
+      CountQuery,
+      repoId,
+      0,
+      1,
+      searchParams,
+      TargetItemsSort.CreatedAt,
+      SortDirection.Desc
+    )
     db.run(q.map(_.sum))
   }
 
@@ -124,8 +134,9 @@ class PackageSearch()(implicit db: Database) {
            offset: Long,
            limit: Long,
            searchParams: PackageSearchParameters,
-           sortBy: TargetItemsSort): Future[Seq[Package]] = {
-    val q = findQuery(ResultQuery, repoId, offset, limit, searchParams, sortBy)
+           sortBy: TargetItemsSort,
+           sortDirection: SortDirection): Future[Seq[Package]] = {
+    val q = findQuery(ResultQuery, repoId, offset, limit, searchParams, sortBy, sortDirection)
     db.run(q)
   }
 
@@ -193,7 +204,8 @@ class PackageSearch()(implicit db: Database) {
       0,
       Long.MaxValue,
       searchParams,
-      AggregatedTargetItemsSort.LastVersionAt
+      AggregatedTargetItemsSort.LastVersionAt,
+      SortDirection.Desc,
     )
     q.map(_.sum)
   }
@@ -202,16 +214,26 @@ class PackageSearch()(implicit db: Database) {
                      offset: Long,
                      limit: Long,
                      searchParams: PackageSearchParameters,
-                     sortBy: AggregatedTargetItemsSort)(
+                     sortBy: AggregatedTargetItemsSort,
+                     sortDirection: SortDirection)(
     implicit ec: ExecutionContext): Future[Seq[AggregatedPackage]] =
-    findAggregatedQuery(AggregatedResultQuery, repoId, offset, limit, searchParams, sortBy)
+    findAggregatedQuery(
+      AggregatedResultQuery,
+      repoId,
+      offset,
+      limit,
+      searchParams,
+      sortBy,
+      sortDirection
+    )
 
   private def findAggregatedQuery[Q](query: AggregatedTargetsQuery[Q],
                                      repoId: RepoId,
                                      offset: Long,
                                      limit: Long,
                                      searchParams: PackageSearchParameters,
-                                     sortBy: AggregatedTargetItemsSort): Future[Seq[Q]] = {
+                                     sortBy: AggregatedTargetItemsSort,
+                                     sortDirection: SortDirection): Future[Seq[Q]] = {
     import query.getResult
 
     val q =
@@ -228,7 +250,7 @@ class PackageSearch()(implicit db: Database) {
           .map(_.value)})))
       GROUP BY name
       ORDER BY
-          #${sortBy.column},
+          #${sortBy.column} #${sortDirection.entryName},
           name ASC, versions ASC, last_version_at DESC, hardwareIds ASC
       LIMIT $limit OFFSET $offset""".as[Q]
 

@@ -1,6 +1,6 @@
 package com.advancedtelematic.tuf.reposerver.http
 
-import akka.http.scaladsl.server.Directive1
+import akka.http.scaladsl.server.{Directive, Directive1}
 import akka.http.scaladsl.unmarshalling.PredefinedFromStringUnmarshallers.CsvSeq
 import akka.http.scaladsl.unmarshalling.Unmarshaller
 import com.advancedtelematic.libats.data.PaginationResult
@@ -14,37 +14,49 @@ import eu.timepit.refined.refineV
 import slick.jdbc.MySQLProfile.api.*
 
 import scala.concurrent.ExecutionContext
-
 import enumeratum.*
 
-sealed abstract class TargetItemsSort(val column: String) extends EnumEntry
+import scala.annotation.unused
 
-object TargetItemsSort extends Enum[TargetItemsSort] {
+trait EnumeratumUnmarshaller[T <: EnumEntry] { this: Enum[T] =>
 
-  val values = findValues
-
-  case object Filename extends TargetItemsSort("filename ASC")
-  case object CreatedAt extends TargetItemsSort("created_at DESC")
-
-  implicit val unmarshaller: Unmarshaller[String, TargetItemsSort] = Unmarshaller.strict { str =>
-    withNameInsensitive(str)
+  implicit val unmarshaller: Unmarshaller[String, T] = Unmarshaller.strict { str =>
+    this.withNameInsensitive(str)
   }
 
 }
 
-sealed abstract class AggregatedTargetItemsSort(val column: String) extends EnumEntry
+sealed abstract class SortDirection extends EnumEntry
 
-object AggregatedTargetItemsSort extends Enum[AggregatedTargetItemsSort] {
+object SortDirection extends Enum[SortDirection] with EnumeratumUnmarshaller[SortDirection] {
+  val values = findValues
+
+  @unused
+  case object Asc extends SortDirection
+
+  case object Desc extends SortDirection
+}
+
+sealed abstract class TargetItemsSort(val column: String) extends EnumEntry
+
+object TargetItemsSort extends Enum[TargetItemsSort] with EnumeratumUnmarshaller[TargetItemsSort] {
 
   val values = findValues
 
-  case object Name extends AggregatedTargetItemsSort("name ASC")
-  case object LastVersionAt extends AggregatedTargetItemsSort("last_version_at DESC")
+  case object Filename extends TargetItemsSort("filename")
+  case object CreatedAt extends TargetItemsSort("created_at")
+}
 
-  implicit val unmarshaller: Unmarshaller[String, AggregatedTargetItemsSort] = Unmarshaller.strict {
-    str =>
-      withNameInsensitive(str)
-  }
+sealed abstract class AggregatedTargetItemsSort(val column: String) extends EnumEntry
+
+object AggregatedTargetItemsSort
+    extends Enum[AggregatedTargetItemsSort]
+    with EnumeratumUnmarshaller[AggregatedTargetItemsSort] {
+
+  val values = findValues
+
+  case object Name extends AggregatedTargetItemsSort("name")
+  case object LastVersionAt extends AggregatedTargetItemsSort("last_version_at")
 
 }
 
@@ -63,6 +75,7 @@ class RepoTargetsResource(namespaceValidation: NamespaceValidation)(
   import cats.syntax.either.*
   import TargetItemsSort.*
   import AggregatedTargetItemsSort.*
+  import SortDirection.*
 
   private implicit val hardwareIdentifierUnmarshaller
     : Unmarshaller[String, Refined[String, ValidHardwareIdentifier]] = Unmarshaller.strict { str =>
@@ -71,15 +84,18 @@ class RepoTargetsResource(namespaceValidation: NamespaceValidation)(
     )
   }
 
-  val SortByTargetItemsParam: Directive1[TargetItemsSort] = parameter(
-    "sortBy".as[TargetItemsSort].?[TargetItemsSort](TargetItemsSort.CreatedAt)
+  val SortByTargetItemsParam: Directive[(TargetItemsSort, SortDirection)] = parameters(
+    "sortBy".as[TargetItemsSort].?[TargetItemsSort](TargetItemsSort.CreatedAt),
+    "sortDirection".as[SortDirection].?[SortDirection](SortDirection.Desc)
   )
 
-  val SortByAggregatedTargetItemsParam: Directive1[AggregatedTargetItemsSort] = parameters(
-    "sortBy"
-      .as[AggregatedTargetItemsSort]
-      .?[AggregatedTargetItemsSort](AggregatedTargetItemsSort.LastVersionAt)
-  )
+  val SortByAggregatedTargetItemsParam: Directive[(AggregatedTargetItemsSort, SortDirection)] =
+    parameters(
+      "sortBy"
+        .as[AggregatedTargetItemsSort]
+        .?[AggregatedTargetItemsSort](AggregatedTargetItemsSort.LastVersionAt),
+      "sortDirection".as[SortDirection].?[SortDirection](SortDirection.Desc)
+    )
 
   val SearchParams: Directive1[PackageSearchParameters] = parameters(
     "origin".as(CsvSeq[String]).?,
@@ -104,11 +120,11 @@ class RepoTargetsResource(namespaceValidation: NamespaceValidation)(
     (pathPrefix("user_repo")  & NamespaceRepoId(namespaceValidation, repoNamespaceRepo.findFor)) { repoId =>
       concat(
         path("search") {
-          (get & PaginationParams & SearchParams & SortByTargetItemsParam) { case (offset, limit, searchParams, sortBy) =>
+          (get & PaginationParams & SearchParams & SortByTargetItemsParam) { case (offset, limit, searchParams, sortBy, sortDirection) =>
 
             val f = for {
               count <- (new PackageSearch()).count(repoId, searchParams)
-              values <- (new PackageSearch()).find(repoId, offset, limit, searchParams, sortBy)
+              values <- (new PackageSearch()).find(repoId, offset, limit, searchParams, sortBy, sortDirection)
             } yield
               PaginationResult(values, count, offset, limit)
               
@@ -116,10 +132,10 @@ class RepoTargetsResource(namespaceValidation: NamespaceValidation)(
           }
         },
         path("grouped-search") {
-          (get & PaginationParams & SearchParams & SortByAggregatedTargetItemsParam) { case (offset, limit, searchParams, sortBy) =>
+          (get & PaginationParams & SearchParams & SortByAggregatedTargetItemsParam) { case (offset, limit, searchParams, sortBy, sortDirection) =>
             val f = for {
               count <- (new PackageSearch()).findAggregatedCount(repoId, searchParams)
-              values <- (new PackageSearch()).findAggregated(repoId, offset, limit, searchParams, sortBy)
+              values <- (new PackageSearch()).findAggregated(repoId, offset, limit, searchParams, sortBy, sortDirection)
             } yield
               PaginationResult(values, count, offset, limit)
 

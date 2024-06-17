@@ -235,7 +235,7 @@ class RepoTargetsResourceSpec
     }
   }
 
-  testWithRepo("sorts by filename ASC") { implicit ns => implicit repoId =>
+  testWithRepo("sorts by filename") { implicit ns => implicit repoId =>
     addTargetToRepo(repoId)
 
     uploadOfflineSignedTargetsRole()
@@ -251,7 +251,7 @@ class RepoTargetsResourceSpec
       status shouldBe StatusCodes.NoContent
     }
 
-    Get(apiUriV2(s"user_repo/search?sortBy=filename")).namespaced ~> routes ~> check {
+    Get(apiUriV2(s"user_repo/search?sortBy=filename&sortDirection=asc")).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
 
       val result = responseAs[PaginationResult[Package]]
@@ -260,6 +260,17 @@ class RepoTargetsResourceSpec
       result.values.length shouldBe 2
 
       result.values.map(_.filename.value) shouldBe Seq("mypath/mytargetName", "zotherpackage")
+    }
+
+    Get(apiUriV2(s"user_repo/search?sortBy=filename&sortDirection=desc")).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+
+      val result = responseAs[PaginationResult[Package]]
+
+      result.total shouldBe 2
+      result.values.length shouldBe 2
+
+      result.values.map(_.filename.value) shouldBe Seq("zotherpackage", "mypath/mytargetName")
     }
   }
 
@@ -486,7 +497,7 @@ class RepoTargetsResourceSpec
       status shouldBe StatusCodes.NoContent
     }
 
-    Get(apiUriV2(s"user_repo/grouped-search?sortBy=name")).namespaced ~> routes ~> check {
+    Get(apiUriV2(s"user_repo/grouped-search?sortBy=name&sortDirection=asc")).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[AggregatedPackage]].values
       values should have size 2
