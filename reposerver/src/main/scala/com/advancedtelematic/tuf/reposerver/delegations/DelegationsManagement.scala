@@ -41,10 +41,15 @@ import scala.util.Try
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
 import akka.http.scaladsl.unmarshalling.*
 import akka.http.scaladsl.util.FastFuture
+import com.advancedtelematic.libats.data.DataType.Checksum
 import com.advancedtelematic.libtuf.data.TufCodecs.*
 import com.advancedtelematic.libtuf.data.ClientCodecs.*
 import com.advancedtelematic.libtuf.data.TufCodecs
-import com.advancedtelematic.tuf.reposerver.data.RepoDataType.{DelegationInfo, TargetItem}
+import com.advancedtelematic.tuf.reposerver.data.RepoDataType.{
+  DelegatedTargetItem,
+  DelegationInfo,
+  TargetItem
+}
 
 import java.nio.file.{FileSystems, Paths}
 import java.time.Instant
@@ -104,29 +109,45 @@ class DelegationsManagement()(implicit val db: Database, val ec: ExecutionContex
     val targetsRole = await(signedRoleRepository.find[TargetsRole](repoId)).role
     val delegation = findDelegationMetadataByName(targetsRole, roleName)
 
-    validateDelegationMetadataSignatures(targetsRole, delegation, delegationMetadata) match {
-      case Valid(_) =>
-        validateDelegationTargetPaths(targetsRole, roleName, delegationMetadata) match {
-          case Valid(_) =>
-            await(
-              delegationsRepo.persist(
-                repoId,
-                roleName,
-                delegationMetadata.asJsonSignedPayload,
-                remoteUri,
-                lastFetch,
-                remoteHeaders,
-                friendlyName
-              )
-            )
-            await(signedRoleGeneration.regenerateSnapshots(repoId))
-          case Invalid(err) =>
-            throw Errors.InvalidDelegatedTarget(err)
-        }
+    validateDelegationMetadataSignatures(targetsRole, delegation, delegationMetadata)
+      .valueOr(err => throw Errors.PayloadSignatureInvalid(err))
 
-      case Invalid(err) =>
-        throw Errors.PayloadSignatureInvalid(err)
+    val validatedDelegationsRole = validateDelegationTargetPaths(targetsRole, roleName, delegationMetadata)
+      .valueOr(err => throw Errors.InvalidDelegatedTarget(err))
+
+    val items = validatedDelegationsRole.signed.targets.map { case (filename, clientTargetItem) =>
+
+      val checksums = clientTargetItem.hashes.map { case (method, hash) =>
+        Checksum(method, hash)
+      }
+
+      if(checksums.isEmpty)
+        throw Errors.InvalidDelegatedTarget(NonEmptyList.of("targets checksum cannot be empty"))
+
+      DelegatedTargetItem(
+        repoId,
+        filename,
+        roleName,
+        checksums.head,
+        clientTargetItem.length,
+        clientTargetItem.custom
+      )
     }
+
+    await(
+      delegationsRepo.persistAll(
+        repoId,
+        roleName,
+        delegationMetadata.asJsonSignedPayload,
+        remoteUri,
+        lastFetch,
+        remoteHeaders,
+        friendlyName,
+        items.toSeq
+      )
+    )
+
+    await(signedRoleGeneration.regenerateSnapshots(repoId))
   }
 
   def createFromRemote(repoId: RepoId,

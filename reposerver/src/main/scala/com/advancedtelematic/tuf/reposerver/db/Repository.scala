@@ -53,7 +53,7 @@ import shapeless.{Generic, HList, Succ}
 import com.advancedtelematic.libtuf_server.repo.server.SignedRoleProvider
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.TargetItem
 import com.advancedtelematic.tuf.reposerver.db.Schema.TargetItemTable
-import com.advancedtelematic.tuf.reposerver.http.PaginationParams.PaginationResultOps
+import com.advancedtelematic.tuf.reposerver.http.PaginationParamsOps.PaginationResultOps
 import slick.ast.Ordering
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -459,19 +459,36 @@ protected[db] class DelegationRepository()(implicit db: Database, ec: ExecutionC
     Schema.delegations.filter(_.repoId === repoId).result
   }
 
-  def persist(repoId: RepoId,
-              roleName: DelegatedRoleName,
-              content: JsonSignedPayload,
-              remoteUri: Option[Uri],
-              lastFetch: Option[Instant],
-              remoteHeaders: Map[String, String],
-              friendlyName: Option[DelegationFriendlyName]): Future[Unit] = db.run {
-    Schema.delegations
-      .insertOrUpdate(
-        DbDelegation(repoId, roleName, content, remoteUri, lastFetch, remoteHeaders, friendlyName)
+
+  def persistAll(repoId: RepoId,
+                 roleName: DelegatedRoleName,
+                 content: JsonSignedPayload,
+                 remoteUri: Option[Uri],
+                 lastFetch: Option[Instant],
+                 remoteHeaders: Map[String, String],
+                 friendlyName: Option[DelegationFriendlyName],
+                 items: Seq[DelegatedTargetItem]): Future[Unit] = db.run {
+    val delegation =
+      DbDelegation(repoId, roleName, content, remoteUri, lastFetch, remoteHeaders, friendlyName)
+
+    DBIO
+      .seq(
+        deleteMissing(repoId, roleName, keep = items.map(_.filename)),
+        Schema.delegations.insertOrUpdate(delegation),
+        DBIO.sequence(items.map(Schema.delegatedTargetItems.insertOrUpdate))
       )
       .map(_ => ())
+      .transactionally
   }
+
+  private def deleteMissing(repoId: RepoId,
+                            roleName: DelegatedRoleName,
+                            keep: Seq[TargetFilename]): DBIO[Int] =
+    Schema.delegatedTargetItems
+      .filter(_.repoId === repoId)
+      .filter(_.roleName === roleName)
+      .filterNot(_.filename.inSet(keep))
+      .delete
 
   def setDelegationFriendlyName(repoId: RepoId,
                                 roleName: DelegatedRoleName,

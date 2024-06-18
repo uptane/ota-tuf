@@ -17,12 +17,15 @@ import io.circe.syntax._
 import cats.data.StateT
 import io.circe._
 import io.circe.{ACursor, Decoder, Json}
+import com.advancedtelematic.libats.codecs.CirceRefined.*
+import com.advancedtelematic.libats.http.HttpCodecs.*
 
 object ClientCodecs {
 
   import TufCodecs._
   import io.circe.generic.semiauto._
   import com.advancedtelematic.libats.codecs.CirceCodecs._
+
 
   implicit val targetFormatEncoder: Encoder[TargetFormat] = Encoder.encodeEnumeration(TargetFormat)
   implicit val targetFormatDecoder: Decoder[TargetFormat] = Decoder.decodeEnumeration(TargetFormat)
@@ -228,5 +231,11 @@ object ClientCodecs {
     )
 
   }
+
+  implicit val clientPackageCodec: Codec[ClientPackage] =
+    deriveCodec[ClientPackage]
+
+  implicit val clientAggregatedPackageCodec: Codec[ClientAggregatedPackage] =
+    deriveCodec[ClientAggregatedPackage]
 
 }

@@ -9,12 +9,8 @@ import com.advancedtelematic.libtuf.crypt.CanonicalJson.*
 import com.advancedtelematic.libtuf.data.ClientDataType.DelegatedRoleName
 import com.advancedtelematic.libtuf.data.TufCodecs
 import com.advancedtelematic.libtuf.data.TufDataType.TargetFormat.TargetFormat
-import com.advancedtelematic.libtuf.data.TufDataType.{
-  JsonSignedPayload,
-  RoleType,
-  TargetFormat,
-  ValidKeyId
-}
+import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RoleType, TargetFormat, ValidKeyId}
+import com.advancedtelematic.libtuf_server.repo.server.Errors
 
 import scala.util.Try
 

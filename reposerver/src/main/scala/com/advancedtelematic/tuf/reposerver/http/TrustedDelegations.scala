@@ -58,7 +58,7 @@ class TrustedDelegations(implicit val db: Database, val ec: ExecutionContext)
       delegations.validNel[String]
   }
 
-  def getTrustedDelegationsBlock(repoId: RepoId): Future[Option[Delegations]] =
+  private def getTrustedDelegationsBlock(repoId: RepoId): Future[Option[Delegations]] =
     signedRoleRepository
       .find[TargetsRole](repoId)
       .map { signedTargetRole =>

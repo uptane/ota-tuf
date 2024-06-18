@@ -21,12 +21,17 @@ import com.advancedtelematic.libats.http.tracing.Tracing.ServerRequestTracing
 import com.advancedtelematic.libats.http.tracing.TracingHttpClient
 import com.advancedtelematic.libtuf.data.ClientCodecs.*
 import com.advancedtelematic.libtuf.data.ClientDataType.{
+  AggregatedTargetItemsSort,
+  ClientAggregatedPackage,
+  ClientPackage,
   ClientTargetItem,
   DelegatedRoleName,
   Delegation,
   DelegationClientTargetItem,
   DelegationFriendlyName,
   RootRole,
+  SortDirection,
+  TargetItemsSort,
   TargetsRole
 }
 import com.advancedtelematic.libtuf.data.TufCodecs.*
@@ -54,6 +59,8 @@ import com.advancedtelematic.libtuf_server.repo.client.ReposerverClient.{
   NotFound,
   RootNotInKeyserver
 }
+
+//import com.advancedtelematic.tuf.reposerver.data.RepoDataType.Package
 import io.circe.generic.semiauto.*
 import io.circe.{Codec, Decoder, Encoder, Json}
 import com.advancedtelematic.libats.codecs.CirceCodecs.*
@@ -171,6 +178,29 @@ trait ReposerverClient {
 
   def fetchTargets(namespace: Namespace): Future[SignedPayload[TargetsRole]]
 
+  def searchTargetsV2(namespace: Namespace,
+                      offset: Option[Long],
+                      limit: Option[Long],
+                      origins: Seq[String],
+                      nameContains: Option[String],
+                      name: Option[String],
+                      version: Option[String],
+                      hardwareIds: Seq[HardwareIdentifier],
+                      sortBy: Option[TargetItemsSort],
+                      sortDirection: Option[SortDirection]): Future[PaginationResult[ClientPackage]]
+
+  def searchTargetsGroupedV2(
+    namespace: Namespace,
+    offset: Option[Long],
+    limit: Option[Long],
+    origins: Seq[String],
+    nameContains: Option[String],
+    name: Option[String],
+    version: Option[String],
+    hardwareIds: Seq[HardwareIdentifier],
+    sortBy: Option[AggregatedTargetItemsSort],
+    sortDirection: Option[SortDirection]): Future[PaginationResult[ClientAggregatedPackage]]
+
   def setTargetComments(namespace: Namespace,
                         targetFilename: TargetFilename,
                         comment: String): Future[Unit]
@@ -249,6 +279,9 @@ class ReposerverHttpClient(reposerverUri: Uri,
 
   private def apiUri(path: Path) =
     reposerverUri.withPath(reposerverUri.path / "api" / "v1" ++ Slash(path))
+
+  private def apiV2Uri(path: Path) =
+    reposerverUri.withPath(reposerverUri.path / "api" / "v2" ++ Slash(path))
 
   private def paginationParams(offset: Option[Long], limit: Option[Long]): Map[String, String] =
     Map("offset" -> offset, "limit" -> limit).collect { case (key, Some(value)) =>
@@ -365,6 +398,79 @@ class ReposerverHttpClient(reposerverUri: Uri,
       case error if error.status == StatusCodes.NotFound =>
         FastFuture.failed(NotFound)
     }
+  }
+
+  def searchTargetsV2(
+    namespace: Namespace,
+    offset: Option[Long],
+    limit: Option[Long],
+    origins: Seq[String],
+    nameContains: Option[String],
+    name: Option[String],
+    version: Option[String],
+    hardwareIds: Seq[HardwareIdentifier],
+    sortBy: Option[TargetItemsSort],
+    sortDirection: Option[SortDirection]): Future[PaginationResult[ClientPackage]] = {
+    val req = HttpRequest(
+      HttpMethods.GET,
+      uri = apiV2Uri(Path(s"user_repo/search"))
+        .withQuery(
+          Query(
+            paginationParams(offset, limit)
+              ++ (if (origins.isEmpty) { Map.empty[String, String] }
+                  else { Map("origin" -> origins.mkString(",")) })
+              ++ nameContains.map(n => Map("nameContains" -> n)).getOrElse(Map.empty)
+              ++ name.map(n => Map("name" -> n)).getOrElse(Map.empty)
+              ++ version.map(n => Map("version" -> n)).getOrElse(Map.empty)
+              ++ (if (hardwareIds.isEmpty) { Map.empty[String, String] }
+                  else {
+                    Map("hardwareIds" -> hardwareIds.map(_.value).mkString(","))
+                  })
+              ++ sortBy.map(s => Map("sortBy" -> s.entryName)).getOrElse(Map.empty)
+              ++ sortDirection
+                .map(sortD => Map("sortDirection" -> sortD.entryName))
+                .getOrElse(Map.empty)
+          )
+        )
+    )
+    execHttpUnmarshalledWithNamespace[PaginationResult[ClientPackage]](namespace, req).ok
+  }
+
+  def searchTargetsGroupedV2(
+    namespace: Namespace,
+    offset: Option[Long],
+    limit: Option[Long],
+    origins: Seq[String],
+    nameContains: Option[String],
+    name: Option[String],
+    version: Option[String],
+    hardwareIds: Seq[HardwareIdentifier],
+    sortBy: Option[AggregatedTargetItemsSort],
+    sortDirection: Option[SortDirection]): Future[PaginationResult[ClientAggregatedPackage]] = {
+    val req = HttpRequest(
+      HttpMethods.GET,
+      uri = apiV2Uri(Path(s"user_repo/grouped-search"))
+        .withQuery(
+          Query(
+            paginationParams(offset, limit)
+              ++ (if (origins.isEmpty) { Map.empty[String, String] }
+                  else { Map("origin" -> origins.mkString(",")) })
+              ++ nameContains.map(n => Map("nameContains" -> n)).getOrElse(Map.empty)
+              ++ name.map(n => Map("name" -> n)).getOrElse(Map.empty)
+              ++ version.map(n => Map("version" -> n)).getOrElse(Map.empty)
+              ++ (if (hardwareIds.isEmpty) { Map.empty[String, String] }
+                  else {
+                    Map("hardwareIds" -> hardwareIds.map(_.value).mkString(","))
+                  })
+              ++ sortBy.map(s => Map("sortBy" -> s.entryName)).getOrElse(Map.empty)
+              ++ sortDirection
+                .map(sortD => Map("sortDirection" -> sortD.entryName))
+                .getOrElse(Map.empty)
+          )
+        )
+    )
+    execHttpUnmarshalledWithNamespace[PaginationResult[ClientAggregatedPackage]](namespace, req).ok
+
   }
 
   override def fetchSingleTargetItem(namespace: Namespace,

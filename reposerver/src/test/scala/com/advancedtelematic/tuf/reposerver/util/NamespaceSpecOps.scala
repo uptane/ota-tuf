@@ -1,9 +1,15 @@
 package com.advancedtelematic.tuf.reposerver.util
 
-import akka.http.scaladsl.model.HttpRequest
+import akka.http.scaladsl.model.{HttpRequest, StatusCodes}
 import akka.http.scaladsl.model.headers.RawHeader
 import com.advancedtelematic.libats.data.DataType.Namespace
+import com.advancedtelematic.libtuf.data.TufDataType.RepoId
+import com.advancedtelematic.tuf.reposerver.util.NamespaceSpecOps.{NamespaceTag, Namespaced, withRandomNamepace}
+import io.circe.Json
+import org.scalactic.source.Position
+import org.scalatest.Tag
 
+import java.util.UUID
 import scala.util.Random
 
 object NamespaceSpecOps {
@@ -29,4 +35,25 @@ object NamespaceSpecOps {
   def genName = Random.alphanumeric.take(10).mkString
 
   def genNs = Namespace(genName)
+}
+
+trait RepositoryTestOps {
+  self: ResourceSpec =>
+
+  def testWithRepo(testName: String, testArgs: Tag*)(testFun: NamespaceTag => RepoId => Any)(
+    implicit pos: Position): Unit = {
+    val testFn = (ns: NamespaceTag) => {
+
+      val uuid = Post(apiUri(s"user_repo")).namespaced(ns) ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
+        responseAs[UUID]
+      }
+
+      testFun(ns)(RepoId(uuid))
+    }
+
+    test(testName, testArgs*)(withRandomNamepace(testFn))(pos = pos)
+  }
+
 }
