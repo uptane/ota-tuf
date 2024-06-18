@@ -147,7 +147,7 @@ class KeyGeneratorWorker(keyGenerationOp: KeyGenRequest => Future[Seq[Key]])(
     log.info(s"Received key gen request for {}", kgr.id.show)
 
     keyGenerationOp(kgr)
-      .map(Success)
+      .map(Success.apply)
       .recoverWith { case ex =>
         log.error("Key generation failed: {}", ex.getMessage)
         keyGenRepo

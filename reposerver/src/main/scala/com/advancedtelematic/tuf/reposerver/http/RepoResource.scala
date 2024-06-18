@@ -313,7 +313,7 @@ class RepoResource(keyserverClient: KeyserverClient,
 
   def findComment(repoId: RepoId, filename: TargetFilename): Route =
     complete {
-      filenameCommentRepo.find(repoId, filename).map(CommentRequest)
+      filenameCommentRepo.find(repoId, filename).map(CommentRequest.apply)
     }
 
   def findCommentsForFiles(repoId: RepoId, filenames: Seq[TargetFilename]): Route =

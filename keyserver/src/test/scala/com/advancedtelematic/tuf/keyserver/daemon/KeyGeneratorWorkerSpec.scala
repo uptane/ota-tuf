@@ -41,7 +41,7 @@ class KeyGeneratorWorkerSpec
   def findKey(keyId: KeyId): Future[Key] =
     keyRepo.findAll(Seq(keyId)).map(_.head)
 
-  override implicit def patienceConfig =
+  override implicit def patienceConfig: PatienceConfig =
     PatienceConfig().copy(timeout = timeout, interval = Span(300, Milliseconds))
 
   def keyGenRequest(threshold: Int = 1)(implicit keyType: KeyType): Future[KeyGenRequest] = {

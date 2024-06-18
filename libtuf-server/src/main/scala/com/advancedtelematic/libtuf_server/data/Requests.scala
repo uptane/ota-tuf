@@ -22,7 +22,7 @@ object Requests {
     Encoder.encodeString.contramap(_.value)
 
   implicit val targetCommentDecoder: Decoder[TargetComment] =
-    Decoder.decodeString.map(TargetComment)
+    Decoder.decodeString.map(TargetComment.apply)
 
   case class CommentRequest(comment: TargetComment)
 

@@ -30,7 +30,8 @@ class ReposerverHttpClientSpec
     with PatienceConfiguration
     with Eventually {
 
-  override implicit def patienceConfig = PatienceConfig().copy(timeout = Span(30, Seconds))
+  override implicit def patienceConfig: PatienceConfig =
+    PatienceConfig().copy(timeout = Span(30, Seconds))
 
   val client = new ReposerverHttpClient("http://localhost", testHttpClient)
 
