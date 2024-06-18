@@ -44,6 +44,7 @@ class SlickCrypto(salt: Array[Byte], password: String) {
 
     Base64.getEncoder.encodeToString(ciphered)
   }
+
 }
 
 Security.addProvider(new BouncyCastleProvider)
@@ -55,6 +56,5 @@ val saltBytes = Base64.getDecoder.decode(saltBase64String.getBytes)
 val crypto = new SlickCrypto(saltBytes, password)
 
 @main
-def main(secretKeyFilename: String) = {
+def main(secretKeyFilename: String) =
   println(crypto.encrypt(Source.fromFile(secretKeyFilename).getLines.mkString))
-}

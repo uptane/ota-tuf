@@ -13,10 +13,13 @@ import com.codahale.metrics.MetricRegistry
 import scala.concurrent.ExecutionContext
 import slick.jdbc.MySQLProfile.api._
 
-class TufKeyserverRoutes(dependencyChecks: Seq[HealthCheck] = Seq.empty, metricsRoutes: Route = Directives.reject,
-                         metricRegistry: MetricRegistry = MetricsSupport.metricRegistry)
-                        (implicit val db: Database, val ec: ExecutionContext, mat: Materializer)
-  extends VersionInfo {
+class TufKeyserverRoutes(dependencyChecks: Seq[HealthCheck] = Seq.empty,
+                         metricsRoutes: Route = Directives.reject,
+                         metricRegistry: MetricRegistry = MetricsSupport.metricRegistry)(
+  implicit val db: Database,
+  val ec: ExecutionContext,
+  mat: Materializer)
+    extends VersionInfo {
 
   import Directives._
 
@@ -25,7 +28,12 @@ class TufKeyserverRoutes(dependencyChecks: Seq[HealthCheck] = Seq.empty, metrics
       ErrorHandler.handleErrors {
         pathPrefix("api" / "v1") {
           new RootRoleResource().route
-        } ~ DbHealthResource(versionMap, dependencies = dependencyChecks, metricRegistry = metricRegistry).route ~ metricsRoutes
+        } ~ DbHealthResource(
+          versionMap,
+          dependencies = dependencyChecks,
+          metricRegistry = metricRegistry
+        ).route ~ metricsRoutes
       }
     }
+
 }

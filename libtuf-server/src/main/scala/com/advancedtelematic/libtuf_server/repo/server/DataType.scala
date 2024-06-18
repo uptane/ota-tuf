@@ -28,11 +28,18 @@ object DataType {
     def toURI: URI = URI.create(value.toString)
   }
 
-  case class SignedRole[T : TufRole](content: JsonSignedPayload, checksum: Checksum, length: Long, version: Int, expiresAt: Instant) {
+  case class SignedRole[T: TufRole](content: JsonSignedPayload,
+                                    checksum: Checksum,
+                                    length: Long,
+                                    version: Int,
+                                    expiresAt: Instant) {
+
     def role(implicit dec: Decoder[T]): T =
       content.signed.as[T] match {
         case Left(err) =>
-          throw new IllegalArgumentException(s"Could not decode a role persisted as ${implicitly[TufRole[T]].metaPath} but not parseable as such a type: $err")
+          throw new IllegalArgumentException(
+            s"Could not decode a role persisted as ${implicitly[TufRole[T]].metaPath} but not parseable as such a type: $err"
+          )
         case Right(p) => p
       }
 
@@ -46,7 +53,9 @@ object DataType {
 
   object SignedRole {
 
-    def withChecksum[T : TufRole : Decoder](content: JsonSignedPayload, version: Int, expireAt: Instant): Future[SignedRole[T]] = FastFuture {
+    def withChecksum[T: TufRole: Decoder](content: JsonSignedPayload,
+                                          version: Int,
+                                          expireAt: Instant): Future[SignedRole[T]] = FastFuture {
       Try {
         val canonicalJson = TufCodecs.jsonSignedPayloadEncoder(content).canonical
         val checksum = Sha256Digest.digest(canonicalJson.getBytes)
@@ -55,5 +64,7 @@ object DataType {
         signedRole
       }
     }
+
   }
+
 }

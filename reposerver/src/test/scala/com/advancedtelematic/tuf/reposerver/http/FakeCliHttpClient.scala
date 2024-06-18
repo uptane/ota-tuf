@@ -9,7 +9,7 @@ import scala.concurrent.Future
 trait FakeCliHttpClient {
   self: ResourceSpec =>
 
-  val testBackend: SttpBackend[Future, Nothing, Nothing] = {
+  val testBackend: SttpBackend[Future, Nothing, Nothing] =
     AkkaHttpBackend.usingClient(system, http = AkkaHttpClient.stubFromRoute(Route.seal(routes)))
-  }
+
 }

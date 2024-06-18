@@ -19,8 +19,10 @@ import org.scalatest.funsuite.AnyFunSuite
 import scala.concurrent.{Future, Promise}
 
 trait LongHttpRequest {
+
   implicit def default(implicit system: ActorSystem): RouteTestTimeout =
     RouteTestTimeout(15.seconds.dilated(system))
+
 }
 
 trait HttpClientSpecSupport {
@@ -28,9 +30,10 @@ trait HttpClientSpecSupport {
 
   def testHttpClient(req: HttpRequest): Future[HttpResponse] = {
     val p = Promise[HttpResponse]()
-    req ~> Route.seal(routes) ~> check { p.success(response) }
+    req ~> Route.seal(routes) ~> check(p.success(response))
     p.future
   }
+
 }
 
 trait RootGenerationSpecSupport {
@@ -38,17 +41,19 @@ trait RootGenerationSpecSupport {
 
   private val keyGenerationOp = DefaultKeyGenerationOp()
 
-  def processKeyGenerationRequest(repoId: RepoId): Future[Seq[Key]] = {
+  def processKeyGenerationRequest(repoId: RepoId): Future[Seq[Key]] =
     keyGenRepo.findBy(repoId).flatMap { ids =>
-      Future.sequence {
-        ids.map(_.id).map { id =>
-          keyGenRepo
-            .find(id)
-            .flatMap(keyGenerationOp)
+      Future
+        .sequence {
+          ids.map(_.id).map { id =>
+            keyGenRepo
+              .find(id)
+              .flatMap(keyGenerationOp)
+          }
         }
-      }.map(_.flatten)
+        .map(_.flatten)
     }
-  }
+
 }
 
 trait KeyTypeSpecSupport {
@@ -58,12 +63,14 @@ trait KeyTypeSpecSupport {
     test(name + " Ed25519")(fn(Ed25519KeyType))
     test(name + " RSA")(fn(RsaKeyType))
   }
+
 }
 
-trait ResourceSpec extends TufKeyserverSpec
-  with ScalatestRouteTest
-  with MysqlDatabaseSpec
-  with LongHttpRequest {
+trait ResourceSpec
+    extends TufKeyserverSpec
+    with ScalatestRouteTest
+    with MysqlDatabaseSpec
+    with LongHttpRequest {
   def apiUri(path: String): String = "/api/v1/" + path
 
   lazy val routes = new TufKeyserverRoutes().routes

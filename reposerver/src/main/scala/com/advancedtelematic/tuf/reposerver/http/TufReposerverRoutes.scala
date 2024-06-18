@@ -16,7 +16,6 @@ import slick.jdbc.MySQLProfile.api._
 
 import scala.concurrent.ExecutionContext
 
-
 class TufReposerverRoutes(keyserverClient: KeyserverClient,
                           namespaceValidation: NamespaceValidation,
                           targetStore: TargetStore,
@@ -24,17 +23,36 @@ class TufReposerverRoutes(keyserverClient: KeyserverClient,
                           remoteDelegationClient: RemoteDelegationClient,
                           metricsRoutes: Route = Directives.reject,
                           dependencyChecks: Seq[HealthCheck] = Seq.empty,
-                          metricRegistry: MetricRegistry = MetricsSupport.metricRegistry)
-                         (implicit val db: Database, val ec: ExecutionContext, mat: Materializer) extends VersionInfo {
+                          metricRegistry: MetricRegistry = MetricsSupport.metricRegistry)(
+  implicit val db: Database,
+  val ec: ExecutionContext,
+  mat: Materializer)
+    extends VersionInfo {
 
   import Directives._
 
   val routes: Route =
     handleRejections(rejectionHandler) {
       ErrorHandler.handleErrors {
-        pathPrefix("api" / "v1") {
-          new RepoResource(keyserverClient, namespaceValidation, targetStore, new TufTargetsPublisher(messageBusPublisher), remoteDelegationClient).route
-        } ~ DbHealthResource(versionMap, dependencies = dependencyChecks, metricRegistry = metricRegistry).route ~ metricsRoutes
+        concat(
+          pathPrefix("api" / "v1") {
+            new RepoResource(
+              keyserverClient,
+              namespaceValidation,
+              targetStore,
+              new TufTargetsPublisher(messageBusPublisher),
+              remoteDelegationClient
+            ).route
+          },
+          pathPrefix("api" / "v2")(new RepoTargetsResource(namespaceValidation).route),
+          DbHealthResource(
+            versionMap,
+            dependencies = dependencyChecks,
+            metricRegistry = metricRegistry
+          ).route,
+          metricsRoutes
+        )
       }
     }
+
 }

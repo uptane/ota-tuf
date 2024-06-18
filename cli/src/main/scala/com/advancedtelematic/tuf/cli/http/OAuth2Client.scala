@@ -12,26 +12,31 @@ import sttp.model.Uri
 import scala.concurrent.{ExecutionContext, Future}
 
 object OAuth2Client {
+
   def apply(conf: OAuthConfig)(implicit ec: ExecutionContext): OAuth2Client =
     new OAuth2Client(conf, AsyncHttpClientFutureBackend())
 
   def tokenFor(conf: OAuthConfig)(implicit ec: ExecutionContext): Future[OAuth2Token] =
     apply(conf).authToken()
+
 }
 
-protected class OAuth2Client(val config: OAuthConfig, httpBackend: CliHttpBackend)(implicit ec: ExecutionContext)
-  extends CliHttpClient(httpBackend) {
+protected class OAuth2Client(val config: OAuthConfig, httpBackend: CliHttpBackend)(
+  implicit ec: ExecutionContext)
+    extends CliHttpClient(httpBackend) {
 
   private def cognitoTokenRequest =
     http
       .post(Uri(URI.create(config.server.toString)))
-      .auth.basic(config.client_id, config.client_secret)
+      .auth
+      .basic(config.client_id, config.client_secret)
       .body("grant_type" -> "client_credentials", "scope" -> config.scope)
 
   private def authPlusTokenRequest =
     http
       .post(Uri(URI.create(config.server.toString + "/token")))
-      .auth.basic(config.client_id, config.client_secret)
+      .auth
+      .basic(config.client_id, config.client_secret)
       .body("grant_type" -> "client_credentials")
 
   private val tokenResponseDecoder =
@@ -55,4 +60,5 @@ protected class OAuth2Client(val config: OAuthConfig, httpBackend: CliHttpBacken
     implicit val _decoder = tokenResponseDecoder
     execHttp[OAuth2Token](request)().map(_.body)
   }
+
 }

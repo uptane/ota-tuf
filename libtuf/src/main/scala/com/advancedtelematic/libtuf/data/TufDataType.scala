@@ -15,10 +15,10 @@ import io.circe.syntax._
 import io.circe.{Encoder, Json}
 import net.i2p.crypto.eddsa.{EdDSAPrivateKey, EdDSAPublicKey}
 
-
 object TufDataType {
   final case class ValidHardwareIdentifier()
   type HardwareIdentifier = Refined[String, ValidHardwareIdentifier]
+
   implicit val validHardwareIdentifier: Validate.Plain[String, ValidHardwareIdentifier] =
     ValidationUtils.validInBetween(min = 0, max = 200, ValidHardwareIdentifier())
 
@@ -41,19 +41,26 @@ object TufDataType {
       ValidTargetFilename()
     )
 
-  final case class OperationResult(target: TargetFilename, hashes: Map[HashMethod, Refined[String, ValidChecksum]],
-                                   length: Long, resultCode: Int, resultText: String) {
-    def isSuccess:Boolean = resultCode == 0 || resultCode == 1
+  final case class OperationResult(target: TargetFilename,
+                                   hashes: Map[HashMethod, Refined[String, ValidChecksum]],
+                                   length: Long,
+                                   resultCode: Int,
+                                   resultText: String) {
+    def isSuccess: Boolean = resultCode == 0 || resultCode == 1
   }
 
   case class ValidKeyId()
   type KeyId = Refined[String, ValidKeyId]
+
   implicit val validKeyId: Validate.Plain[String, ValidKeyId] =
     ValidationUtils.validHexValidation(ValidKeyId(), length = 64)
 
   case class ValidSignature()
   type ValidSignatureType = Refined[String, ValidSignature]
-  case class Signature(sig: ValidSignatureType, method: SignatureMethod = SignatureMethod.RSASSA_PSS_SHA256)
+
+  case class Signature(sig: ValidSignatureType,
+                       method: SignatureMethod = SignatureMethod.RSASSA_PSS_SHA256)
+
   implicit val validSignature: Validate.Plain[String, ValidSignature] =
     ValidationUtils.validBase64Validation(ValidSignature())
 
@@ -68,7 +75,9 @@ object TufDataType {
     // TUF_ALL does not include OFFLINE_TARGETS, OFFLINE_SNAPSHOT and REMOTE_SESSIONS which are only used in UPTANE, not TUF
     val TUF_ALL = List(ROOT, SNAPSHOT, TARGETS, TIMESTAMP)
 
-    implicit val show: cats.Show[com.advancedtelematic.libtuf.data.TufDataType.RoleType.Value] = Show.show[Value](_.toString.toLowerCase)
+    implicit val show: cats.Show[com.advancedtelematic.libtuf.data.TufDataType.RoleType.Value] =
+      Show.show[Value](_.toString.toLowerCase)
+
   }
 
   object SignatureMethod extends Enumeration {
@@ -126,14 +135,21 @@ object TufDataType {
                         the parsed json or database access.
    */
   object SignedPayload {
-    def apply[T : Encoder](signatures: Seq[ClientSignature], signed: T, json: Json): SignedPayload[T] =
+
+    def apply[T: Encoder](signatures: Seq[ClientSignature],
+                          signed: T,
+                          json: Json): SignedPayload[T] =
       new SignedPayload(signatures, signed, json)
+
   }
 
-  class SignedPayload[T : Encoder](val signatures: Seq[ClientSignature], val signed: T, val json: Json) {
+  class SignedPayload[T: Encoder](val signatures: Seq[ClientSignature],
+                                  val signed: T,
+                                  val json: Json) {
     def asJsonSignedPayload: JsonSignedPayload = JsonSignedPayload(signatures, json)
 
-    def updated(signatures: Seq[ClientSignature] = signatures, signed: T = signed): SignedPayload[T] =
+    def updated(signatures: Seq[ClientSignature] = signatures,
+                signed: T = signed): SignedPayload[T] =
       new SignedPayload[T](signatures, signed, signed.asJson)
 
     override def toString: String = s"SignedPayload($signatures, $signed, ${json.asJson.noSpaces})"
@@ -142,10 +158,10 @@ object TufDataType {
 
     override def equals(other: Any): Boolean = other match {
       case that: SignedPayload[_] =>
-        (that canEqual this) &&
-          signatures == that.signatures &&
-          signed == that.signed &&
-          json == that.json
+        (that.canEqual(this)) &&
+        signatures == that.signatures &&
+        signed == that.signed &&
+        json == that.json
       case _ => false
     }
 
@@ -153,10 +169,10 @@ object TufDataType {
       val state = Seq(signatures, signed, json)
       state.map(_.hashCode()).foldLeft(0)((a, b) => 31 * a + b)
     }
+
   }
 
-  /**
-    * See {@link SignedPayload[T]}
+  /** See {@link SignedPayload[T]}
     */
   case class JsonSignedPayload(signatures: Seq[ClientSignature], signed: Json)
 
@@ -179,6 +195,7 @@ object TufDataType {
 
     val crypto: TufCrypto[RsaKeyType.type] = TufCrypto.rsaCrypto
   }
+
   case object Ed25519KeyType extends KeyType {
     type Pub = Ed25519TufKey
     type Priv = Ed25519TufPrivateKey
@@ -186,6 +203,7 @@ object TufDataType {
 
     val crypto: TufCrypto[Ed25519KeyType.type] = TufCrypto.ed25519Crypto
   }
+
   case object EcPrime256KeyType extends KeyType {
     type Pub = EcPrime256TufKey
     type Priv = EcPrime256TufPrivateKey
@@ -199,12 +217,15 @@ object TufDataType {
     lazy val id = keytype.crypto.keyId(this)
     def keytype: KeyType
   }
+
   case class RSATufKey(override val keyval: PublicKey) extends TufKey {
     override def keytype: KeyType = RsaKeyType
   }
+
   case class Ed25519TufKey(override val keyval: EdDSAPublicKey) extends TufKey {
     override def keytype: KeyType = Ed25519KeyType
   }
+
   case class EcPrime256TufKey(override val keyval: PublicKey) extends TufKey {
     override def keytype: KeyType = EcPrime256KeyType
   }
@@ -213,12 +234,15 @@ object TufDataType {
     val keyval: PrivateKey
     def keytype: KeyType
   }
+
   case class RSATufPrivateKey(override val keyval: PrivateKey) extends TufPrivateKey {
     override def keytype: KeyType = RsaKeyType
   }
+
   case class Ed25519TufPrivateKey(override val keyval: EdDSAPrivateKey) extends TufPrivateKey {
     override def keytype: KeyType = Ed25519KeyType
   }
+
   case class EcPrime256TufPrivateKey(override val keyval: PrivateKey) extends TufPrivateKey {
     override def keytype: KeyType = EcPrime256KeyType
   }
@@ -227,12 +251,21 @@ object TufDataType {
     val pubkey: TufKey
     val privkey: TufPrivateKey
   }
+
   object TufKeyPair {
     def unapply(arg: TufKeyPair): Option[(TufKey, TufPrivateKey)] = Some(arg.pubkey -> arg.privkey)
   }
-  case class RSATufKeyPair(override val pubkey: RSATufKey, override val privkey: RSATufPrivateKey) extends TufKeyPair
-  case class Ed25519TufKeyPair(override val pubkey: Ed25519TufKey, override val privkey: Ed25519TufPrivateKey) extends TufKeyPair
-  case class EcPrime256TufKeyPair(override val pubkey: EcPrime256TufKey, override val privkey: EcPrime256TufPrivateKey) extends TufKeyPair
+
+  case class RSATufKeyPair(override val pubkey: RSATufKey, override val privkey: RSATufPrivateKey)
+      extends TufKeyPair
+
+  case class Ed25519TufKeyPair(override val pubkey: Ed25519TufKey,
+                               override val privkey: Ed25519TufPrivateKey)
+      extends TufKeyPair
+
+  case class EcPrime256TufKeyPair(override val pubkey: EcPrime256TufKey,
+                                  override val privkey: EcPrime256TufPrivateKey)
+      extends TufKeyPair
 
   case class MultipartUploadId(value: String) extends AnyVal
   case class ETag(value: String) extends AnyVal
@@ -241,7 +274,9 @@ object TufDataType {
   case class InitMultipartUploadResult(uploadId: MultipartUploadId, partSize: Long)
   case class CompleteUploadRequest(uploadId: MultipartUploadId, partETags: Seq[UploadPartETag])
   case class GetSignedUrlResult(uri: URI)
+
   object GetSignedUrlResult {
     def apply(url: URL): GetSignedUrlResult = GetSignedUrlResult(url.toURI)
   }
+
 }

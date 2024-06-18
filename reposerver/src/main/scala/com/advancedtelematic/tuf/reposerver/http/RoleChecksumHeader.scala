@@ -21,5 +21,6 @@ object RoleChecksumHeader {
     }
 
   def respondWithCheckSum(checksum: RoleChecksum): Directive0 =
-    mapResponse { _.addHeader(apply(checksum)) }
+    mapResponse(_.addHeader(apply(checksum)))
+
 }

@@ -16,27 +16,25 @@ import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-
-class KeysToJsonEncodedMigration(implicit
-                                 val db: Database,
-                                 val system: ActorSystem,
-                                 val ec: ExecutionContext) {
+class KeysToJsonEncodedMigration(
+  implicit val db: Database,
+  val system: ActorSystem,
+  val ec: ExecutionContext) {
 
   private val _log = LoggerFactory.getLogger(this.getClass)
 
   def backupKeys(implicit db: Database): Future[Done] = {
-    val sql = sqlu"""create table `rsa_keys_pem` as select key_id, public_key from `keys` where key_type = 'RSA'"""
+    val sql =
+      sqlu"""create table `rsa_keys_pem` as select key_id, public_key from `keys` where key_type = 'RSA'"""
     db.run(sql).map(_ => Done)
   }
 
   def writeKey(keyId: KeyId, publicKey: PublicKey)(implicit db: Database): Future[TufKey] = {
-    implicit val setRsaKey: SetParameter[TufKey] = (tufKey: TufKey, pp: PositionedParameters) => {
+    implicit val setRsaKey: SetParameter[TufKey] = (tufKey: TufKey, pp: PositionedParameters) =>
       pp.setString(tufKey.asJson.noSpaces)
-    }
 
-    implicit val setKeyId: SetParameter[KeyId] = (keyId: KeyId, pp: PositionedParameters) => {
+    implicit val setKeyId: SetParameter[KeyId] = (keyId: KeyId, pp: PositionedParameters) =>
       pp.setString(keyId.value)
-    }
 
     val rsaKey = RSATufKey(publicKey)
     val sql = sqlu"""update `keys` set public_key = $rsaKey where key_id = $keyId"""
@@ -44,14 +42,15 @@ class KeysToJsonEncodedMigration(implicit
     db.run(sql).map(_ => rsaKey)
   }
 
-  def existingKeys(implicit db: Database):  Source[(KeyId, PublicKey), NotUsed] = {
+  def existingKeys(implicit db: Database): Source[(KeyId, PublicKey), NotUsed] = {
     implicit val getResult: GetResult[(KeyId, PublicKey)] = pr => {
       val keyId = implicitly[ColumnType[KeyId]].getValue(pr.rs, 1)
       val publicKeyStr = pr.rs.getString("public_key")
       keyId -> TufCrypto.parsePublicPem(publicKeyStr).get
     }
 
-    val findQ = sql""" select key_id, public_key from `keys` where key_type = 'RSA'""".as[(KeyId, PublicKey)]
+    val findQ =
+      sql""" select key_id, public_key from `keys` where key_type = 'RSA'""".as[(KeyId, PublicKey)]
 
     Source.fromPublisher(db.stream(findQ))
   }
@@ -65,5 +64,5 @@ class KeysToJsonEncodedMigration(implicit
       })
     }
   }
-}
 
+}
