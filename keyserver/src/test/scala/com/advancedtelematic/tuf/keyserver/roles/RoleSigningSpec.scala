@@ -34,7 +34,8 @@ class RoleSigningSpec
 
   implicit val ec: scala.concurrent.ExecutionContextExecutor = ExecutionContext.global
 
-  override implicit def patienceConfig = PatienceConfig().copy(timeout = Span(3, Seconds))
+  override implicit def patienceConfig: PatienceConfig =
+    PatienceConfig().copy(timeout = Span(3, Seconds))
 
   implicit val encoder
     : io.circe.Encoder.AsObject[com.advancedtelematic.tuf.keyserver.roles.TestPayload] =

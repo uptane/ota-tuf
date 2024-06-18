@@ -26,7 +26,6 @@ object ClientCodecs {
   import io.circe.generic.semiauto._
   import com.advancedtelematic.libats.codecs.CirceCodecs._
 
-
   implicit val targetFormatEncoder: Encoder[TargetFormat] = Encoder.encodeEnumeration(TargetFormat)
   implicit val targetFormatDecoder: Decoder[TargetFormat] = Decoder.decodeEnumeration(TargetFormat)
 
@@ -40,13 +39,13 @@ object ClientCodecs {
   implicit val roleKeyDecoder: Decoder[RoleKeys] = deriveDecoder
 
   implicit val targetNameEncoder: Encoder[TargetName] = Encoder.encodeString.contramap(_.value)
-  implicit val targetNameDecoder: Decoder[TargetName] = Decoder.decodeString.map(TargetName)
+  implicit val targetNameDecoder: Decoder[TargetName] = Decoder.decodeString.map(TargetName.apply)
 
   implicit val targetVersionEncoder: Encoder[TargetVersion] =
     Encoder.encodeString.contramap(_.value)
 
   implicit val targetVersionDecoder: Decoder[TargetVersion] =
-    Decoder.decodeString.map(TargetVersion)
+    Decoder.decodeString.map(TargetVersion.apply)
 
   implicit val targetCustomDecoder: Decoder[TargetCustom] = Decoder.fromState {
     import Decoder.state.decodeField

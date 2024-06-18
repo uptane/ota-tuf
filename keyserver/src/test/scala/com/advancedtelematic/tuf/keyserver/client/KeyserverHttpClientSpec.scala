@@ -46,7 +46,7 @@ class KeyserverHttpClientSpec
 
   override val ec: scala.concurrent.ExecutionContextExecutor = this.executor
 
-  override implicit def patienceConfig =
+  override implicit def patienceConfig: PatienceConfig =
     PatienceConfig(timeout = Span(20, Seconds), interval = Span(500, Millis))
 
   implicit lazy val requestTracing: ServerRequestTracing = new NullServerRequestTracing

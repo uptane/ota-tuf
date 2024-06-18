@@ -22,7 +22,7 @@ class KeysToJsonEncodedMigrationSpec
 
   override implicit lazy val system: ActorSystem = ActorSystem(this.getClass.getSimpleName)
 
-  implicit val ec = ExecutionContext.Implicits.global
+  implicit val ec: ExecutionContext = ExecutionContext.Implicits.global
 
   val migration = new KeysToJsonEncodedMigration()
 

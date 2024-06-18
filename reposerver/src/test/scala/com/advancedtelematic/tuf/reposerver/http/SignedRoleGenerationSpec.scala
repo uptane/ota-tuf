@@ -24,7 +24,8 @@ class SignedRoleGenerationSpec
     with ScalaFutures {
   override implicit val ec: ExecutionContext = Implicits.global
 
-  override implicit def patienceConfig = PatienceConfig().copy(timeout = Span(5, Seconds))
+  override implicit def patienceConfig: PatienceConfig =
+    PatienceConfig().copy(timeout = Span(5, Seconds))
 
   val fakeKeyserverClient: FakeKeyserverClient = new FakeKeyserverClient
 

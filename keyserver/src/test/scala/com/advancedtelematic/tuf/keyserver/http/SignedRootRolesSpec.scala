@@ -41,7 +41,8 @@ class SignedRootRolesSpec
 
   implicit val ec: scala.concurrent.ExecutionContextExecutor = ExecutionContext.global
 
-  override implicit def patienceConfig = PatienceConfig().copy(timeout = Span(10, Seconds))
+  override implicit def patienceConfig: PatienceConfig =
+    PatienceConfig().copy(timeout = Span(10, Seconds))
 
   val signedRootRoles = new SignedRootRoles()
   val keyGenerationOp = DefaultKeyGenerationOp()

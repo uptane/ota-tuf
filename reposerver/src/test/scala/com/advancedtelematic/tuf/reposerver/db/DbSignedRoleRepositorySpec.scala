@@ -23,7 +23,8 @@ class DbSignedRoleRepositorySpec
 
   implicit val ec: scala.concurrent.ExecutionContextExecutor = ExecutionContext.global
 
-  override implicit def patienceConfig = PatienceConfig().copy(timeout = Span(10, Seconds))
+  override implicit def patienceConfig: PatienceConfig =
+    PatienceConfig().copy(timeout = Span(10, Seconds))
 
   test("Fails with Conflict if version cannot be bumped") {
     val repo = new DbSignedRoleRepository()

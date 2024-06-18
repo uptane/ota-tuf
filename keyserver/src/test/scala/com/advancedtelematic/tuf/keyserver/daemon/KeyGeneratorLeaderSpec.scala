@@ -47,7 +47,7 @@ class KeyGeneratorLeaderSpec
 
   lazy val actorRef = system.actorOf(KeyGeneratorLeader.props(testKeyGenOp))
 
-  override implicit def patienceConfig =
+  override implicit def patienceConfig: PatienceConfig =
     PatienceConfig(timeout = Span(30, Seconds), interval = Span(300, Millis))
 
   override def beforeAll(): Unit = {

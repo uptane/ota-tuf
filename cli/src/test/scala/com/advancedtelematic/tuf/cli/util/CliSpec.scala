@@ -57,7 +57,9 @@ trait KeyTypeSpecSupport {
 abstract class CliSpec extends AnyFunSuite with Matchers with ScalaFutures {
   Security.addProvider(new BouncyCastleProvider)
 
-  override implicit def patienceConfig = PatienceConfig().copy(timeout = Span(10, Seconds))
+  override implicit def patienceConfig: PatienceConfig =
+    PatienceConfig().copy(timeout = Span(10, Seconds))
+
 }
 
 trait FakeTufServerClient extends TufServerClient {

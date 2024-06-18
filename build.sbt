@@ -25,7 +25,7 @@ lazy val commonDeps = libraryDependencies ++= {
     "com.typesafe.akka" %% "akka-http" % akkaHttpV,
     "com.beachape" %% "enumeratum" % enumeratumV,
     "com.beachape" %% "enumeratum-circe" % enumeratumV,
-    "io.github.uptane" %% "libats-http" % libatsVersion,
+    "io.github.uptane" %% "libats-http" % libatsVersion
   )
 }
 
@@ -49,16 +49,16 @@ lazy val serverDependencies = libraryDependencies ++= {
     "io.github.uptane" %% "libats-metrics-prometheus" % libatsVersion,
     "io.github.uptane" %% "libats-slick" % libatsVersion,
     "io.github.uptane" %% "libats-logging" % libatsVersion,
-    "org.mariadb.jdbc" % "mariadb-java-client" % "3.3.3",
+    "org.mariadb.jdbc" % "mariadb-java-client" % "3.4.0",
     "com.beachape" %% "enumeratum" % enumeratumV,
     "com.beachape" %% "enumeratum-circe" % enumeratumV,
-    "io.scalaland" %% "chimney" % "1.1.0",
+    "io.scalaland" %% "chimney" % "1.1.0"
   )
 }
 
 lazy val commonSettings = Seq(
   organization := "io.github.uptane",
-  scalaVersion := "2.13.12",
+  scalaVersion := "2.13.14",
   organizationName := "uptane",
   organizationHomepage := Some(url("https://uptane.github.io/")),
   scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8", "-Xasync", "-Xsource:3"),
