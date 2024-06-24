@@ -106,7 +106,9 @@ class PackageSearch()(implicit db: Database) {
         IF(${searchParams.version.isEmpty}, true, version = ${searchParams.version}) AND
         IF(${searchParams.nameContains.isEmpty}, true, LOCATE(${searchParams.nameContains}, name) > 0) AND
         IF(${searchParams.hardwareIds.isEmpty}, true, JSON_CONTAINS(hardwareids, JSON_QUOTE(${searchParams.hardwareIds.headOption
-          .map(_.value)})))
+          .map(_.value)}))) AND
+        IF(${searchParams.hashes.isEmpty}, true, FIND_IN_SET(JSON_UNQUOTE(JSON_EXTRACT(checksum, '$$.hash')), ${searchParams.hashes
+          .map(_.value)}) > 0)
       ORDER BY
           #${sortBy.column} #${sortDirection.entryName},
           version,
@@ -252,7 +254,9 @@ class PackageSearch()(implicit db: Database) {
         IF(${searchParams.nameContains.isEmpty}, true, LOCATE(${searchParams.nameContains}, name) > 0) AND
         IF(${searchParams.version.isEmpty}, true, version = ${searchParams.version}) AND
         IF(${searchParams.hardwareIds.isEmpty}, true, JSON_CONTAINS(hardwareids, JSON_QUOTE(${searchParams.hardwareIds.headOption
-          .map(_.value)})))
+          .map(_.value)}))) AND
+        IF(${searchParams.hashes.isEmpty}, true, FIND_IN_SET(JSON_UNQUOTE(JSON_EXTRACT(checksum, '$$.hash')), ${searchParams.hashes
+          .map(_.value)}) > 0)
       GROUP BY name
       ORDER BY
           #${sortBy.column} #${sortDirection.entryName},
