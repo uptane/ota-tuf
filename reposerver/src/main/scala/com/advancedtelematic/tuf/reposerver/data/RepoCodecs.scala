@@ -1,6 +1,11 @@
 package com.advancedtelematic.tuf.reposerver.data
 
-import com.advancedtelematic.tuf.reposerver.data.RepoDataType.{AddDelegationFromRemoteRequest, AggregatedPackage, DelegationInfo, Package}
+import com.advancedtelematic.tuf.reposerver.data.RepoDataType.{
+  AddDelegationFromRemoteRequest,
+  AggregatedPackage,
+  DelegationInfo,
+  Package
+}
 import com.advancedtelematic.libtuf.data.ClientCodecs.*
 import com.advancedtelematic.libats.codecs.CirceRefined.*
 import com.advancedtelematic.libats.http.HttpCodecs.*

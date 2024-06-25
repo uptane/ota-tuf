@@ -251,7 +251,9 @@ class RepoTargetsResourceSpec
       status shouldBe StatusCodes.NoContent
     }
 
-    Get(apiUriV2(s"user_repo/search?sortBy=filename&sortDirection=asc")).namespaced ~> routes ~> check {
+    Get(
+      apiUriV2(s"user_repo/search?sortBy=filename&sortDirection=asc")
+    ).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
 
       val result = responseAs[PaginationResult[Package]]
@@ -262,7 +264,9 @@ class RepoTargetsResourceSpec
       result.values.map(_.filename.value) shouldBe Seq("mypath/mytargetName", "zotherpackage")
     }
 
-    Get(apiUriV2(s"user_repo/search?sortBy=filename&sortDirection=desc")).namespaced ~> routes ~> check {
+    Get(
+      apiUriV2(s"user_repo/search?sortBy=filename&sortDirection=desc")
+    ).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
 
       val result = responseAs[PaginationResult[Package]]
@@ -497,7 +501,9 @@ class RepoTargetsResourceSpec
       status shouldBe StatusCodes.NoContent
     }
 
-    Get(apiUriV2(s"user_repo/grouped-search?sortBy=name&sortDirection=asc")).namespaced ~> routes ~> check {
+    Get(
+      apiUriV2(s"user_repo/grouped-search?sortBy=name&sortDirection=asc")
+    ).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[AggregatedPackage]].values
       values should have size 2

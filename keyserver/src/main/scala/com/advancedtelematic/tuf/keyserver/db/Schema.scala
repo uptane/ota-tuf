@@ -43,16 +43,10 @@ object Schema {
     def uniqueRepoIdRoleTypeIdx =
       index("key_gen_requests_unique_idx", (repoId, roleType), unique = true)
 
-    override def * = (
-      id,
-      repoId,
-      status,
-      roleType,
-      keySize,
-      keyType,
-      threshold,
-      description
-    ) <> ((KeyGenRequest.apply _).tupled, KeyGenRequest.unapply)
+    override def * = (id, repoId, status, roleType, keySize, keyType, threshold, description) <> (
+      (KeyGenRequest.apply _).tupled,
+      KeyGenRequest.unapply
+    )
 
   }
 
@@ -66,14 +60,10 @@ object Schema {
     def publicKey = column[TufKey]("public_key")
     def privateKey = column[EncryptedColumn[TufPrivateKey]]("private_key")
 
-    override def * = (
-      id,
-      repoId,
-      roleType,
-      keyType,
-      publicKey,
-      privateKey.decrypted
-    ) <> ((Key.apply _).tupled, Key.unapply)
+    override def * = (id, repoId, roleType, keyType, publicKey, privateKey.decrypted) <> (
+      (Key.apply _).tupled,
+      Key.unapply
+    )
 
   }
 
@@ -88,15 +78,15 @@ object Schema {
     def pk = primaryKey("pk_signed_root_roles", (repoId, version))
 
     private def content_parsed = content <>
-      ({ c => SignedPayload(c.signatures, c.signed.as[RootRole].valueOr(throw _), c.signed) },
-      (x: SignedPayload[RootRole]) => Some(JsonSignedPayload(x.signatures, x.json)))
+      (
+        { c => SignedPayload(c.signatures, c.signed.as[RootRole].valueOr(throw _), c.signed) },
+        (x: SignedPayload[RootRole]) => Some(JsonSignedPayload(x.signatures, x.json))
+      )
 
-    override def * = (
-      repoId,
-      content_parsed,
-      expiresAt,
-      version
-    ) <> ((SignedRootRole.apply _).tupled, SignedRootRole.unapply)
+    override def * = (repoId, content_parsed, expiresAt, version) <> (
+      (SignedRootRole.apply _).tupled,
+      SignedRootRole.unapply
+    )
 
   }
 
