@@ -5,7 +5,12 @@ import akka.http.scaladsl.server.{Directive, Directives}
 import akka.http.scaladsl.unmarshalling.PredefinedFromStringUnmarshallers.CsvSeq
 import com.advancedtelematic.libtuf.data.ClientDataType.TargetCustom
 import com.advancedtelematic.libtuf.data.TufDataType.TargetFormat.TargetFormat
-import com.advancedtelematic.libtuf.data.TufDataType.{HardwareIdentifier, TargetFormat, TargetName, TargetVersion}
+import com.advancedtelematic.libtuf.data.TufDataType.{
+  HardwareIdentifier,
+  TargetFormat,
+  TargetName,
+  TargetVersion
+}
 import io.circe.*
 import akka.http.scaladsl.unmarshalling.*
 import akka.http.scaladsl.util.FastFuture
