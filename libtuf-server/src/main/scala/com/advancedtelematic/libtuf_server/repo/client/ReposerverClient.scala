@@ -144,6 +144,8 @@ trait ReposerverClient {
   def fetchRoot(namespace: Namespace,
                 version: Option[Int]): Future[(RepoId, SignedPayload[RootRole])]
 
+  def rotateRoot(namespace: Namespace): Future[Unit]
+
   def repoExists(namespace: Namespace)(implicit ec: ExecutionContext): Future[Boolean] =
     fetchRoot(namespace, None).transform {
       case Success(_) | Failure(KeysNotReady)              => Success(true)
@@ -325,6 +327,11 @@ class ReposerverHttpClient(reposerverUri: Uri,
             FastFuture.failed(NotFound)
         }
     }
+  }
+
+  override def rotateRoot(namespace: Namespace): Future[Unit] = {
+    val req = HttpRequest(HttpMethods.PUT, uri = apiUri(Path(s"user_repo/root/rotate")))
+    execHttpUnmarshalledWithNamespace[Unit](namespace, req).ok
   }
 
   private def addTargetErrorHandler[T]: PartialFunction[RemoteServiceError, Future[T]] = {
