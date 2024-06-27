@@ -459,7 +459,6 @@ protected[db] class DelegationRepository()(implicit db: Database, ec: ExecutionC
     Schema.delegations.filter(_.repoId === repoId).result
   }
 
-
   def persistAll(repoId: RepoId,
                  roleName: DelegatedRoleName,
                  content: JsonSignedPayload,

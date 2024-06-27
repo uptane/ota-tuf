@@ -112,16 +112,16 @@ class DelegationsManagement()(implicit val db: Database, val ec: ExecutionContex
     validateDelegationMetadataSignatures(targetsRole, delegation, delegationMetadata)
       .valueOr(err => throw Errors.PayloadSignatureInvalid(err))
 
-    val validatedDelegationsRole = validateDelegationTargetPaths(targetsRole, roleName, delegationMetadata)
-      .valueOr(err => throw Errors.InvalidDelegatedTarget(err))
+    val validatedDelegationsRole =
+      validateDelegationTargetPaths(targetsRole, roleName, delegationMetadata)
+        .valueOr(err => throw Errors.InvalidDelegatedTarget(err))
 
     val items = validatedDelegationsRole.signed.targets.map { case (filename, clientTargetItem) =>
-
       val checksums = clientTargetItem.hashes.map { case (method, hash) =>
         Checksum(method, hash)
       }
 
-      if(checksums.isEmpty)
+      if (checksums.isEmpty)
         throw Errors.InvalidDelegatedTarget(NonEmptyList.of("targets checksum cannot be empty"))
 
       DelegatedTargetItem(
