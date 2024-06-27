@@ -4,7 +4,11 @@ import akka.http.scaladsl.model.{HttpRequest, StatusCodes}
 import akka.http.scaladsl.model.headers.RawHeader
 import com.advancedtelematic.libats.data.DataType.Namespace
 import com.advancedtelematic.libtuf.data.TufDataType.RepoId
-import com.advancedtelematic.tuf.reposerver.util.NamespaceSpecOps.{NamespaceTag, Namespaced, withRandomNamepace}
+import com.advancedtelematic.tuf.reposerver.util.NamespaceSpecOps.{
+  withRandomNamepace,
+  NamespaceTag,
+  Namespaced
+}
 import io.circe.Json
 import org.scalactic.source.Position
 import org.scalatest.Tag

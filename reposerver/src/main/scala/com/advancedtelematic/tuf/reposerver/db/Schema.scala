@@ -40,14 +40,10 @@ object Schema {
 
     def pk = primaryKey("delegated_items_pk", (repoId, roleName, filename))
 
-    override def * = (
-      repoId,
-      filename,
-      roleName,
-      checksum,
-      length,
-      custom
-    ) <> ((DelegatedTargetItem.apply _).tupled, DelegatedTargetItem.unapply)
+    override def * = (repoId, filename, roleName, checksum, length, custom) <> (
+      (DelegatedTargetItem.apply _).tupled,
+      DelegatedTargetItem.unapply
+    )
 
   }
 
@@ -65,15 +61,10 @@ object Schema {
 
     def pk = primaryKey("target_items_pk", (repoId, filename))
 
-    override def * = (
-      repoId,
-      filename,
-      uri,
-      checksum,
-      length,
-      custom,
-      storageMethod
-    ) <> ((TargetItem.apply _).tupled, TargetItem.unapply)
+    override def * = (repoId, filename, uri, checksum, length, custom, storageMethod) <> (
+      (TargetItem.apply _).tupled,
+      TargetItem.unapply
+    )
 
   }
 
@@ -90,15 +81,10 @@ object Schema {
 
     def pk = primaryKey("signed_role_pk", (repoId, roleType))
 
-    override def * = (
-      repoId,
-      roleType,
-      content,
-      checksum,
-      length,
-      version,
-      expiresAt
-    ) <> ((DbSignedRole.apply _).tupled, DbSignedRole.unapply)
+    override def * = (repoId, roleType, content, checksum, length, version, expiresAt) <> (
+      (DbSignedRole.apply _).tupled,
+      DbSignedRole.unapply
+    )
 
   }
 
@@ -153,15 +139,11 @@ object Schema {
 
     def pk = primaryKey("delegations_pk", (repoId, roleName))
 
-    override def * = (
-      repoId,
-      roleName,
-      content,
-      remoteUri,
-      lastFetched,
-      remoteHeaders,
-      friendlyName
-    ) <> ((DbDelegation.apply _).tupled, DbDelegation.unapply)
+    override def * =
+      (repoId, roleName, content, remoteUri, lastFetched, remoteHeaders, friendlyName) <> (
+        (DbDelegation.apply _).tupled,
+        DbDelegation.unapply
+      )
 
   }
 

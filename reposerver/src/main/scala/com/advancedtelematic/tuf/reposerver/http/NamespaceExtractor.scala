@@ -69,4 +69,5 @@ object NamespaceRepoId {
 
   def apply(namespaceValidation: NamespaceValidation, findNsRepoFn: Namespace => Future[RepoId]) =
     namespaceValidation.extractor.flatMap(ns => UserRepoId(ns, findNsRepoFn))
+
 }
