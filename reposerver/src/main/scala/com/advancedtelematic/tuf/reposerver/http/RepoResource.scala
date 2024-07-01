@@ -487,7 +487,12 @@ class RepoResource(keyserverClient: KeyserverClient,
                 trustedDelegations <- trustedDelegations.get(repoId)
                 delegationInfos <- Future.sequence(
                   trustedDelegations.map(td =>
-                    delegations.find(repoId, td.name).map(d => td.name.value -> d._2)
+                    delegations
+                      .find(repoId, td.name)
+                      .map(d => td.name.value -> d._2)
+                      .recover { case DelegationNotFound =>
+                        td.name.value -> DelegationInfo(None, None, None)
+                      }
                   )
                 )
               } yield delegationInfos.toMap
