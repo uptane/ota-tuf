@@ -79,7 +79,7 @@ case class Config(command: Command,
                   reposerverUrl: Option[URI] = None,
                   verbose: Boolean = false,
                   inplace: Boolean = false,
-                  customMeta: Json = Json.Null)
+                  customMeta: Json = Json.obj())
 
 object Cli extends App with VersionInfo {
 
@@ -146,7 +146,6 @@ object Cli extends App with VersionInfo {
   lazy val customMetaOpts: OptionParser[Config] => OptionDef[_, Config] = { parser =>
     parser
       .opt[Json]("customMeta")
-      .required()
       .toConfigParam(Symbol("customMeta"))
       .validate { json =>
         val badFields = List("name", "version", "hardwareIds", "targetFormat", "uri", "cliUploaded")
