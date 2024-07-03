@@ -35,7 +35,8 @@ import io.circe.Codec
 import io.circe.generic.semiauto.*
 
 object ClientDataType {
-  type ClientHashes = Map[HashMethod, Refined[String, ValidChecksum]]
+  type TargetHash = Refined[String, ValidChecksum]
+  type ClientHashes = Map[HashMethod, TargetHash]
 
   case class TargetCustom(name: TargetName,
                           version: TargetVersion,

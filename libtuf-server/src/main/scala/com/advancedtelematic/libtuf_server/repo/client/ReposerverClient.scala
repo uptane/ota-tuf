@@ -12,7 +12,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import com.advancedtelematic.libats.codecs.CirceCodecs.*
-import com.advancedtelematic.libats.data.DataType.{Checksum, Namespace}
+import com.advancedtelematic.libats.data.DataType.{Checksum, Namespace, ValidChecksum}
 import com.advancedtelematic.libats.data.{ErrorCode, PaginationResult}
 import com.advancedtelematic.libats.http.Errors.{RawError, RemoteServiceError}
 import com.advancedtelematic.libats.http.ServiceHttpClientSupport
@@ -31,6 +31,7 @@ import com.advancedtelematic.libtuf.data.ClientDataType.{
   DelegationFriendlyName,
   RootRole,
   SortDirection,
+  TargetHash,
   TargetItemsSort,
   TargetsRole
 }
@@ -59,6 +60,7 @@ import com.advancedtelematic.libtuf_server.repo.client.ReposerverClient.{
   NotFound,
   RootNotInKeyserver
 }
+import eu.timepit.refined.api.Refined
 
 //import com.advancedtelematic.tuf.reposerver.data.RepoDataType.Package
 import io.circe.generic.semiauto.*
@@ -188,6 +190,7 @@ trait ReposerverClient {
                       name: Option[String],
                       version: Option[String],
                       hardwareIds: Seq[HardwareIdentifier],
+                      hashes: Seq[Refined[String, ValidChecksum]],
                       sortBy: Option[TargetItemsSort],
                       sortDirection: Option[SortDirection]): Future[PaginationResult[ClientPackage]]
 
@@ -200,6 +203,7 @@ trait ReposerverClient {
     name: Option[String],
     version: Option[String],
     hardwareIds: Seq[HardwareIdentifier],
+    hashes: Seq[TargetHash],
     sortBy: Option[AggregatedTargetItemsSort],
     sortDirection: Option[SortDirection]): Future[PaginationResult[ClientAggregatedPackage]]
 
@@ -416,6 +420,7 @@ class ReposerverHttpClient(reposerverUri: Uri,
     name: Option[String],
     version: Option[String],
     hardwareIds: Seq[HardwareIdentifier],
+    hashes: Seq[TargetHash],
     sortBy: Option[TargetItemsSort],
     sortDirection: Option[SortDirection]): Future[PaginationResult[ClientPackage]] = {
     val req = HttpRequest(
@@ -432,6 +437,10 @@ class ReposerverHttpClient(reposerverUri: Uri,
               ++ (if (hardwareIds.isEmpty) { Map.empty[String, String] }
                   else {
                     Map("hardwareIds" -> hardwareIds.map(_.value).mkString(","))
+                  })
+              ++ (if (hashes.isEmpty) { Map.empty[String, String] }
+                  else {
+                    Map("hashes" -> hashes.map(_.value).mkString(","))
                   })
               ++ sortBy.map(s => Map("sortBy" -> s.entryName)).getOrElse(Map.empty)
               ++ sortDirection
@@ -452,6 +461,7 @@ class ReposerverHttpClient(reposerverUri: Uri,
     name: Option[String],
     version: Option[String],
     hardwareIds: Seq[HardwareIdentifier],
+    hashes: Seq[TargetHash],
     sortBy: Option[AggregatedTargetItemsSort],
     sortDirection: Option[SortDirection]): Future[PaginationResult[ClientAggregatedPackage]] = {
     val req = HttpRequest(
@@ -468,6 +478,10 @@ class ReposerverHttpClient(reposerverUri: Uri,
               ++ (if (hardwareIds.isEmpty) { Map.empty[String, String] }
                   else {
                     Map("hardwareIds" -> hardwareIds.map(_.value).mkString(","))
+                  })
+              ++ (if (hashes.isEmpty) { Map.empty[String, String] }
+                  else {
+                    Map("hashes" -> hashes.map(_.value).mkString(","))
                   })
               ++ sortBy.map(s => Map("sortBy" -> s.entryName)).getOrElse(Map.empty)
               ++ sortDirection
