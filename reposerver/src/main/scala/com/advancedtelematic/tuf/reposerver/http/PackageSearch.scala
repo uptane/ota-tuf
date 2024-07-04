@@ -155,7 +155,7 @@ class PackageSearch()(implicit db: Database) {
   private case object AggregatedCountQuery extends AggregatedTargetsQuery[Long] {
     override implicit def getResult: GetResult[Long] = GetResult.GetLong
 
-    override def select: String = "count(*), 0 versions, null last_version_at"
+    override def select: String = "count(DISTINCT name), 0 versions, null last_version_at"
   }
 
   private case object AggregatedResultQuery extends AggregatedTargetsQuery[AggregatedPackage] {
