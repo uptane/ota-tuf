@@ -3,7 +3,6 @@ package com.advancedtelematic.tuf.reposerver.data
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.{
   AddDelegationFromRemoteRequest,
   AggregatedPackage,
-  DelegationInfo,
   Package
 }
 import com.advancedtelematic.libtuf.data.ClientCodecs.*
@@ -19,9 +18,6 @@ object RepoCodecs {
 
   implicit val addDelegationFromRemoteRequestCodec: io.circe.Codec[AddDelegationFromRemoteRequest] =
     deriveCodec[AddDelegationFromRemoteRequest]
-
-  implicit val delegationInfoCodec: io.circe.Codec[DelegationInfo] =
-    deriveCodec[DelegationInfo]
 
   implicit val packageCodec: Codec[Package] =
     deriveCodec[Package]

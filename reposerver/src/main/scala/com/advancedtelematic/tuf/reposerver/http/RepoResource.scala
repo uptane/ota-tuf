@@ -36,6 +36,7 @@ import com.advancedtelematic.libtuf.data.ClientDataType.{
   DelegatedRoleName,
   Delegation,
   DelegationClientTargetItem,
+  DelegationInfo,
   RootRole,
   TargetCustom,
   TargetsRole

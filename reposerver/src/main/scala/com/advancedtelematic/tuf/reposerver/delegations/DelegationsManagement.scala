@@ -13,6 +13,7 @@ import com.advancedtelematic.libtuf.data.ClientDataType.{
   Delegation,
   DelegationClientTargetItem,
   DelegationFriendlyName,
+  DelegationInfo,
   MetaItem,
   MetaPath,
   TargetCustom,
@@ -45,11 +46,7 @@ import com.advancedtelematic.libats.data.DataType.Checksum
 import com.advancedtelematic.libtuf.data.TufCodecs.*
 import com.advancedtelematic.libtuf.data.ClientCodecs.*
 import com.advancedtelematic.libtuf.data.TufCodecs
-import com.advancedtelematic.tuf.reposerver.data.RepoDataType.{
-  DelegatedTargetItem,
-  DelegationInfo,
-  TargetItem
-}
+import com.advancedtelematic.tuf.reposerver.data.RepoDataType.{DelegatedTargetItem, TargetItem}
 
 import java.nio.file.{FileSystems, Paths}
 import java.time.Instant

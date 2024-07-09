@@ -47,11 +47,6 @@ object RepoDataType {
                                             remoteHeaders: Option[Map[String, String]] = None,
                                             friendlyName: Option[DelegationFriendlyName] = None)
 
-  case class DelegationInfo(lastFetched: Option[Instant],
-                            remoteUri: Option[Uri],
-                            friendlyName: Option[DelegationFriendlyName] = None,
-                            expires: Option[Instant])
-
   object Package {
 
     type ValidTargetOrigin = NonEmpty

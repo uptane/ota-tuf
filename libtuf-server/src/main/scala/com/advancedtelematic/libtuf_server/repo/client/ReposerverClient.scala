@@ -29,6 +29,7 @@ import com.advancedtelematic.libtuf.data.ClientDataType.{
   Delegation,
   DelegationClientTargetItem,
   DelegationFriendlyName,
+  DelegationInfo,
   RootRole,
   SortDirection,
   TargetHash,
@@ -55,7 +56,6 @@ import com.advancedtelematic.libtuf_server.data.Requests.{
   TargetComment
 }
 import com.advancedtelematic.libtuf_server.repo.client.ReposerverClient.{
-  DelegationInfo,
   KeysNotReady,
   NotFound,
   RootNotInKeyserver
@@ -99,17 +99,6 @@ object ReposerverClient {
   case class EditTargetItem(uri: Option[URI] = None,
                             hardwareIds: Seq[HardwareIdentifier] = Seq.empty[HardwareIdentifier],
                             proprietaryCustom: Option[Json] = None)
-
-  case class DelegationInfo(lastFetched: Option[Instant],
-                            remoteUri: Option[Uri],
-                            friendlyName: Option[DelegationFriendlyName] = None)
-
-  object DelegationInfo {
-
-    implicit val delegationInfoCodec: io.circe.Codec[DelegationInfo] =
-      io.circe.generic.semiauto.deriveCodec[DelegationInfo]
-
-  }
 
   val KeysNotReady = RawError(ErrorCode("keys_not_ready"), StatusCodes.Locked, "keys not ready")
 

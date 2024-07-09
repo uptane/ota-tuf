@@ -21,6 +21,7 @@ import com.advancedtelematic.libtuf.data.ClientDataType.{
   Delegation,
   DelegationClientTargetItem,
   DelegationFriendlyName,
+  DelegationInfo,
   SnapshotRole,
   TargetsRole
 }
@@ -29,11 +30,7 @@ import com.advancedtelematic.libtuf.data.{ClientDataType, TufDataType}
 import com.advancedtelematic.libtuf.data.TufDataType.{Ed25519KeyType, RepoId, SignedPayload, TufKey}
 import com.advancedtelematic.libtuf.data.ValidatedString.StringToValidatedStringOps
 import com.advancedtelematic.libtuf_server.crypto.Sha256Digest
-import com.advancedtelematic.tuf.reposerver.data.RepoDataType.{
-  AddDelegationFromRemoteRequest,
-  DelegationInfo
-}
-import com.advancedtelematic.tuf.reposerver.data.RepoCodecs.delegationInfoCodec
+import com.advancedtelematic.tuf.reposerver.data.RepoDataType.AddDelegationFromRemoteRequest
 import com.advancedtelematic.tuf.reposerver.util.{
   RepoResourceDelegationsSpecUtil,
   RepoResourceSpecUtil,
