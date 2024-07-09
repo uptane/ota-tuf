@@ -49,7 +49,8 @@ object RepoDataType {
 
   case class DelegationInfo(lastFetched: Option[Instant],
                             remoteUri: Option[Uri],
-                            friendlyName: Option[DelegationFriendlyName] = None)
+                            friendlyName: Option[DelegationFriendlyName] = None,
+                            expires: Option[Instant])
 
   object Package {
 
