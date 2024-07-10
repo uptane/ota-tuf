@@ -21,6 +21,7 @@ import com.advancedtelematic.libtuf.data.ClientDataType.{
   Delegation,
   DelegationClientTargetItem,
   DelegationFriendlyName,
+  DelegationInfo,
   SnapshotRole,
   TargetsRole
 }
@@ -29,11 +30,7 @@ import com.advancedtelematic.libtuf.data.{ClientDataType, TufDataType}
 import com.advancedtelematic.libtuf.data.TufDataType.{Ed25519KeyType, RepoId, SignedPayload, TufKey}
 import com.advancedtelematic.libtuf.data.ValidatedString.StringToValidatedStringOps
 import com.advancedtelematic.libtuf_server.crypto.Sha256Digest
-import com.advancedtelematic.tuf.reposerver.data.RepoDataType.{
-  AddDelegationFromRemoteRequest,
-  DelegationInfo
-}
-import com.advancedtelematic.tuf.reposerver.data.RepoCodecs.delegationInfoCodec
+import com.advancedtelematic.tuf.reposerver.data.RepoDataType.AddDelegationFromRemoteRequest
 import com.advancedtelematic.tuf.reposerver.util.{
   RepoResourceDelegationsSpecUtil,
   RepoResourceSpecUtil,
@@ -258,7 +255,11 @@ class RepoResourceDelegationsSpec
     getTrustedDelegationInfo() ~> check {
       status shouldBe StatusCodes.OK
       val someMap = responseAs[Map[String, DelegationInfo]]
-      someMap(delegation.name.value) shouldBe DelegationInfo(None, None, None)
+//      someMap(delegation.name.value) shouldBe DelegationInfo(None, None, None, Some)
+      someMap(delegation.name.value).friendlyName shouldBe empty
+      someMap(delegation.name.value).lastFetched shouldBe empty
+      someMap(delegation.name.value).remoteUri shouldBe empty
+      someMap(delegation.name.value).expires should not be empty
     }
   }
 
@@ -761,7 +762,7 @@ class RepoResourceDelegationsSpec
     val friendlyName = "my-friendly-delegation-name".unsafeApply[DelegationFriendlyName]
     Patch(
       apiUri(s"repo/${repoId.show}/trusted-delegations/${delegation.name.value}/info"),
-      DelegationInfo(None, None, Some(friendlyName)).asJson
+      DelegationInfo(None, None, Some(friendlyName), None).asJson
     ) ~> routes ~> check {
       status shouldBe StatusCodes.OK
     }
@@ -786,7 +787,7 @@ class RepoResourceDelegationsSpec
     val friendlyName = "my-friendly-delegation-name".unsafeApply[DelegationFriendlyName]
     Patch(
       apiUri(s"repo/${repoId.show}/trusted-delegations/${delegation.name.value}/info"),
-      DelegationInfo(None, Some("http://some-remote-uri"), Some(friendlyName)).asJson
+      DelegationInfo(None, Some("http://some-remote-uri"), Some(friendlyName), None).asJson
     ) ~> routes ~> check {
       status shouldBe StatusCodes.BadRequest
       responseAs[ErrorRepresentation].code shouldBe ErrorCodes.ImmutableFields

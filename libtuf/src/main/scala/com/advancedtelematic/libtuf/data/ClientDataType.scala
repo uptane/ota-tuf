@@ -30,7 +30,9 @@ import akka.http.scaladsl.model.Uri
 import akka.http.scaladsl.unmarshalling.Unmarshaller
 import enumeratum.*
 import com.advancedtelematic.libats.codecs.CirceRefined.*
-//import com.advancedtelematic.libats.http.HttpCodecs.*
+import com.advancedtelematic.libats.http.HttpCodecs.*
+import com.advancedtelematic.libtuf.data.ClientCodecs.*
+
 import io.circe.Codec
 import io.circe.generic.semiauto.*
 
@@ -243,6 +245,18 @@ object ClientDataType {
         "delegation friendly name name cannot be empty or longer than 80 characters"
       )
     }
+
+  }
+
+  case class DelegationInfo(lastFetched: Option[Instant],
+                            remoteUri: Option[Uri],
+                            friendlyName: Option[DelegationFriendlyName] = None,
+                            expires: Option[Instant] = None)
+
+  object DelegationInfo {
+
+    implicit val delegationInfoCodec: io.circe.Codec[DelegationInfo] =
+      io.circe.generic.semiauto.deriveCodec[DelegationInfo]
 
   }
 

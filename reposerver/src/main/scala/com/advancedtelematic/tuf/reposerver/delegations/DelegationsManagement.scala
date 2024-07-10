@@ -13,6 +13,7 @@ import com.advancedtelematic.libtuf.data.ClientDataType.{
   Delegation,
   DelegationClientTargetItem,
   DelegationFriendlyName,
+  DelegationInfo,
   MetaItem,
   MetaPath,
   TargetCustom,
@@ -45,11 +46,7 @@ import com.advancedtelematic.libats.data.DataType.Checksum
 import com.advancedtelematic.libtuf.data.TufCodecs.*
 import com.advancedtelematic.libtuf.data.ClientCodecs.*
 import com.advancedtelematic.libtuf.data.TufCodecs
-import com.advancedtelematic.tuf.reposerver.data.RepoDataType.{
-  DelegatedTargetItem,
-  DelegationInfo,
-  TargetItem
-}
+import com.advancedtelematic.tuf.reposerver.data.RepoDataType.{DelegatedTargetItem, TargetItem}
 
 import java.nio.file.{FileSystems, Paths}
 import java.time.Instant
@@ -200,7 +197,12 @@ class DelegationsManagement()(implicit val db: Database, val ec: ExecutionContex
     val delegation = await(delegationsRepo.find(repoId, roleName))
     (
       delegation.content,
-      DelegationInfo(delegation.lastFetched, delegation.remoteUri, delegation.friendlyName)
+      DelegationInfo(
+        delegation.lastFetched,
+        delegation.remoteUri,
+        delegation.friendlyName,
+        delegation.content.signed.as[TargetsRole].toOption.map(_.expires)
+      )
     )
   }
 
@@ -262,13 +264,13 @@ class DelegationsManagement()(implicit val db: Database, val ec: ExecutionContex
                         roleName: DelegatedRoleName,
                         delegationInfo: DelegationInfo): Future[Unit] =
     delegationInfo match {
-      case DelegationInfo(Some(_), _, _) =>
+      case DelegationInfo(Some(_), _, _, _) =>
         throw Errors.RequestedImmutableFields(Seq("friendlyName"), Seq("lastFetched", "remoteUri"))
-      case DelegationInfo(_, Some(_), _) =>
+      case DelegationInfo(_, Some(_), _, _) =>
         throw Errors.RequestedImmutableFields(Seq("friendlyName"), Seq("lastFetched", "remoteUri"))
-      case DelegationInfo(_, _, Some(friendlyName)) =>
+      case DelegationInfo(_, _, Some(friendlyName), _) =>
         delegationsRepo.setDelegationFriendlyName(repoId, roleName, friendlyName)
-      case DelegationInfo(_, _, None) =>
+      case DelegationInfo(_, _, None, _) =>
         throw Errors.InvalidDelegationName(NonEmptyList.one("missing friendlyName field"))
     }
 

@@ -36,6 +36,7 @@ import com.advancedtelematic.libtuf.data.ClientDataType.{
   DelegatedRoleName,
   Delegation,
   DelegationClientTargetItem,
+  DelegationInfo,
   RootRole,
   TargetCustom,
   TargetsRole
@@ -491,7 +492,7 @@ class RepoResource(keyserverClient: KeyserverClient,
                       .find(repoId, td.name)
                       .map(d => td.name.value -> d._2)
                       .recover { case DelegationNotFound =>
-                        td.name.value -> DelegationInfo(None, None, None)
+                        td.name.value -> DelegationInfo(None, None, None, None)
                       }
                   )
                 )
@@ -528,7 +529,7 @@ class RepoResource(keyserverClient: KeyserverClient,
                   onSuccess(delegations.find(repoId, delegatedRoleName)) {
                     (delegation, delegationInfo) =>
                       delegationInfo match {
-                        case DelegationInfo(Some(lastFetched), _, _) =>
+                        case DelegationInfo(Some(lastFetched), _, _, _) =>
                           complete(
                             StatusCodes.OK,
                             List(
@@ -536,7 +537,7 @@ class RepoResource(keyserverClient: KeyserverClient,
                             ),
                             delegation
                           )
-                        case DelegationInfo(_, _, _) =>
+                        case DelegationInfo(_, _, _, _) =>
                           complete(StatusCodes.OK -> delegation)
                       }
                   }
