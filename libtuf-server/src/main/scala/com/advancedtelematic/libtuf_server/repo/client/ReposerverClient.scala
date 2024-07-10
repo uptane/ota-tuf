@@ -46,7 +46,8 @@ import com.advancedtelematic.libtuf.data.TufDataType.{
   SignedPayload,
   TargetFilename,
   TargetName,
-  TargetVersion
+  TargetVersion,
+  TufKey
 }
 import com.advancedtelematic.libtuf_server.data.Requests.{
   CommentRequest,
@@ -239,7 +240,13 @@ trait ReposerverClient {
     namespace: Namespace,
     targetFilename: TargetFilename): Future[Seq[DelegationClientTargetItem]]
 
-  def fetchTrustedDelegations(namespace: Namespace): Future[Delegation]
+  def fetchTrustedDelegations(namespace: Namespace): Future[List[Delegation]]
+
+  def fetchTrustedDelegationsKeys(namespace: Namespace): Future[List[TufKey]]
+
+  def updateTrustedDelegations(namespace: Namespace,
+                               trustedDelegations: List[Delegation]): Future[Unit]
+
   def fetchDelegationsInfo(namespace: Namespace): Future[Map[DelegatedRoleName, DelegationInfo]]
   def refreshDelegatedRole(namespace: Namespace, fileName: DelegatedRoleName): Future[Unit]
 }
@@ -539,9 +546,24 @@ class ReposerverHttpClient(reposerverUri: Uri,
     ).ok
   }
 
-  override def fetchTrustedDelegations(namespace: Namespace): Future[Delegation] = {
+  override def fetchTrustedDelegations(namespace: Namespace): Future[List[Delegation]] = {
     val req = HttpRequest(HttpMethods.GET, uri = apiUri(Path("user_repo/trusted-delegations")))
-    execHttpUnmarshalledWithNamespace[Delegation](namespace, req).ok
+    execHttpUnmarshalledWithNamespace[List[Delegation]](namespace, req).ok
+  }
+
+  override def fetchTrustedDelegationsKeys(namespace: Namespace): Future[List[TufKey]] = {
+    val req = HttpRequest(HttpMethods.GET, uri = apiUri(Path("user_repo/trusted-delegations/keys")))
+    execHttpUnmarshalledWithNamespace[List[TufKey]](namespace, req).ok
+  }
+
+  override def updateTrustedDelegations(namespace: Namespace,
+                                        trustedDelegations: List[Delegation]): Future[Unit] = {
+    val req = HttpRequest(
+      HttpMethods.PUT,
+      uri = apiUri(Path("user_repo/trusted-delegations/keys")),
+      entity = HttpEntity(ContentTypes.`application/json`, trustedDelegations.asJson.noSpaces)
+    )
+    execHttpUnmarshalledWithNamespace[Unit](namespace, req).ok
   }
 
   override def fetchDelegationsInfo(
