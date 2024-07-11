@@ -14,7 +14,7 @@ lazy val commonDeps = libraryDependencies ++= {
   val scalaTestV = "3.2.19"
   lazy val catsV = "2.12.0"
   lazy val akkaHttpV = "10.5.2"
-  lazy val enumeratumV = "1.7.3"
+  lazy val enumeratumV = "1.7.4"
 
   Seq(
     "org.scala-lang.modules" %% "scala-async" % "1.0.1",
@@ -32,7 +32,7 @@ lazy val commonDeps = libraryDependencies ++= {
 lazy val serverDependencies = libraryDependencies ++= {
   lazy val akkaV = "2.8.5"
   lazy val akkaHttpV = "10.5.2"
-  lazy val enumeratumV = "1.7.3"
+  lazy val enumeratumV = "1.7.4"
 
   Seq(
     "com.typesafe.akka" %% "akka-actor" % akkaV,
@@ -52,7 +52,7 @@ lazy val serverDependencies = libraryDependencies ++= {
     "org.mariadb.jdbc" % "mariadb-java-client" % "3.4.0",
     "com.beachape" %% "enumeratum" % enumeratumV,
     "com.beachape" %% "enumeratum-circe" % enumeratumV,
-    "io.scalaland" %% "chimney" % "1.2.0"
+    "io.scalaland" %% "chimney" % "1.3.0"
   )
 }
 
