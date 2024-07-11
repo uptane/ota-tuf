@@ -52,7 +52,7 @@ lazy val serverDependencies = libraryDependencies ++= {
     "org.mariadb.jdbc" % "mariadb-java-client" % "3.4.0",
     "com.beachape" %% "enumeratum" % enumeratumV,
     "com.beachape" %% "enumeratum-circe" % enumeratumV,
-    "io.scalaland" %% "chimney" % "1.2.0"
+    "io.scalaland" %% "chimney" % "1.3.0"
   )
 }
 
