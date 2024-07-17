@@ -5,7 +5,6 @@ import akka.http.scaladsl.marshalling.Marshal
 import akka.http.scaladsl.model.*
 import akka.http.scaladsl.model.Uri.Path.Slash
 import akka.http.scaladsl.model.Uri.{Path, Query}
-import akka.http.scaladsl.model.*
 import akka.http.scaladsl.unmarshalling.FromEntityUnmarshaller
 import akka.http.scaladsl.util.FastFuture
 import akka.stream.Materializer
@@ -77,6 +76,10 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success}
 import com.advancedtelematic.libats.http.HttpCodecs.*
+import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
+import io.circe.Json
+import akka.http.scaladsl.unmarshalling.*
+import akka.http.scaladsl.marshalling.*
 
 object ReposerverClient {
 
@@ -166,6 +169,8 @@ trait ReposerverClient {
 
   def targetExists(namespace: Namespace, targetFilename: TargetFilename): Future[Boolean]
 
+  def fetchTargetContent(namespace: Namespace, targetFilename: TargetFilename): Future[HttpResponse]
+
   def fetchSnapshotMetadata(namespace: Namespace): Future[JsonSignedPayload]
 
   def fetchTimestampMetadata(namespace: Namespace): Future[JsonSignedPayload]
@@ -242,10 +247,25 @@ trait ReposerverClient {
 
   def fetchTrustedDelegations(namespace: Namespace): Future[List[Delegation]]
 
-  def fetchTrustedDelegationsKeys(namespace: Namespace): Future[List[TufKey]]
-
   def updateTrustedDelegations(namespace: Namespace,
                                trustedDelegations: List[Delegation]): Future[Unit]
+
+  def createOrUpdateRemoteDelegation(namespace: Namespace,
+                                     delegatedRoleName: DelegatedRoleName,
+                                     uri: Uri,
+                                     remoteHeaders: Option[Map[String, String]],
+                                     friendlyName: Option[DelegationFriendlyName]): Future[Unit]
+
+  def deleteTrustedDelegation(namespace: Namespace,
+                              delegatedRoleName: DelegatedRoleName): Future[Unit]
+
+  def updateDelegationFriendlyName(namespace: Namespace,
+                                   delegatedRoleName: DelegatedRoleName,
+                                   name: DelegationFriendlyName): Future[Unit]
+
+  def fetchTrustedDelegationsKeys(namespace: Namespace): Future[List[TufKey]]
+
+  def updateTrustedDelegationsKeys(namespace: Namespace, keys: List[TufKey]): Future[Unit]
 
   def fetchDelegationsInfo(namespace: Namespace): Future[Map[DelegatedRoleName, DelegationInfo]]
   def refreshDelegatedRole(namespace: Namespace, fileName: DelegatedRoleName): Future[Unit]
@@ -386,6 +406,15 @@ class ReposerverHttpClient(reposerverUri: Uri,
       case Left(err)                                       => FastFuture.failed(err)
       case Right(_)                                        => FastFuture.successful(true)
     }
+  }
+
+  override def fetchTargetContent(namespace: Namespace,
+                                  targetFilename: TargetFilename): Future[HttpResponse] = {
+    val req = HttpRequest(
+      HttpMethods.GET,
+      uri = apiUri(Path("user_repo") / "targets" / targetFilename.value)
+    )
+    execHttpFullWithNamespace[Unit](namespace, req).ok.map(_.httpResponse)
   }
 
   override def fetchSnapshotMetadata(namespace: Namespace): Future[JsonSignedPayload] = {
@@ -551,18 +580,65 @@ class ReposerverHttpClient(reposerverUri: Uri,
     execHttpUnmarshalledWithNamespace[List[Delegation]](namespace, req).ok
   }
 
+  override def createOrUpdateRemoteDelegation(
+    namespace: Namespace,
+    delegatedRoleName: DelegatedRoleName,
+    uri: Uri,
+    remoteHeaders: Option[Map[String, String]],
+    friendlyName: Option[DelegationFriendlyName]): Future[Unit] = {
+    case class AddDelegationFromRemoteRequest(uri: Uri,
+                                              remoteHeaders: Option[Map[String, String]] = None,
+                                              friendlyName: Option[DelegationFriendlyName] = None)
+    implicit val addDelegationFromRemoteRequestCodec: Codec[AddDelegationFromRemoteRequest] =
+      deriveCodec[AddDelegationFromRemoteRequest]
+    val reqEntity = HttpEntity(
+      ContentTypes.`application/json`,
+      AddDelegationFromRemoteRequest(uri, remoteHeaders, friendlyName).asJson.noSpaces
+    )
+    val req = HttpRequest(
+      HttpMethods.PUT,
+      uri = apiUri(Path("user_repo") / "trusted-delegations" / delegatedRoleName.value / "remote"),
+      entity = reqEntity
+    )
+    execHttpUnmarshalledWithNamespace[Unit](namespace, req).ok
+  }
+
+  override def deleteTrustedDelegation(namespace: Namespace,
+                                       delegatedRoleName: DelegatedRoleName): Future[Unit] = {
+    val req = HttpRequest(
+      HttpMethods.DELETE,
+      uri = apiUri(Path("user_repo") / "trusted-delegations" / delegatedRoleName.value)
+    )
+    execHttpUnmarshalledWithNamespace[Unit](namespace, req).ok
+  }
+
   override def fetchTrustedDelegationsKeys(namespace: Namespace): Future[List[TufKey]] = {
     val req = HttpRequest(HttpMethods.GET, uri = apiUri(Path("user_repo/trusted-delegations/keys")))
     execHttpUnmarshalledWithNamespace[List[TufKey]](namespace, req).ok
+  }
+
+  override def updateTrustedDelegationsKeys(namespace: Namespace,
+                                            keys: List[TufKey]): Future[Unit] = {
+    val req = HttpRequest(HttpMethods.PUT, uri = apiUri(Path("user_repo/trusted-delegations/keys")))
+    execHttpUnmarshalledWithNamespace[Unit](namespace, req).ok
   }
 
   override def updateTrustedDelegations(namespace: Namespace,
                                         trustedDelegations: List[Delegation]): Future[Unit] = {
     val req = HttpRequest(
       HttpMethods.PUT,
-      uri = apiUri(Path("user_repo/trusted-delegations/keys")),
+      uri = apiUri(Path("user_repo/trusted-delegations")),
       entity = HttpEntity(ContentTypes.`application/json`, trustedDelegations.asJson.noSpaces)
     )
+    execHttpUnmarshalledWithNamespace[Unit](namespace, req).ok
+  }
+
+  override def refreshDelegatedRole(namespace: Namespace,
+                                    fileName: DelegatedRoleName): Future[Unit] = {
+    val uri = apiUri(
+      Path("user_repo") / "trusted-delegations" / fileName.value / "remote" / "refresh"
+    )
+    val req = HttpRequest(HttpMethods.PUT, uri)
     execHttpUnmarshalledWithNamespace[Unit](namespace, req).ok
   }
 
@@ -570,6 +646,21 @@ class ReposerverHttpClient(reposerverUri: Uri,
     namespace: Namespace): Future[Map[DelegatedRoleName, DelegationInfo]] = {
     val req = HttpRequest(HttpMethods.GET, uri = apiUri(Path("user_repo/trusted-delegations/info")))
     execHttpUnmarshalledWithNamespace[Map[DelegatedRoleName, DelegationInfo]](namespace, req).ok
+  }
+
+  override def updateDelegationFriendlyName(namespace: Namespace,
+                                            delegatedRoleName: DelegatedRoleName,
+                                            name: DelegationFriendlyName): Future[Unit] = {
+    val httpEntity = HttpEntity(
+      ContentTypes.`application/json`,
+      DelegationInfo(None, None, Some(name), None).asJson.noSpaces
+    )
+    val req = HttpRequest(
+      HttpMethods.PATCH,
+      uri = apiUri(Path("user_repo") / "trusted-delegations" / delegatedRoleName.value / "info"),
+      entity = httpEntity
+    )
+    execHttpUnmarshalledWithNamespace[Unit](namespace, req).ok
   }
 
   override def setTargetComments(namespace: Namespace,
@@ -722,15 +813,6 @@ class ReposerverHttpClient(reposerverUri: Uri,
       val req = HttpRequest(HttpMethods.PUT, uri, entity = form)
       execHttpUnmarshalledWithNamespace[Unit](namespace, req).handleErrors(addTargetErrorHandler)
     }
-  }
-
-  override def refreshDelegatedRole(namespace: Namespace,
-                                    fileName: DelegatedRoleName): Future[Unit] = {
-    val uri = apiUri(
-      Path("user_repo") / "trusted-delegations" / fileName.value / "remote" / "refresh"
-    )
-    val req = HttpRequest(HttpMethods.PUT, uri)
-    execHttpUnmarshalledWithNamespace[Unit](namespace, req).ok
   }
 
 }
