@@ -104,9 +104,9 @@ class DelegationsManagement()(implicit val db: Database, val ec: ExecutionContex
              friendlyName: Option[DelegationFriendlyName] = None)(
     implicit signedRoleGeneration: SignedRoleGeneration): Future[Unit] = async {
     val targetsRole = await(signedRoleRepository.find[TargetsRole](repoId)).role
-    val delegation = findDelegationMetadataByName(targetsRole, roleName)
+    val trustedDelegation = findTrustedDelegationByName(targetsRole, roleName)
 
-    validateDelegationMetadataSignatures(targetsRole, delegation, delegationMetadata)
+    validateDelegationMetadataSignatures(targetsRole, trustedDelegation, delegationMetadata)
       .valueOr(err => throw Errors.PayloadSignatureInvalid(err))
 
     val validatedDelegationsRole =
@@ -274,8 +274,8 @@ class DelegationsManagement()(implicit val db: Database, val ec: ExecutionContex
         throw Errors.InvalidDelegationName(NonEmptyList.one("missing friendlyName field"))
     }
 
-  private def findDelegationMetadataByName(targetsRole: TargetsRole,
-                                           delegatedRoleName: DelegatedRoleName): Delegation =
+  private def findTrustedDelegationByName(targetsRole: TargetsRole,
+                                          delegatedRoleName: DelegatedRoleName): Delegation =
     targetsRole.delegations
       .flatMap(_.roles.find(_.name == delegatedRoleName))
       .getOrElse(throw Errors.DelegationNotDefined)
@@ -297,7 +297,7 @@ class DelegationsManagement()(implicit val db: Database, val ec: ExecutionContex
                                             delegatedRoleName: DelegatedRoleName,
                                             delegationMetadata: SignedPayload[TargetsRole])
     : ValidatedNel[String, SignedPayload[TargetsRole]] = {
-    val delegationRef = findDelegationMetadataByName(targetsRole, delegatedRoleName)
+    val delegationRef = findTrustedDelegationByName(targetsRole, delegatedRoleName)
 
     // Find invalid targets by running all targetNames (map keys) through the pathPattern regexes in trusted delegations
     val invalidTargets: List[TargetFilename] = delegationMetadata.signed.targets.view

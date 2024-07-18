@@ -85,7 +85,6 @@ import scala.util.{Failure, Success}
 import com.advancedtelematic.tuf.reposerver.data.RepoCodecs.*
 import com.advancedtelematic.tuf.reposerver.http.CustomParameterUnmarshallers.nonNegativeLong
 import com.advancedtelematic.tuf.reposerver.http.PaginationParamsOps.PaginationResultOps
-import com.advancedtelematic.tuf.reposerver.data.RepoCodecs.*
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport
 import eu.timepit.refined.api.Refined
 import com.advancedtelematic.libtuf_server.data.Marshalling.jsonSignedPayloadMarshaller
