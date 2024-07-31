@@ -79,7 +79,7 @@ class RepoTargetsResource(namespaceValidation: NamespaceValidation)(
         name,
         version,
         hardwareIds.getOrElse(Seq.empty),
-        hashes.getOrElse(Seq.empty),
+        hashes.getOrElse(Seq.empty)
       )
     )
   }

@@ -322,13 +322,21 @@ class RepoTargetsResourceSpec
       status shouldBe StatusCodes.NoContent
     }
 
-    Get(apiUriV2(s"user_repo/search?hashes=352ce6b496cece167046d00d8a6431ffa43646b378cce4e3013d1d9aeef8dbb4,a1fb50e6c86fae1679ef3351296fd6713411a08cf8dd1790a4fd05fae8688161")).namespaced ~> routes ~> check {
+    Get(
+      apiUriV2(
+        s"user_repo/search?hashes=352ce6b496cece167046d00d8a6431ffa43646b378cce4e3013d1d9aeef8dbb4,a1fb50e6c86fae1679ef3351296fd6713411a08cf8dd1790a4fd05fae8688161"
+      )
+    ).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[Package]].values
       values should have size 1
     }
 
-    Get(apiUriV2(s"user_repo/search?hashes=0000000000000000000000000000000000000000000000000000000000000000")).namespaced ~> routes ~> check {
+    Get(
+      apiUriV2(
+        s"user_repo/search?hashes=0000000000000000000000000000000000000000000000000000000000000000"
+      )
+    ).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[Package]].values
       values shouldBe empty
@@ -512,13 +520,21 @@ class RepoTargetsResourceSpec
       values should have size 1
     }
 
-    Get(apiUriV2(s"user_repo/grouped-search?hashes=0000000000000000000000000000000000000000000000000000000000000000")).namespaced ~> routes ~> check {
+    Get(
+      apiUriV2(
+        s"user_repo/grouped-search?hashes=0000000000000000000000000000000000000000000000000000000000000000"
+      )
+    ).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[AggregatedPackage]].values
       values shouldBe empty
     }
 
-    Get(apiUriV2(s"user_repo/grouped-search?hashes=352ce6b496cece167046d00d8a6431ffa43646b378cce4e3013d1d9aeef8dbb4")).namespaced ~> routes ~> check {
+    Get(
+      apiUriV2(
+        s"user_repo/grouped-search?hashes=352ce6b496cece167046d00d8a6431ffa43646b378cce4e3013d1d9aeef8dbb4"
+      )
+    ).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[AggregatedPackage]].values
       values should have size 1
