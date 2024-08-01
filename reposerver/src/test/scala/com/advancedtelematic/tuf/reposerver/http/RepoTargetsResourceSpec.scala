@@ -370,7 +370,6 @@ class RepoTargetsResourceSpec
     }
   }
 
-  // TODO: Currently only filters by single hardwareid
   testWithRepo("filters by hardwareIds") { implicit ns => implicit repoId =>
     addTargetToRepo(repoId)
 
@@ -405,6 +404,14 @@ class RepoTargetsResourceSpec
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[Package]].values
       values shouldBe empty
+    }
+
+    Get(
+      apiUriV2(s"user_repo/search?hardwareIds=delegated-hardware-id-001,myid001")
+    ).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[Package]].values
+      values should have size 2
     }
   }
 
@@ -470,6 +477,14 @@ class RepoTargetsResourceSpec
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[AggregatedPackage]].values
       values should have size 1
+    }
+
+    Get(
+      apiUriV2(s"user_repo/grouped-search?hardwareIds=delegated-hardware-id-001,myid001")
+    ).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[AggregatedPackage]].values
+      values should have size 2
     }
 
     Get(
