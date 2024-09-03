@@ -257,6 +257,25 @@ class PackageSearch()(implicit db: Database) {
       LIMIT $limit OFFSET $offset""".as[Q]
 
     db.run(q)
+
+  }
+
+   def hardwareIdsWithPackages(repoId: RepoId): Future[Seq[HardwareIdentifier]] = {
+    implicit val getResult: GetResult[HardwareIdentifier] = GetResult.GetString.andThen { str =>
+      refineV[ValidHardwareIdentifier](str)
+        .valueOr(msg =>
+          throw new IllegalArgumentException(s"hardwareid not properly formatted: $str: $msg")
+        )
+    }
+
+    val q =
+      sql"""
+        select distinct hwid from aggregated_items a,
+          json_table(hardwareids, '$$[*]' columns(hwid varchar(255) path '$$')) t1
+          where a.repo_id = ${repoId.show}
+        """.as[HardwareIdentifier]
+
+    db.run(q)
   }
 
 }
