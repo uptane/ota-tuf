@@ -25,6 +25,7 @@ import eu.timepit.refined.refineV
 import slick.jdbc.MySQLProfile.api.*
 import com.advancedtelematic.libats.http.RefinedMarshallingSupport.*
 import scala.concurrent.ExecutionContext
+import com.advancedtelematic.libats.codecs.CirceRefined.*
 
 case class PackageSearchParameters(origin: Seq[String],
                                    nameContains: Option[String],
@@ -84,16 +85,28 @@ class RepoTargetsResource(namespaceValidation: NamespaceValidation)(
     )
   }
 
+  private var packageSearch = new PackageSearch()
+  
   // format: off
+  
   val route =
     (pathPrefix("user_repo")  & NamespaceRepoId(namespaceValidation, repoNamespaceRepo.findFor)) { repoId =>
+      packageSearch = new PackageSearch()
       concat(
+        path("hardwareids-packages") {
+          get {
+            val f = packageSearch.hardwareIdsWithPackages(repoId).map { values =>
+              PaginationResult(values, values.length, 0, values.length)
+            }
+            complete(f)
+          }
+        },
         path("search") {
           (get & PaginationParams & SearchParams & SortByTargetItemsParam) { case (offset, limit, searchParams, sortBy, sortDirection) =>
 
             val f = for {
-              count <- (new PackageSearch()).count(repoId, searchParams)
-              values <- (new PackageSearch()).find(repoId, offset, limit, searchParams, sortBy, sortDirection)
+              count <- packageSearch.count(repoId, searchParams)
+              values <- packageSearch.find(repoId, offset, limit, searchParams, sortBy, sortDirection)
             } yield {
               PaginationResult(values.map(_.transformInto[ClientPackage]), count, offset, limit)
             }
@@ -104,8 +117,8 @@ class RepoTargetsResource(namespaceValidation: NamespaceValidation)(
         path("grouped-search") {
           (get & PaginationParams & SearchParams & SortByAggregatedTargetItemsParam) { case (offset, limit, searchParams, sortBy, sortDirection) =>
             val f = for {
-              count <- (new PackageSearch()).findAggregatedCount(repoId, searchParams)
-              values <- (new PackageSearch()).findAggregated(repoId, offset, limit, searchParams, sortBy, sortDirection)
+              count <- packageSearch.findAggregatedCount(repoId, searchParams)
+              values <- packageSearch.findAggregated(repoId, offset, limit, searchParams, sortBy, sortDirection)
             } yield
               PaginationResult(values.map(_.transformInto[ClientAggregatedPackage]), count, offset, limit)
 

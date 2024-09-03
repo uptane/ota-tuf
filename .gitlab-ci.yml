@@ -42,7 +42,7 @@ test:
   services:
     - name: uptane/tuf-nginx:latest
       alias: tuf-nginx
-    - name: mariadb:10.4
+    - name: mariadb:10.11
       alias: db
       command:
         - --character-set-server=utf8

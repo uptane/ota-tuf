@@ -8,21 +8,18 @@ import org.scalatest.OptionValues.*
 import akka.http.scaladsl.model.{HttpEntity, StatusCodes}
 import akka.util.ByteString
 import com.advancedtelematic.libats.data.PaginationResult
-import com.advancedtelematic.tuf.reposerver.util.{
-  RepoResourceDelegationsSpecUtil,
-  ResourceSpec,
-  TufReposerverSpec
-}
+import com.advancedtelematic.tuf.reposerver.util.{RepoResourceDelegationsSpecUtil, ResourceSpec, TufReposerverSpec}
 import com.advancedtelematic.tuf.reposerver.util.NamespaceSpecOps.*
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.*
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.Package.*
 import com.advancedtelematic.libats.data.DataType.HashMethod
 import com.advancedtelematic.libtuf.data.ClientDataType.ClientTargetItem
-import com.advancedtelematic.libtuf.data.TufDataType.TargetFilename
+import com.advancedtelematic.libtuf.data.TufDataType.{HardwareIdentifier, TargetFilename}
 import com.advancedtelematic.libtuf_server.crypto.Sha256Digest
 import eu.timepit.refined.api.Refined
 import io.circe.Json
+import com.advancedtelematic.libats.codecs.CirceRefined.*
 
 class RepoTargetsResourceSpec
     extends TufReposerverSpec
@@ -31,6 +28,10 @@ class RepoTargetsResourceSpec
 
   val testEntity = HttpEntity(ByteString("""
        The library will endure; it is the universe. As for us, everything has not been written; we are not turning into phantoms. We walk the corridors, searching the shelves and rearranging them, looking for lines of meaning amid leagues of cacophony and incoherence, reading the history of the past and our future, collecting our thoughts and collecting the thoughts of others, and every so often glimpsing mirrors, in which we may recognize creatures of the information.”
+      """.stripMargin))
+
+  val testEntity2 = HttpEntity(ByteString("""
+      If honor and wisdom and happiness are not for me, let them be for others. Let heaven exist, though my place be in hell
       """.stripMargin))
 
   testWithRepo("GET <TBD> returns delegation items ") { implicit ns => implicit repoId =>
@@ -378,7 +379,6 @@ class RepoTargetsResourceSpec
     }
   }
 
-  // TODO: Currently only filters by single hardwareid
   testWithRepo("filters by hardwareIds") { implicit ns => implicit repoId =>
     addTargetToRepo(repoId)
 
@@ -413,6 +413,14 @@ class RepoTargetsResourceSpec
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[Package]].values
       values shouldBe empty
+    }
+
+    Get(
+      apiUriV2(s"user_repo/search?hardwareIds=delegated-hardware-id-001,myid001")
+    ).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[Package]].values
+      values should have size 2
     }
   }
 
@@ -478,6 +486,14 @@ class RepoTargetsResourceSpec
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[AggregatedPackage]].values
       values should have size 1
+    }
+
+    Get(
+      apiUriV2(s"user_repo/grouped-search?hardwareIds=delegated-hardware-id-001,myid001")
+    ).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[AggregatedPackage]].values
+      values should have size 2
     }
 
     Get(
@@ -574,6 +590,33 @@ class RepoTargetsResourceSpec
       values should have size 2
 
       values.map(_.name.value) shouldBe List("zlibrary", "mytargetName")
+    }
+  }
+
+  testWithRepo("GET hardwareids-packages returns hwids for which there are packages") { implicit ns => implicit repoId =>
+    addTargetToRepo(repoId)
+
+    Put(
+      apiUri("user_repo/targets/mypkg_file?name=library&version=0.0.1&hardwareIds=myid001,myid002"),
+      testEntity
+    ).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+
+    Put(
+      apiUri("user_repo/targets/mypkg_file2?name=library&version=0.0.2&hardwareIds=myid002,myid003"),
+      testEntity2
+    ).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+
+    Get(apiUriV2(s"user_repo/hardwareids-packages")).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val result = responseAs[PaginationResult[HardwareIdentifier]]
+      result.total shouldBe 3
+      result.offset shouldBe 0
+      result.limit shouldBe 3
+      result.values.map(_.value) should contain theSameElementsAs List("myid001", "myid002", "myid003")
     }
   }
 
