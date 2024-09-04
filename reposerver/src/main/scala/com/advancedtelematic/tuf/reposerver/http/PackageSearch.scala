@@ -105,8 +105,7 @@ class PackageSearch()(implicit db: Database) {
         IF(${searchParams.name.isEmpty}, true, name = ${searchParams.name}) AND
         IF(${searchParams.version.isEmpty}, true, version = ${searchParams.version}) AND
         IF(${searchParams.nameContains.isEmpty}, true, LOCATE(${searchParams.nameContains}, name) > 0) AND
-        IF(${searchParams.hardwareIds.isEmpty}, true, JSON_CONTAINS(hardwareids, JSON_QUOTE(${searchParams.hardwareIds.headOption
-          .map(_.value)}))) AND
+        IF(${searchParams.hardwareIds.isEmpty}, true, JSON_OVERLAPS(${searchParams.hardwareIds}, hardwareids) = 1) AND
         IF(${searchParams.hashes.isEmpty}, true, FIND_IN_SET(JSON_UNQUOTE(JSON_EXTRACT(checksum, '$$.hash')), ${searchParams.hashes
           .map(_.value)}) > 0)
       ORDER BY
@@ -114,11 +113,6 @@ class PackageSearch()(implicit db: Database) {
           version,
           length
       LIMIT $limit OFFSET $offset""".as[Q]
-
-    // TODO: This needs a newer mariadb version
-    // hardwareId filter should be:
-    //         IF(${searchParams.hardwareIds.isEmpty}, true, JSON_LENGTH(JSON_ARRAY_INTERSECT(hardwareids, ${searchParams.hardwareIds})) > 0)
-    // but JSON_ARRAY_INTERSECT is not supported in our mariadb version
 
     querySqlAction
   }
@@ -253,8 +247,7 @@ class PackageSearch()(implicit db: Database) {
         IF(${searchParams.origin.isEmpty}, true, FIND_IN_SET(origin, ${searchParams.origin}) > 0) AND
         IF(${searchParams.nameContains.isEmpty}, true, LOCATE(${searchParams.nameContains}, name) > 0) AND
         IF(${searchParams.version.isEmpty}, true, version = ${searchParams.version}) AND
-        IF(${searchParams.hardwareIds.isEmpty}, true, JSON_CONTAINS(hardwareids, JSON_QUOTE(${searchParams.hardwareIds.headOption
-          .map(_.value)}))) AND
+        IF(${searchParams.hardwareIds.isEmpty}, true, JSON_OVERLAPS(${searchParams.hardwareIds}, hardwareids) = 1) AND
         IF(${searchParams.hashes.isEmpty}, true, FIND_IN_SET(JSON_UNQUOTE(JSON_EXTRACT(checksum, '$$.hash')), ${searchParams.hashes
           .map(_.value)}) > 0)
       GROUP BY name
@@ -262,6 +255,25 @@ class PackageSearch()(implicit db: Database) {
           #${sortBy.column} #${sortDirection.entryName},
           name ASC, versions ASC, last_version_at DESC, hardwareIds ASC
       LIMIT $limit OFFSET $offset""".as[Q]
+
+    db.run(q)
+
+  }
+
+   def hardwareIdsWithPackages(repoId: RepoId): Future[Seq[HardwareIdentifier]] = {
+    implicit val getResult: GetResult[HardwareIdentifier] = GetResult.GetString.andThen { str =>
+      refineV[ValidHardwareIdentifier](str)
+        .valueOr(msg =>
+          throw new IllegalArgumentException(s"hardwareid not properly formatted: $str: $msg")
+        )
+    }
+
+    val q =
+      sql"""
+        select distinct hwid from aggregated_items a,
+          json_table(hardwareids, '$$[*]' columns(hwid varchar(255) path '$$')) t1
+          where a.repo_id = ${repoId.show}
+        """.as[HardwareIdentifier]
 
     db.run(q)
   }
