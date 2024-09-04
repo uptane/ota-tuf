@@ -12,7 +12,7 @@ jobs:
         image: uptane/tuf-nginx:latest
 
       db:
-        image: mariadb:10.4
+        image: mariadb:10.11
         env:
           MYSQL_ROOT_PASSWORD: "root"
           MYSQL_DATABASE: "ota_tuf"
