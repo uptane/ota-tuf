@@ -277,7 +277,7 @@ object ClientDataType {
 
   case class PubKeyInfo(pubkey: String, meta: Option[PubKeyMeta])
 
-  case class PubKeyMeta(name: String)
+  case class PubKeyMeta(name: Option[String])
 
   trait EnumeratumUnmarshaller[T <: EnumEntry] { this: Enum[T] =>
 
