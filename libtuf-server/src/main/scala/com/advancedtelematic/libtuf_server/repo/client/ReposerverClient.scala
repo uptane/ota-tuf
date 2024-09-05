@@ -269,6 +269,8 @@ trait ReposerverClient {
 
   def fetchDelegationsInfo(namespace: Namespace): Future[Map[DelegatedRoleName, DelegationInfo]]
   def refreshDelegatedRole(namespace: Namespace, fileName: DelegatedRoleName): Future[Unit]
+
+  def hardwareIdsWithPackages(namespace: Namespace): Future[PaginationResult[HardwareIdentifier]]
 }
 
 object ReposerverHttpClient extends ServiceHttpClientSupport {
@@ -813,6 +815,12 @@ class ReposerverHttpClient(reposerverUri: Uri,
       val req = HttpRequest(HttpMethods.PUT, uri, entity = form)
       execHttpUnmarshalledWithNamespace[Unit](namespace, req).handleErrors(addTargetErrorHandler)
     }
+  }
+
+  override def hardwareIdsWithPackages(
+    namespace: Namespace): Future[PaginationResult[HardwareIdentifier]] = {
+    val req = HttpRequest(HttpMethods.GET, uri = apiV2Uri(Path(s"user_repo/hardwareids-packages")))
+    execHttpUnmarshalledWithNamespace[PaginationResult[HardwareIdentifier]](namespace, req).ok
   }
 
 }
