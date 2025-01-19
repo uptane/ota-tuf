@@ -8,7 +8,11 @@ import org.scalatest.OptionValues.*
 import akka.http.scaladsl.model.{HttpEntity, StatusCodes}
 import akka.util.ByteString
 import com.advancedtelematic.libats.data.PaginationResult
-import com.advancedtelematic.tuf.reposerver.util.{RepoResourceDelegationsSpecUtil, ResourceSpec, TufReposerverSpec}
+import com.advancedtelematic.tuf.reposerver.util.{
+  RepoResourceDelegationsSpecUtil,
+  ResourceSpec,
+  TufReposerverSpec
+}
 import com.advancedtelematic.tuf.reposerver.util.NamespaceSpecOps.*
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.*
@@ -593,31 +597,40 @@ class RepoTargetsResourceSpec
     }
   }
 
-  testWithRepo("GET hardwareids-packages returns hwids for which there are packages") { implicit ns => implicit repoId =>
-    addTargetToRepo(repoId)
+  testWithRepo("GET hardwareids-packages returns hwids for which there are packages") {
+    implicit ns => implicit repoId =>
+      addTargetToRepo(repoId)
 
-    Put(
-      apiUri("user_repo/targets/mypkg_file?name=library&version=0.0.1&hardwareIds=myid001,myid002"),
-      testEntity
-    ).namespaced ~> routes ~> check {
-      status shouldBe StatusCodes.NoContent
-    }
+      Put(
+        apiUri(
+          "user_repo/targets/mypkg_file?name=library&version=0.0.1&hardwareIds=myid001,myid002"
+        ),
+        testEntity
+      ).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.NoContent
+      }
 
-    Put(
-      apiUri("user_repo/targets/mypkg_file2?name=library&version=0.0.2&hardwareIds=myid002,myid003"),
-      testEntity2
-    ).namespaced ~> routes ~> check {
-      status shouldBe StatusCodes.NoContent
-    }
+      Put(
+        apiUri(
+          "user_repo/targets/mypkg_file2?name=library&version=0.0.2&hardwareIds=myid002,myid003"
+        ),
+        testEntity2
+      ).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.NoContent
+      }
 
-    Get(apiUriV2(s"user_repo/hardwareids-packages")).namespaced ~> routes ~> check {
-      status shouldBe StatusCodes.OK
-      val result = responseAs[PaginationResult[HardwareIdentifier]]
-      result.total shouldBe 3
-      result.offset shouldBe 0
-      result.limit shouldBe 3
-      result.values.map(_.value) should contain theSameElementsAs List("myid001", "myid002", "myid003")
-    }
+      Get(apiUriV2(s"user_repo/hardwareids-packages")).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val result = responseAs[PaginationResult[HardwareIdentifier]]
+        result.total shouldBe 3
+        result.offset shouldBe 0
+        result.limit shouldBe 3
+        result.values.map(_.value) should contain theSameElementsAs List(
+          "myid001",
+          "myid002",
+          "myid003"
+        )
+      }
   }
 
 }
