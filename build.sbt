@@ -12,7 +12,7 @@ val libatsVersion = "2.6.6"
 
 lazy val commonDeps = libraryDependencies ++= {
   val scalaTestV = "3.2.19"
-  lazy val catsV = "2.12.0"
+  lazy val catsV = "2.13.0"
   lazy val akkaHttpV = "10.5.2"
   lazy val enumeratumV = "1.7.4"
 
