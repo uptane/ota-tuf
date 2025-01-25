@@ -260,7 +260,7 @@ class PackageSearch()(implicit db: Database) {
 
   }
 
-   def hardwareIdsWithPackages(repoId: RepoId): Future[Seq[HardwareIdentifier]] = {
+  def hardwareIdsWithPackages(repoId: RepoId): Future[Seq[HardwareIdentifier]] = {
     implicit val getResult: GetResult[HardwareIdentifier] = GetResult.GetString.andThen { str =>
       refineV[ValidHardwareIdentifier](str)
         .valueOr(msg =>

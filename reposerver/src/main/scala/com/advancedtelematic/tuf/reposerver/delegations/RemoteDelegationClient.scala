@@ -55,9 +55,8 @@ class HttpRemoteDelegationClient()(implicit val ec: ExecutionContext, system: Ac
     um.apply(entity)
       .recoverWith { case err =>
         if (log.isDebugEnabled) {
-          unmarshallStringOrError(entity).recover { case err => err.getMessage }.foreach {
-            payload =>
-              log.warn("Could not unmarshall remote response. Response was: " + payload)
+          unmarshallStringOrError(entity).recover { case err => err.getMessage }.foreach { payload =>
+            log.warn("Could not unmarshall remote response. Response was: " + payload)
           }
         }
 

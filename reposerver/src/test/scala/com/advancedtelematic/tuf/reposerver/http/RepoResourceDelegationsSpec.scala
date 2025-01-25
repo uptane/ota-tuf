@@ -73,10 +73,7 @@ class RepoResourceDelegationsSpec
     }
 
   private def addNewTrustedDelegationKeysOK(tufKeys: TufKey*)(implicit repoId: RepoId): Unit =
-    Put(
-      apiUri(s"repo/${repoId.show}/trusted-delegations/keys"),
-      tufKeys.asJson
-    ) ~> routes ~> check {
+    Put(apiUri(s"repo/${repoId.show}/trusted-delegations/keys"), tufKeys.asJson) ~> routes ~> check {
       status shouldBe StatusCodes.NoContent
     }
 
