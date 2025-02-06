@@ -4,7 +4,7 @@ libraryDependencies ++= {
   Seq(
     "org.bouncycastle" % "bcprov-jdk18on" % bouncyCastleV,
     "org.bouncycastle" % "bcpkix-jdk18on" % bouncyCastleV,
-    "net.i2p" % "i2p" % "2.7.0",
+    "net.i2p" % "i2p" % "2.8.0",
     "com.softwaremill.sttp.client" %% "core" % "2.3.0",
     "com.softwaremill.sttp.client" %% "slf4j-backend" % "2.3.0",
     "com.softwaremill.sttp.client" %% "async-http-client-backend-future" % "2.3.0",
