@@ -8,7 +8,11 @@ import org.scalatest.OptionValues.*
 import akka.http.scaladsl.model.{HttpEntity, StatusCodes}
 import akka.util.ByteString
 import com.advancedtelematic.libats.data.PaginationResult
-import com.advancedtelematic.tuf.reposerver.util.{RepoResourceDelegationsSpecUtil, ResourceSpec, TufReposerverSpec}
+import com.advancedtelematic.tuf.reposerver.util.{
+  RepoResourceDelegationsSpecUtil,
+  ResourceSpec,
+  TufReposerverSpec
+}
 import com.advancedtelematic.tuf.reposerver.util.NamespaceSpecOps.*
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.*
@@ -424,6 +428,49 @@ class RepoTargetsResourceSpec
     }
   }
 
+  testWithRepo("filters by filenames") { implicit ns => implicit repoId =>
+    addTargetToRepo(repoId)
+
+    uploadOfflineSignedTargetsRole()
+
+    val signedDelegationRole = buildSignedDelegatedTargets()
+
+    pushSignedDelegatedMetadataOk(signedDelegationRole)
+
+    Put(
+      apiUri("user_repo/targets/library-0.0.1?name=library&version=0.0.1&hardwareIds=myid001"),
+      testEntity
+    ).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+
+    Get(apiUriV2(s"user_repo/search?filenames=library-0.0.1")).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[Package]].values
+      values should have size 1
+    }
+
+    Get(apiUriV2(s"user_repo/search?filenames=mypath/mytargetName")).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[Package]].values
+      values should have size 1
+    }
+
+    Get(apiUriV2(s"user_repo/search?filenames=somethingelse")).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[Package]].values
+      values shouldBe empty
+    }
+
+    Get(
+      apiUriV2(s"user_repo/search?filenames=library-0.0.1,mypath/mytargetName")
+    ).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[Package]].values
+      values should have size 2
+    }
+  }
+
   testWithRepo("grouped-search gets packages aggregated by version") {
     implicit ns => implicit repoId =>
       addTargetToRepo(repoId)
@@ -556,6 +603,36 @@ class RepoTargetsResourceSpec
       values should have size 1
     }
 
+    Get(apiUriV2(s"user_repo/grouped-search?filenames=mypkg")).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[AggregatedPackage]].values
+      values should have size 1
+    }
+
+    Get(
+      apiUriV2(s"user_repo/grouped-search?filenames=mypath/mytargetName")
+    ).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[AggregatedPackage]].values
+      values should have size 1
+    }
+
+    Get(
+      apiUriV2(s"user_repo/grouped-search?filenames=mypath/mytargetName,mypkg")
+    ).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[AggregatedPackage]].values
+      values should have size 2
+    }
+
+    Get(
+      apiUriV2(s"user_repo/grouped-search?filenames=somethingelse")
+    ).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[AggregatedPackage]].values
+      values shouldBe empty
+    }
+
   }
 
   testWithRepo("sorts grouped target items") { implicit ns => implicit repoId =>
@@ -593,31 +670,40 @@ class RepoTargetsResourceSpec
     }
   }
 
-  testWithRepo("GET hardwareids-packages returns hwids for which there are packages") { implicit ns => implicit repoId =>
-    addTargetToRepo(repoId)
+  testWithRepo("GET hardwareids-packages returns hwids for which there are packages") {
+    implicit ns => implicit repoId =>
+      addTargetToRepo(repoId)
 
-    Put(
-      apiUri("user_repo/targets/mypkg_file?name=library&version=0.0.1&hardwareIds=myid001,myid002"),
-      testEntity
-    ).namespaced ~> routes ~> check {
-      status shouldBe StatusCodes.NoContent
-    }
+      Put(
+        apiUri(
+          "user_repo/targets/mypkg_file?name=library&version=0.0.1&hardwareIds=myid001,myid002"
+        ),
+        testEntity
+      ).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.NoContent
+      }
 
-    Put(
-      apiUri("user_repo/targets/mypkg_file2?name=library&version=0.0.2&hardwareIds=myid002,myid003"),
-      testEntity2
-    ).namespaced ~> routes ~> check {
-      status shouldBe StatusCodes.NoContent
-    }
+      Put(
+        apiUri(
+          "user_repo/targets/mypkg_file2?name=library&version=0.0.2&hardwareIds=myid002,myid003"
+        ),
+        testEntity2
+      ).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.NoContent
+      }
 
-    Get(apiUriV2(s"user_repo/hardwareids-packages")).namespaced ~> routes ~> check {
-      status shouldBe StatusCodes.OK
-      val result = responseAs[PaginationResult[HardwareIdentifier]]
-      result.total shouldBe 3
-      result.offset shouldBe 0
-      result.limit shouldBe 3
-      result.values.map(_.value) should contain theSameElementsAs List("myid001", "myid002", "myid003")
-    }
+      Get(apiUriV2(s"user_repo/hardwareids-packages")).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val result = responseAs[PaginationResult[HardwareIdentifier]]
+        result.total shouldBe 3
+        result.offset shouldBe 0
+        result.limit shouldBe 3
+        result.values.map(_.value) should contain theSameElementsAs List(
+          "myid001",
+          "myid002",
+          "myid003"
+        )
+      }
   }
 
 }

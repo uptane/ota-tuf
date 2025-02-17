@@ -6,7 +6,11 @@ import akka.http.scaladsl.unmarshalling.PredefinedFromStringUnmarshallers.CsvSeq
 import akka.http.scaladsl.unmarshalling.Unmarshaller
 import com.advancedtelematic.libats.data.DataType.ValidChecksum
 import com.advancedtelematic.libats.data.PaginationResult
-import com.advancedtelematic.libtuf.data.TufDataType.{HardwareIdentifier, ValidHardwareIdentifier}
+import com.advancedtelematic.libtuf.data.TufDataType.{
+  HardwareIdentifier,
+  ValidHardwareIdentifier,
+  ValidTargetFilename
+}
 import com.advancedtelematic.tuf.reposerver.db.RepoNamespaceRepositorySupport
 import com.advancedtelematic.tuf.reposerver.http.PaginationParamsOps.PaginationParams
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
@@ -24,6 +28,7 @@ import eu.timepit.refined.api.Refined
 import eu.timepit.refined.refineV
 import slick.jdbc.MySQLProfile.api.*
 import com.advancedtelematic.libats.http.RefinedMarshallingSupport.*
+
 import scala.concurrent.ExecutionContext
 import com.advancedtelematic.libats.codecs.CirceRefined.*
 
@@ -32,7 +37,8 @@ case class PackageSearchParameters(origin: Seq[String],
                                    name: Option[String],
                                    version: Option[String],
                                    hardwareIds: Seq[HardwareIdentifier],
-                                   hashes: Seq[Refined[String, ValidChecksum]])
+                                   hashes: Seq[Refined[String, ValidChecksum]],
+                                   filenames: Seq[Refined[String, ValidTargetFilename]])
 
 class RepoTargetsResource(namespaceValidation: NamespaceValidation)(
   implicit val db: Database,
@@ -71,8 +77,9 @@ class RepoTargetsResource(namespaceValidation: NamespaceValidation)(
     "name".as[String].?,
     "version".as[String].?,
     "hardwareIds".as(CsvSeq[HardwareIdentifier]).?,
-    "hashes".as(CsvSeq[Refined[String, ValidChecksum]]).?
-  ).tflatMap { case (origin, nameContains, name, version, hardwareIds, hashes) =>
+    "hashes".as(CsvSeq[Refined[String, ValidChecksum]]).?,
+    "filenames".as(CsvSeq[Refined[String, ValidTargetFilename]]).?
+  ).tflatMap { case (origin, nameContains, name, version, hardwareIds, hashes, filenames) =>
     provide(
       PackageSearchParameters(
         origin.getOrElse(Seq.empty),
@@ -80,7 +87,8 @@ class RepoTargetsResource(namespaceValidation: NamespaceValidation)(
         name,
         version,
         hardwareIds.getOrElse(Seq.empty),
-        hashes.getOrElse(Seq.empty)
+        hashes.getOrElse(Seq.empty),
+        filenames.getOrElse(Seq.empty)
       )
     )
   }
