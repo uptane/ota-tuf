@@ -428,6 +428,49 @@ class RepoTargetsResourceSpec
     }
   }
 
+  testWithRepo("filters by filenames") { implicit ns => implicit repoId =>
+    addTargetToRepo(repoId)
+
+    uploadOfflineSignedTargetsRole()
+
+    val signedDelegationRole = buildSignedDelegatedTargets()
+
+    pushSignedDelegatedMetadataOk(signedDelegationRole)
+
+    Put(
+      apiUri("user_repo/targets/library-0.0.1?name=library&version=0.0.1&hardwareIds=myid001"),
+      testEntity
+    ).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+
+    Get(apiUriV2(s"user_repo/search?filenames=library-0.0.1")).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[Package]].values
+      values should have size 1
+    }
+
+    Get(apiUriV2(s"user_repo/search?filenames=mypath/mytargetName")).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[Package]].values
+      values should have size 1
+    }
+
+    Get(apiUriV2(s"user_repo/search?filenames=somethingelse")).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[Package]].values
+      values shouldBe empty
+    }
+
+    Get(
+      apiUriV2(s"user_repo/search?filenames=library-0.0.1,mypath/mytargetName")
+    ).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[Package]].values
+      values should have size 2
+    }
+  }
+
   testWithRepo("grouped-search gets packages aggregated by version") {
     implicit ns => implicit repoId =>
       addTargetToRepo(repoId)
@@ -558,6 +601,36 @@ class RepoTargetsResourceSpec
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[AggregatedPackage]].values
       values should have size 1
+    }
+
+    Get(apiUriV2(s"user_repo/grouped-search?filenames=mypkg")).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[AggregatedPackage]].values
+      values should have size 1
+    }
+
+    Get(
+      apiUriV2(s"user_repo/grouped-search?filenames=mypath/mytargetName")
+    ).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[AggregatedPackage]].values
+      values should have size 1
+    }
+
+    Get(
+      apiUriV2(s"user_repo/grouped-search?filenames=mypath/mytargetName,mypkg")
+    ).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[AggregatedPackage]].values
+      values should have size 2
+    }
+
+    Get(
+      apiUriV2(s"user_repo/grouped-search?filenames=somethingelse")
+    ).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[AggregatedPackage]].values
+      values shouldBe empty
     }
 
   }

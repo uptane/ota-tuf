@@ -46,7 +46,8 @@ import com.advancedtelematic.libtuf.data.TufDataType.{
   TargetFilename,
   TargetName,
   TargetVersion,
-  TufKey
+  TufKey,
+  ValidTargetFilename
 }
 import com.advancedtelematic.libtuf_server.data.Requests.{
   CommentRequest,
@@ -185,7 +186,8 @@ trait ReposerverClient {
                       name: Option[String],
                       version: Option[String],
                       hardwareIds: Seq[HardwareIdentifier],
-                      hashes: Seq[Refined[String, ValidChecksum]],
+                      hashes: Seq[TargetHash],
+                      filenames: Seq[Refined[String, ValidTargetFilename]],
                       sortBy: Option[TargetItemsSort],
                       sortDirection: Option[SortDirection]): Future[PaginationResult[ClientPackage]]
 
@@ -199,6 +201,7 @@ trait ReposerverClient {
     version: Option[String],
     hardwareIds: Seq[HardwareIdentifier],
     hashes: Seq[TargetHash],
+    filenames: Seq[Refined[String, ValidTargetFilename]],
     sortBy: Option[AggregatedTargetItemsSort],
     sortDirection: Option[SortDirection]): Future[PaginationResult[ClientAggregatedPackage]]
 
@@ -448,6 +451,7 @@ class ReposerverHttpClient(reposerverUri: Uri,
     version: Option[String],
     hardwareIds: Seq[HardwareIdentifier],
     hashes: Seq[TargetHash],
+    filenames: Seq[Refined[String, ValidTargetFilename]],
     sortBy: Option[TargetItemsSort],
     sortDirection: Option[SortDirection]): Future[PaginationResult[ClientPackage]] = {
     val req = HttpRequest(
@@ -469,6 +473,10 @@ class ReposerverHttpClient(reposerverUri: Uri,
                   else {
                     Map("hashes" -> hashes.map(_.value).mkString(","))
                   })
+              ++ (if (filenames.isEmpty) { Map.empty[String, String] }
+                  else {
+                    Map("filenames" -> filenames.map(_.value).mkString(","))
+                  })
               ++ sortBy.map(s => Map("sortBy" -> s.entryName)).getOrElse(Map.empty)
               ++ sortDirection
                 .map(sortD => Map("sortDirection" -> sortD.entryName))
@@ -489,6 +497,7 @@ class ReposerverHttpClient(reposerverUri: Uri,
     version: Option[String],
     hardwareIds: Seq[HardwareIdentifier],
     hashes: Seq[TargetHash],
+    filenames: Seq[Refined[String, ValidTargetFilename]],
     sortBy: Option[AggregatedTargetItemsSort],
     sortDirection: Option[SortDirection]): Future[PaginationResult[ClientAggregatedPackage]] = {
     val req = HttpRequest(
@@ -509,6 +518,10 @@ class ReposerverHttpClient(reposerverUri: Uri,
               ++ (if (hashes.isEmpty) { Map.empty[String, String] }
                   else {
                     Map("hashes" -> hashes.map(_.value).mkString(","))
+                  })
+              ++ (if (filenames.isEmpty) { Map.empty[String, String] }
+                  else {
+                    Map("filenames" -> filenames.map(_.value).mkString(","))
                   })
               ++ sortBy.map(s => Map("sortBy" -> s.entryName)).getOrElse(Map.empty)
               ++ sortDirection
