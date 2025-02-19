@@ -7,6 +7,7 @@ jobs:
   release-to-nexus:
     name: Release Jars
     runs-on: ubuntu-latest
+    container: uptane/ci:latest
     env:
       SONATYPE_USERNAME: ${{ secrets.SONATYPE_CLIENT_ID }}
       SONATYPE_PASSWORD: ${{ secrets.SONATYPE_SECRET }}
@@ -19,6 +20,7 @@ jobs:
       - uses: coursier/setup-action@v1
         with:
           jvm: 'temurin:1.17.0.3'
+          apps: sbt
       - uses: coursier/cache-action@v6
       - run: echo $PGP_SECRET_KEY | base64 --decode | gpg --batch --import
       - run: sbt '+publishSigned ; sonatypeBundleRelease'
@@ -36,6 +38,7 @@ jobs:
       - uses: coursier/setup-action@v1
         with:
           jvm: 'temurin:1.17.0.3'
+          apps: sbt
       - uses: coursier/cache-action@v6
       - run: sbt docker:publishLocal
       - run: docker tag advancedtelematic/tuf-reposerver:$GITHUB_SHA uptane/tuf-reposerver:$GITHUB_SHA
@@ -52,6 +55,7 @@ jobs:
       - uses: coursier/setup-action@v1
         with:
           jvm: 'temurin:1.17.0.3'
+          apps: sbt
       - uses: coursier/cache-action@v6
       - run: sbt cli/packageZipTarball
       - name: Release
