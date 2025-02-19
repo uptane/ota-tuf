@@ -37,8 +37,9 @@ jobs:
       - uses: coursier/setup-action@v1
         with:
           jvm: 'temurin:1.17.0.3'
+          apps: sbt
       - uses: coursier/cache-action@v6
-      - run: sbtn docker:publishLocal
+      - run: sbt docker:publishLocal
       - run: docker tag advancedtelematic/tuf-reposerver:$GITHUB_SHA uptane/tuf-reposerver:$GITHUB_SHA
       - run: docker tag advancedtelematic/tuf-keyserver:$GITHUB_SHA uptane/tuf-keyserver:$GITHUB_SHA
       - run: docker push uptane/tuf-reposerver:$GITHUB_SHA
@@ -53,8 +54,9 @@ jobs:
       - uses: coursier/setup-action@v1
         with:
           jvm: 'temurin:1.17.0.3'
+          apps: sbt
       - uses: coursier/cache-action@v6
-      - run: sbtn cli/packageZipTarball
+      - run: sbt cli/packageZipTarball
       - name: Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
