@@ -34,4 +34,4 @@ jobs:
           jvm: 'temurin:1.17.0.3'
       - uses: coursier/cache-action@v6
       - run: ./deploy/gitlab-db-setup.sh mysql db
-      - run: sbt clean ut:test
+      - run: sbtn 'clean; Ut / test'
