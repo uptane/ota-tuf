@@ -185,10 +185,7 @@ class RootRoleResourceSpec
       .futureValue
       .map(_.status) should contain only KeyGenRequestStatus.ERROR
 
-    Put(
-      apiUri(s"root/${repoId.show}"),
-      ClientRootGenRequest(keyType = keyType)
-    ) ~> routes ~> check {
+    Put(apiUri(s"root/${repoId.show}"), ClientRootGenRequest(keyType = keyType)) ~> routes ~> check {
       status shouldBe StatusCodes.OK
     }
 

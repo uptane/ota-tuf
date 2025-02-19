@@ -215,9 +215,8 @@ object Cli extends App with VersionInfo {
         "The directory that you want to work with. By default, it is your current working directory."
       )
 
-    opt[Unit]("verbose").text("Prints the verbose information for the execution.").action {
-      (_, c) =>
-        c.copy(verbose = true)
+    opt[Unit]("verbose").text("Prints the verbose information for the execution.").action { (_, c) =>
+      c.copy(verbose = true)
     }
 
     version("version").text("Prints the current binary version.")

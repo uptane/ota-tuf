@@ -476,9 +476,7 @@ class RepoResource(keyserverClient: KeyserverClient,
             } ~
             (patch & path(DelegatedRoleNamePath / "info") & entity(as[DelegationInfo])) {
               (delegatedRoleName, delegationInfo) =>
-                onSuccess(
-                  delegations.setDelegationInfo(repoId, delegatedRoleName, delegationInfo)
-                ) {
+                onSuccess(delegations.setDelegationInfo(repoId, delegatedRoleName, delegationInfo)) {
                   complete(StatusCodes.OK)
                 }
             } ~
@@ -671,7 +669,10 @@ class RepoResource(keyserverClient: KeyserverClient,
                   complete(editTargetItem(namespace, repoId, filename, item))
                 }
             } ~
-            withRequestTimeout(userRepoUploadRequestTimeout, timeoutResponseHandler) { // For when SignedPayload[TargetsRole] is too big and takes a long time to upload
+            withRequestTimeout(
+              userRepoUploadRequestTimeout,
+              timeoutResponseHandler
+            ) { // For when SignedPayload[TargetsRole] is too big and takes a long time to upload
               decodeRequest {
                 (pathEnd & put & entity(as[SignedPayload[TargetsRole]])) { signedPayload =>
                   extractRoleChecksumHeader { checksum =>
