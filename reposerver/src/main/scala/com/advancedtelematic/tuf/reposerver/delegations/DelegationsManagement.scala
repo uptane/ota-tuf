@@ -121,12 +121,19 @@ class DelegationsManagement()(implicit val db: Database, val ec: ExecutionContex
       if (checksums.isEmpty)
         throw Errors.InvalidDelegatedTarget(NonEmptyList.of("targets checksum cannot be empty"))
 
+      val targetCreatedAt = clientTargetItem.custom
+        .flatMap { custom =>
+          custom.hcursor.get[Instant]("created_at").toOption
+        }
+        .orElse(Some(Instant.now()))
+
       DelegatedTargetItem(
         repoId,
         filename,
         roleName,
         checksums.head,
         clientTargetItem.length,
+        targetCreatedAt,
         clientTargetItem.custom
       )
     }

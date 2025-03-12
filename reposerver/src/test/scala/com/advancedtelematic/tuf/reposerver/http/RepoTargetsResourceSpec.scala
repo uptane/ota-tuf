@@ -8,11 +8,7 @@ import org.scalatest.OptionValues.*
 import akka.http.scaladsl.model.{HttpEntity, StatusCodes}
 import akka.util.ByteString
 import com.advancedtelematic.libats.data.PaginationResult
-import com.advancedtelematic.tuf.reposerver.util.{
-  RepoResourceDelegationsSpecUtil,
-  ResourceSpec,
-  TufReposerverSpec
-}
+import com.advancedtelematic.tuf.reposerver.util.{RepoResourceDelegationsSpecUtil, ResourceSpec, TufReposerverSpec}
 import com.advancedtelematic.tuf.reposerver.util.NamespaceSpecOps.*
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.*
@@ -24,6 +20,9 @@ import com.advancedtelematic.libtuf_server.crypto.Sha256Digest
 import eu.timepit.refined.api.Refined
 import io.circe.Json
 import com.advancedtelematic.libats.codecs.CirceRefined.*
+
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 
 class RepoTargetsResourceSpec
     extends TufReposerverSpec
@@ -283,7 +282,51 @@ class RepoTargetsResourceSpec
     }
   }
 
-  testWithRepo("sorts by created at DESC") { implicit ns => implicit repoId =>
+  testWithRepo("sorts by created_at DESC using custom created_at") { implicit ns => implicit repoId =>
+    addTargetToRepo(repoId)
+
+    uploadOfflineSignedTargetsRole()
+
+    val testTargets: Map[TargetFilename, ClientTargetItem] = Map(
+      Refined.unsafeApply("mypath/mytargetName") -> ClientTargetItem(
+        Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash),
+        2,
+        Json
+          .obj(
+            "name" -> "mytargetName".asJson,
+            "version" -> "0.0.2".asJson,
+            "hardwareIds" -> List("delegated-hardware-id-001").asJson,
+            "created_at" -> Instant.now().plus(12, ChronoUnit.HOURS).asJson,
+          )
+          .some
+      )
+    )
+
+    val signedDelegationRole = buildSignedDelegatedTargets(targets = testTargets)
+
+    pushSignedDelegatedMetadataOk(signedDelegationRole)
+
+    Put(
+      apiUri("user_repo/targets/zotherpackage?name=library&version=0.0.1&hardwareIds=myid001"),
+      testEntity
+    ).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+
+    Get(apiUriV2(s"user_repo/search?sortBy=createdAt")).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+
+      val result = responseAs[PaginationResult[Package]]
+
+      result.total shouldBe 2
+      result.values.length shouldBe 2
+
+      result.values.map(_.filename.value) shouldBe Seq("mypath/mytargetName", "zotherpackage")
+    }
+  }
+
+
+  testWithRepo("sorts by created_at DESC") { implicit ns => implicit repoId =>
     addTargetToRepo(repoId)
 
     uploadOfflineSignedTargetsRole()
