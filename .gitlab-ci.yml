@@ -14,7 +14,7 @@ variables:
   SBT_OPTS: "-sbt-launch-dir .sbt/launchers -sbt-dir .sbt -ivy .ivy2 -Dsbt.color=true -Dscala.color=true"
   SERVICE: tuf-server
 
-image: registry.gitlab.com/torizon-platform/ci-container-build:scala-jvm17-0.0.5
+image: registry.gitlab.com/torizon-platform/ci-container-build/scala:4acf34bc
 
 include:
   - project: torizon-platform/ci-container-build
