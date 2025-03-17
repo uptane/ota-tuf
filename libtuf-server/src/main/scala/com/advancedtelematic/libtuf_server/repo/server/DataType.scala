@@ -59,7 +59,7 @@ object DataType {
       Try {
         val canonicalJson = TufCodecs.jsonSignedPayloadEncoder(content).canonical
         val checksum = Sha256Digest.digest(canonicalJson.getBytes)
-        val signedRole = SignedRole[T](content, checksum, canonicalJson.length, version, expireAt)
+        val signedRole = SignedRole[T](content, checksum, canonicalJson.getBytes.length, version, expireAt)
         signedRole.role // Decode the role to make sure it's valid
         signedRole
       }

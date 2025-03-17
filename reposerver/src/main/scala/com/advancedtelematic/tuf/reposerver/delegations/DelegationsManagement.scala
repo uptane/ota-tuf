@@ -86,7 +86,7 @@ class SignedRoleDelegationsFind()(implicit val db: Database, val ec: ExecutionCo
     val hashes = Map(checksum.method -> checksum.hash)
     val versionT = content.signed.hcursor.downField("version").as[Int].toTry
 
-    versionT.map(version => MetaItem(hashes, canonicalJson.length, version))
+    versionT.map(version => MetaItem(hashes, canonicalJson.getBytes.length, version))
   }
 
 }
