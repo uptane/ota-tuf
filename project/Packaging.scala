@@ -16,7 +16,7 @@ object Packaging {
       dockerUpdateLatest := true,
       dockerAliases ++= Seq(dockerAlias.value.withTag(git.gitHeadCommit.value)),
       Docker / defaultLinuxInstallLocation := s"/opt/${moduleName.value}",
-      dockerBaseImage := "eclipse-temurin:17.0.3_7-jre-jammy",
+      dockerBaseImage := "eclipse-temurin:21.0.5_11-jre-noble",
       Docker / daemonUser := "daemon"
     )
 
