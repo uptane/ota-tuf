@@ -14,13 +14,13 @@ variables:
   SBT_OPTS: "-sbt-launch-dir .sbt/launchers -sbt-dir .sbt -ivy .ivy2 -Dsbt.color=true -Dscala.color=true"
   SERVICE: tuf-server
 
-image: registry.gitlab.com/torizon-platform/ci-container-build/scala:4acf34bc
+image: registry.gitlab.com/toradex/torizon-cloud/ci-container-build/scala:4acf34bc
 
 include:
-  - project: torizon-platform/ci-container-build
+  - project: toradex/torizon-cloud/ci-container-build
     file: gitlab-ci-templates/gitlab-sbt-docker-publish.yaml
     ref: master
-  - project: 'torizon-platform/deploy-env'
+  - project: 'toradex/torizon-cloud/deploy-env'
     ref: master
     file: '/gitlab/deploy-core-service.yml'
 
