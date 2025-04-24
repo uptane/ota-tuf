@@ -30,7 +30,6 @@ import com.advancedtelematic.libtuf.data.ClientDataType.{
 import com.advancedtelematic.libtuf.data.RootManipulationOps._
 import com.advancedtelematic.libtuf.data.TufCodecs._
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
-import com.advancedtelematic.libtuf.data.TufDataType.SignatureMethod.RSASSA_PSS_SHA256
 import com.advancedtelematic.libtuf.data.TufDataType.{
   ClientSignature,
   KeyId,
@@ -295,8 +294,8 @@ abstract class TufRepo[S <: TufServerClient](val repoPath: Path)(implicit ec: Ex
     signatures
       .map { case (key, sig) => (keyStorage.readPublicKey(key), sig) }
       .sequence
-      .map { sigs => // TODO: RSASSA_PSS_SHA256 hard coded here. This is not good enough.
-        sigs.transform { case (key, sig) => ClientSignature(key.id, RSASSA_PSS_SHA256, sig) }
+      .map { sigs =>
+        sigs.transform { case (key, sig) => ClientSignature(key.id, key.keytype.crypto.signatureMethod, sig) }
       }
 
   private def invalidSignature[T: Encoder](unsignedRole: T,
