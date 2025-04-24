@@ -27,7 +27,8 @@ import com.advancedtelematic.libtuf.data.TufDataType.{
   TargetName,
   TargetVersion,
   ValidSignature,
-  ValidTargetFilename
+  ValidTargetFilename,
+  Ed25519KeyType
 }
 import com.advancedtelematic.tuf.cli.DataType.KeyName
 import com.advancedtelematic.tuf.cli.repo.{CliKeyStorage, RepoServerRepo}
@@ -211,13 +212,52 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
       .get
   }
 
-  // TODO: This is only supported for RSA Keys, make this explicit when calling Cli
+  test("add external ED25519 signature to targets") {
+    val repo = initRepo[RepoServerRepo](Ed25519KeyType)
+    val targetsKeyName = KeyName("ed25519key")
+    val targetsKeyPair = repo.genKeys(targetsKeyName, Ed25519KeyType).get
+
+    val unsignedTargets = repo.readUnsignedRole[TargetsRole].get
+    val signature = TufCrypto.signPayload(targetsKeyPair.privkey, unsignedTargets.asJson).sig
+
+    // signTargets() below expects a signed root
+    repo.addRoleKeys(RoleType.ROOT, List(targetsKeyName)).success
+    repo.signRoot(Seq(KeyName("root")), defaultExpiration).success
+
+    repo
+      .signTargets(
+        Seq.empty,
+        defaultExpiration,
+        signatures = Some(Map(targetsKeyName -> signature))
+      )
+      .get
+  }
+
   test("add multiple external RSA signatures to targets") {
     val repo = initRepo[RepoServerRepo](RsaKeyType)
     val targetsKey1Name = KeyName("somekey")
     val targetsKey2Name = KeyName("someotherkey")
     val targetsKey1Pair = repo.genKeys(targetsKey1Name, RsaKeyType).success.value
     val targetsKey2Pair = repo.genKeys(targetsKey2Name, RsaKeyType).success.value
+
+    val unsignedTargets = repo.readUnsignedRole[TargetsRole].success.value
+    val signature1 = TufCrypto.signPayload(targetsKey1Pair.privkey, unsignedTargets.asJson).sig
+    val signature2 = TufCrypto.signPayload(targetsKey2Pair.privkey, unsignedTargets.asJson).sig
+
+    // signTargets() below expects a signed root
+    repo.addRoleKeys(RoleType.ROOT, List(targetsKey1Name)).success
+    repo.signRoot(Seq(KeyName("root")), defaultExpiration).success
+
+    val signatures = Map(targetsKey1Name -> signature1, targetsKey2Name -> signature2)
+    repo.signTargets(Seq.empty, defaultExpiration, signatures = Some(signatures)).success
+  }
+
+  test("add multiple external ED25519 signatures to targets") {
+    val repo = initRepo[RepoServerRepo](Ed25519KeyType)
+    val targetsKey1Name = KeyName("somekey")
+    val targetsKey2Name = KeyName("someotherkey")
+    val targetsKey1Pair = repo.genKeys(targetsKey1Name, Ed25519KeyType).success.value
+    val targetsKey2Pair = repo.genKeys(targetsKey2Name, Ed25519KeyType).success.value
 
     val unsignedTargets = repo.readUnsignedRole[TargetsRole].success.value
     val signature1 = TufCrypto.signPayload(targetsKey1Pair.privkey, unsignedTargets.asJson).sig
