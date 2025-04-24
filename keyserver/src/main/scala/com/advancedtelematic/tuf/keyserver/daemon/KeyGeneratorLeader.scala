@@ -58,13 +58,14 @@ class KeyGeneratorLeader(keyGenerationOp: KeyGenRequest => Future[Seq[Key]])(
       log.info("Finished generating {} keys", totalTasks)
       context.system.scheduler.scheduleOnce(nextInterval, self, Tick)
       receive
-    } else {
-      case Status.Success(_) =>
-        context.become(waiting(totalTasks, remaining - 1))
-      case Status.Failure(ex) =>
-        log.error(ex, "Could not generate key")
-        context.become(waiting(totalTasks, remaining - 1))
-    }
+    } else
+      {
+        case Status.Success(_) =>
+          context.become(waiting(totalTasks, remaining - 1))
+        case Status.Failure(ex) =>
+          log.error(ex, "Could not generate key")
+          context.become(waiting(totalTasks, remaining - 1))
+      }
 
   override def receive: Receive = {
     case Status.Failure(ex) =>
