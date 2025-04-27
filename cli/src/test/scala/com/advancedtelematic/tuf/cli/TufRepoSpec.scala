@@ -305,8 +305,8 @@ class TufRepoSpec extends CliSpec with KeyTypeSpecSupport with TryValues with Ei
     val repo = initRepo[RepoServerRepo](RsaKeyType)
     val targetsKey1Name = KeyName("somekey")
     val targetsKey2Name = KeyName("someotherkey")
-    val targetsKey1Pair = repo.genKeys(targetsKey1Name, KeyType.default).success.value
-    val targetsKey2Pair = repo.genKeys(targetsKey2Name, KeyType.default).success.value
+    val targetsKey1Pair = repo.genKeys(targetsKey1Name, RsaKeyType).success.value
+    val targetsKey2Pair = repo.genKeys(targetsKey2Name, RsaKeyType).success.value
 
     val wrongSignature = Refined.unsafeApply[String, ValidSignature](
       Base64.getEncoder.encodeToString("wrong signature".getBytes)
