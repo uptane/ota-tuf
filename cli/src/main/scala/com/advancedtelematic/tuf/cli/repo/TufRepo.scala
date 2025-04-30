@@ -295,7 +295,9 @@ abstract class TufRepo[S <: TufServerClient](val repoPath: Path)(implicit ec: Ex
       .map { case (key, sig) => (keyStorage.readPublicKey(key), sig) }
       .sequence
       .map { sigs =>
-        sigs.transform { case (key, sig) => ClientSignature(key.id, key.keytype.crypto.signatureMethod, sig) }
+        sigs.transform { case (key, sig) =>
+          ClientSignature(key.id, key.keytype.crypto.signatureMethod, sig)
+        }
       }
 
   private def invalidSignature[T: Encoder](unsignedRole: T,

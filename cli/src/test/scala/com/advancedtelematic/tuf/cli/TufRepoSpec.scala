@@ -19,6 +19,7 @@ import com.advancedtelematic.libtuf.data.ClientDataType.{
 import com.advancedtelematic.libtuf.data.TufCodecs._
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType._
 import com.advancedtelematic.libtuf.data.TufDataType.{
+  Ed25519KeyType,
   KeyType,
   RoleType,
   RsaKeyType,
@@ -27,8 +28,7 @@ import com.advancedtelematic.libtuf.data.TufDataType.{
   TargetName,
   TargetVersion,
   ValidSignature,
-  ValidTargetFilename,
-  Ed25519KeyType
+  ValidTargetFilename
 }
 import com.advancedtelematic.tuf.cli.DataType.KeyName
 import com.advancedtelematic.tuf.cli.repo.{CliKeyStorage, RepoServerRepo}
