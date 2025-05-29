@@ -4,7 +4,8 @@ import akka.actor.ActorSystem
 import com.advancedtelematic.libats.slick.db.AppMigration
 import com.advancedtelematic.tuf.keyserver.db.KeysToJsonEncodedMigration
 import org.bouncycastle.jce.provider.BouncyCastleProvider
-import slick.jdbc.MySQLProfile.api._
+import slick.jdbc.MySQLProfile.api.*
+import slick.jdbc.JdbcBackend.Database
 
 import java.security.Security
 

@@ -8,9 +8,8 @@ import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto._
 import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.libats.codecs.CirceCodecs._
-import com.advancedtelematic.libats.data.EcuIdentifier
 import com.advancedtelematic.libats.data.DataType.{Checksum, Namespace}
-import com.advancedtelematic.libats.messaging_datatype.DataType.{DeviceId, UpdateId}
+import com.advancedtelematic.libats.messaging_datatype.DataType.DeviceId
 import com.advancedtelematic.libats.messaging_datatype.MessageCodecs._
 import com.advancedtelematic.libats.messaging_datatype.MessageLike
 
@@ -42,23 +41,8 @@ object Messages {
       com.advancedtelematic.libtuf_server.data.Messages.PackageStorageUsage
     ] = MessageLike[PackageStorageUsage](_.namespace)
 
-  case class DeviceUpdateReport(namespace: Namespace,
-                                device: DeviceId,
-                                updateId: UpdateId,
-                                timestampVersion: Int,
-                                operationResult: Map[EcuIdentifier, OperationResult],
-                                resultCode: Int)
-
   implicit val operationResultEncoder: Encoder[OperationResult] = deriveEncoder
   implicit val operationResultDecoder: Decoder[OperationResult] = deriveDecoder
-
-  implicit val deviceUpdateReportEncoder: Encoder[DeviceUpdateReport] = deriveEncoder
-  implicit val deviceUpdateReportDecoder: Decoder[DeviceUpdateReport] = deriveDecoder
-
-  implicit val deviceUpdateReportMessageLike
-    : com.advancedtelematic.libats.messaging_datatype.MessageLike[
-      com.advancedtelematic.libtuf_server.data.Messages.DeviceUpdateReport
-    ] = MessageLike[DeviceUpdateReport](_.device.toString)
 
   final case class TufTargetsModified(namespace: Namespace)
   implicit val tufTargetsModifiedEncoder: Encoder[TufTargetsModified] = deriveEncoder

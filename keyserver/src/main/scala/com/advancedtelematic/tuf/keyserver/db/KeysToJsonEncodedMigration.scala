@@ -12,6 +12,7 @@ import com.advancedtelematic.libtuf.data.TufDataType.{KeyId, RSATufKey, TufKey}
 import io.circe.syntax._
 import org.slf4j.LoggerFactory
 import slick.jdbc.MySQLProfile.api._
+import slick.jdbc.JdbcBackend.Database
 import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
 
 import scala.concurrent.{ExecutionContext, Future}
