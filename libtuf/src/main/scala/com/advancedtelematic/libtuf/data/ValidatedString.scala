@@ -43,7 +43,7 @@ object ValidatedString {
     Decoder.decodeString.flatMap { wrapped =>
       validation(wrapped) match {
         case Valid(wrapper) => Decoder.const(wrapper)
-        case Invalid(err) =>
+        case Invalid(err)   =>
           val msg = err.toList.mkString(",")
           Decoder.failedWithMessage(msg)
       }
