@@ -30,6 +30,7 @@ object Commands {
   case object SignDelegation extends Command
   case object GenUserKey extends Command
   case object SignUserJson extends Command
+  case object VerifyUserJson extends Command
   case object IdUserKey extends Command
   case object PushDelegation extends Command
   case object PullDelegation extends Command

@@ -240,6 +240,19 @@ object Cli extends App with VersionInfo {
           .text("path to input json")
       )
 
+    cmd("verify-json")
+      .toCommand(VerifyUserJson)
+      .text("Validates user provided json with a specified key")
+      .children(
+        opt[Path]("pub-key")
+          .abbr("p")
+          .text("The path to the public key to use to validate json")
+          .toConfigOptionParam(Symbol("pubKeyPath")),
+        opt[Path]('i', "input")
+          .toConfigOptionParam(Symbol("inputPath"))
+          .text("path to input json")
+      )
+
     note(" " + sys.props("line.separator"))
 
     cmd("user-keys")
