@@ -123,7 +123,7 @@ class DelegationsManagement()(implicit val db: Database, val ec: ExecutionContex
 
       val targetCreatedAt = clientTargetItem.custom
         .flatMap { custom =>
-          custom.hcursor.get[Instant]("created_at").toOption
+          custom.hcursor.get[Instant]("createdAt").toOption
         }
         .orElse(Some(Instant.now()))
 

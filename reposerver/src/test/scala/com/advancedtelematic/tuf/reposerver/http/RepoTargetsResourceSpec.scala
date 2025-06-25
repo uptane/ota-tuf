@@ -282,7 +282,7 @@ class RepoTargetsResourceSpec
     }
   }
 
-  testWithRepo("sorts by created_at DESC using custom created_at") { implicit ns => implicit repoId =>
+  testWithRepo("sorts by created_at DESC using custom createdAt") { implicit ns => implicit repoId =>
     addTargetToRepo(repoId)
 
     uploadOfflineSignedTargetsRole()
@@ -296,7 +296,7 @@ class RepoTargetsResourceSpec
             "name" -> "mytargetName".asJson,
             "version" -> "0.0.2".asJson,
             "hardwareIds" -> List("delegated-hardware-id-001").asJson,
-            "created_at" -> Instant.now().plus(12, ChronoUnit.HOURS).asJson,
+            "createdAt" -> Instant.now().plus(12, ChronoUnit.HOURS).asJson,
           )
           .some
       )
