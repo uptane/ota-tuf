@@ -155,6 +155,20 @@ object ClientCodecs {
   implicit val sshSessionPropertiesCodec: Codec[SshSessionProperties] =
     deriveCodec[SshSessionProperties]
 
+  implicit val commandParametersCodec: Codec[CommandParameters] =
+    deriveCodec[CommandParameters]
+
+  implicit val commandNameKeyEncoder: KeyEncoder[CommandName] =
+    KeyEncoder.encodeKeyString.contramap(_.entryName)
+
+  implicit val commandNameKeyDecoder: KeyDecoder[CommandName] =
+    KeyDecoder.decodeKeyString.map[CommandName](s =>
+      CommandName.withNameInsensitiveOption(s).getOrElse(throw new IllegalArgumentException())
+    )
+
+  implicit val remoteCommandsPayloadCodec: Codec[RemoteCommandsPayload] =
+    deriveCodec[RemoteCommandsPayload]
+
   implicit val remoteSessionsPayloadCodec: Codec[RemoteSessionsPayload] =
     deriveCodec[RemoteSessionsPayload]
 
@@ -186,7 +200,7 @@ object ClientCodecs {
     Codec.from(offlineSnapshotRoleDecoder, offlineSnapshotRoleEncoder)
 
   implicit val remoteSessionssRoleEncoder: Encoder[RemoteSessionsRole] =
-    deriveEncoder[RemoteSessionsRole].encodeRoleType
+    deriveEncoder[RemoteSessionsRole].encodeRoleType.mapJson(_.deepDropNullValues)
 
   implicit val remoteSessionsRoleDecoder: Decoder[RemoteSessionsRole] =
     deriveDecoder[RemoteSessionsRole].validateRoleType

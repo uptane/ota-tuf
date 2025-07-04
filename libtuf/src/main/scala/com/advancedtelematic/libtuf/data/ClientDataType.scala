@@ -32,7 +32,7 @@ import enumeratum.*
 import com.advancedtelematic.libats.codecs.CirceRefined.*
 import com.advancedtelematic.libats.http.HttpCodecs.*
 import com.advancedtelematic.libtuf.data.ClientCodecs.*
-
+import enumeratum.EnumEntry.{Camelcase, Hyphencase}
 import io.circe.Codec
 import io.circe.generic.semiauto.*
 
@@ -188,6 +188,7 @@ object ClientDataType {
       extends VersionedRole
 
   case class RemoteSessionsRole(remote_sessions: RemoteSessionsPayload,
+                                remote_commands: Option[RemoteCommandsPayload],
                                 expires: Instant,
                                 version: Int)
       extends VersionedRole
@@ -274,6 +275,39 @@ object ClientDataType {
                                   ra_server_ssh_pubkeys: Vector[String])
 
   case class RemoteSessionsPayload(ssh: SshSessionProperties, version: String)
+
+  object RemoteSessionsPayload {
+
+    def empty: RemoteSessionsPayload =
+      RemoteSessionsPayload(
+        SshSessionProperties(
+          properties_version = "v1alpha",
+          authorized_keys = Map.empty,
+          ra_server_hosts = Vector.empty,
+          ra_server_ssh_pubkeys = Vector.empty
+        ),
+        version = "v1alpha"
+      )
+
+  }
+
+  sealed abstract class CommandName extends EnumEntry with Hyphencase
+
+  object CommandName extends Enum[CommandName] {
+
+    val values: IndexedSeq[CommandName] = findValues
+
+    case object Reboot extends CommandName
+    case object RestartService extends CommandName
+    case object Echo extends CommandName
+  }
+
+  case class CommandParameters(args: List[CommandArg])
+
+  type CommandArg = Refined[String, NonEmpty]
+
+  case class RemoteCommandsPayload(allowed_commands: Map[CommandName, CommandParameters],
+                                   version: String)
 
   case class PubKeyInfo(pubkey: String, meta: Option[PubKeyMeta])
 
