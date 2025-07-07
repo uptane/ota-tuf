@@ -5,30 +5,21 @@ import java.time.{Instant, Period, ZoneOffset}
 import java.util.concurrent.TimeUnit
 import com.advancedtelematic.libats.data.DataType.Checksum
 import com.advancedtelematic.libtuf.crypt.{Sha256FileDigest, TufCrypto}
-import com.advancedtelematic.libtuf.data.ClientCodecs._
+import com.advancedtelematic.libtuf.data.ClientCodecs.*
 import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, RootRole, TargetCustom}
-import com.advancedtelematic.libtuf.data.TufCodecs._
+import com.advancedtelematic.libtuf.data.TufCodecs.*
 import com.advancedtelematic.libtuf.data.TufDataType.TargetFormat.TargetFormat
-import com.advancedtelematic.libtuf.data.TufDataType.{
-  HardwareIdentifier,
-  RoleType,
-  SignedPayload,
-  TargetFilename,
-  TargetFormat,
-  TargetName,
-  TargetVersion,
-  ValidTargetFilename
-}
+import com.advancedtelematic.libtuf.data.TufDataType.{HardwareIdentifier, JsonSignedPayload, RoleType, SignedPayload, TargetFilename, TargetFormat, TargetName, TargetVersion, ValidTargetFilename}
 import com.advancedtelematic.libtuf.http.{ReposerverClient, TufServerClient}
-import com.advancedtelematic.tuf.cli.CliConfigOptionOps._
-import com.advancedtelematic.tuf.cli.Commands._
+import com.advancedtelematic.tuf.cli.CliConfigOptionOps.*
+import com.advancedtelematic.tuf.cli.Commands.*
 import com.advancedtelematic.tuf.cli.Errors.PastDate
-import com.advancedtelematic.tuf.cli.TryToFuture._
-import com.advancedtelematic.tuf.cli.repo._
-import eu.timepit.refined._
-import io.circe.syntax._
+import com.advancedtelematic.tuf.cli.TryToFuture.*
+import com.advancedtelematic.tuf.cli.repo.*
+import eu.timepit.refined.*
+import io.circe.syntax.*
 import org.slf4j.LoggerFactory
-import cats.implicits._
+import cats.implicits.*
 import io.circe.Json
 
 import scala.concurrent.duration.Duration
@@ -293,6 +284,24 @@ object CommandHandler {
           val payload = SignedPayload(Seq(signature), inJson, inJson)
 
           config.outputPath.streamOrStdout.write(payload.asJson.spaces2.getBytes)
+        }
+
+      case VerifyUserJson =>
+        for {
+          payload <- io.circe.jawn.decodePath[JsonSignedPayload](config.inputPath.valueOrConfigError).toTry
+          pubKey <- CliKeyStorage.readPublicKey(config.pubKeyPath.valueOrConfigError)
+        } yield {
+          val valid = payload.signatures.filter { sig =>
+            TufCrypto.isValid(sig, pubKey, payload.signed)
+          }.map { sig => 
+            sig.sig.value
+          }
+
+          if (valid.isEmpty) {
+            println("Invalid signatures")
+          } else {
+            println(s"Valid signatures: $valid")
+          }
         }
 
       case IdUserKey =>

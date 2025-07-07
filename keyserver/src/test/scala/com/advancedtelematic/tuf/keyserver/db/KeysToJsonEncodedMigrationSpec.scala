@@ -2,13 +2,12 @@ package com.advancedtelematic.tuf.keyserver.db
 
 import akka.actor.ActorSystem
 import akka.testkit.TestKitBase
-import com.advancedtelematic.libats.data.RefinedUtils._
-import com.advancedtelematic.libats.test.LongTest
+import com.advancedtelematic.libats.data.RefinedUtils.*
+import com.advancedtelematic.libats.test.{LongTest, MysqlDatabaseSpec}
 import com.advancedtelematic.libtuf.data.TufDataType.{RSATufKey, ValidKeyId}
 import com.advancedtelematic.tuf.util.TufKeyserverSpec
 import org.scalatest.concurrent.PatienceConfiguration
-import slick.jdbc.MySQLProfile.api._
-import com.advancedtelematic.libats.test.MysqlDatabaseSpec
+import slick.jdbc.MySQLProfile.api.*
 
 import scala.concurrent.ExecutionContext
 
@@ -24,7 +23,7 @@ class KeysToJsonEncodedMigrationSpec
 
   implicit val ec: ExecutionContext = ExecutionContext.Implicits.global
 
-  val migration = new KeysToJsonEncodedMigration()
+  val migration = new KeysToJsonEncodedMigration()(db.asInstanceOf[slick.jdbc.JdbcBackend.Database], implicitly, implicitly)
 
   def runFreshMigration = {
     db.run(sqlu"drop table rsa_keys_pem").futureValue

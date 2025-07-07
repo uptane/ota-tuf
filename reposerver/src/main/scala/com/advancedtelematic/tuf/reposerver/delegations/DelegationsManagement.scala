@@ -86,7 +86,7 @@ class SignedRoleDelegationsFind()(implicit val db: Database, val ec: ExecutionCo
     val hashes = Map(checksum.method -> checksum.hash)
     val versionT = content.signed.hcursor.downField("version").as[Int].toTry
 
-    versionT.map(version => MetaItem(hashes, canonicalJson.length, version))
+    versionT.map(version => MetaItem(hashes, canonicalJson.getBytes.length, version))
   }
 
 }
@@ -121,12 +121,19 @@ class DelegationsManagement()(implicit val db: Database, val ec: ExecutionContex
       if (checksums.isEmpty)
         throw Errors.InvalidDelegatedTarget(NonEmptyList.of("targets checksum cannot be empty"))
 
+      val targetCreatedAt = clientTargetItem.custom
+        .flatMap { custom =>
+          custom.hcursor.get[Instant]("createdAt").toOption
+        }
+        .orElse(Some(Instant.now()))
+
       DelegatedTargetItem(
         repoId,
         filename,
         roleName,
         checksums.head,
         clientTargetItem.length,
+        targetCreatedAt,
         clientTargetItem.custom
       )
     }

@@ -26,7 +26,7 @@ object RepoDataType {
     object CliManaged extends StorageMethod
   }
 
-  import StorageMethod._
+  import StorageMethod.*
 
   case class TargetItem(repoId: RepoId,
                         filename: TargetFilename,
@@ -41,6 +41,7 @@ object RepoDataType {
                                  roleName: DelegatedRoleName,
                                  checksum: Checksum,
                                  length: Long,
+                                 targetCreatedAt: Option[Instant],
                                  custom: Option[Json])
 
   case class AddDelegationFromRemoteRequest(uri: Uri,
