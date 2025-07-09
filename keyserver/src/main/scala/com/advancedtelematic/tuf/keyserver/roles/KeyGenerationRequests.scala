@@ -58,7 +58,10 @@ class SignedRootRoles(defaultRoleExpire: Duration = Duration.ofDays(365))(
       val versionedRole = signedRole.content.signed
       val nextVersion = versionedRole.version + 1
       val nextExpires =
-        List(Option(Instant.now.plus(defaultRoleExpire)), expireNotBefore).flatten.max
+        List(
+          Option(Instant.now.plus(defaultRoleExpire)),
+          expireNotBefore.map(_.plus(defaultRoleExpire))
+        ).flatten.max
       val newRole = versionedRole.copy(expires = nextExpires, version = nextVersion)
 
       val f = signRootRole(newRole)
