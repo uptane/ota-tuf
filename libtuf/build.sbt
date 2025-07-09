@@ -1,5 +1,5 @@
 libraryDependencies ++= {
-  val bouncyCastleV = "1.80"
+  val bouncyCastleV = "1.81"
 
   Seq(
     "org.bouncycastle" % "bcprov-jdk18on" % bouncyCastleV,
@@ -9,7 +9,7 @@ libraryDependencies ++= {
     "com.softwaremill.sttp.client" %% "slf4j-backend" % "2.3.0",
     "com.softwaremill.sttp.client" %% "async-http-client-backend-future" % "2.3.0",
     "org.slf4j" % "slf4j-api" % "1.7.16" % "provided",
-    "com.azure" % "azure-storage-blob" % "12.30.0",
-    "com.azure" % "azure-identity" % "1.15.4"
+    "com.azure" % "azure-storage-blob" % "12.30.1",
+    "com.azure" % "azure-identity" % "1.16.2"
   )
 }

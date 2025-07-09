@@ -117,7 +117,7 @@ object CliReads {
   implicit val repoServerTypeRead: Read[TufServerType] = Read.stringRead.map(_.toLowerCase()).map {
     case "reposerver" => RepoServer
     case "director"   => Director
-    case str =>
+    case str          =>
       throw new IllegalArgumentException(
         s"Invalid repo server type: $str valid: reposerver or director"
       )

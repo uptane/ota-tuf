@@ -65,7 +65,7 @@ class RepoRoleRefresh(keyserverClient: KeyserverClient,
       case RoleType.TARGETS   => refreshTargets(repoId).flatMap(r => ensureSafeDowncast(r))
       case RoleType.SNAPSHOT  => refreshSnapshots(repoId).flatMap(r => ensureSafeDowncast(r))
       case RoleType.TIMESTAMP => refreshTimestamp(repoId).flatMap(r => ensureSafeDowncast(r))
-      case t =>
+      case t                  =>
         FastFuture.failed(new IllegalArgumentException("Cannot refresh repo role of type " + t))
     }
   }

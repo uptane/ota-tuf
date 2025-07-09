@@ -8,13 +8,13 @@ lazy val UnitTest = config("ut").extend(Test)
 
 lazy val commonConfigs = Seq(ItTest, UnitTest)
 
-val libatsVersion = "3.0.2"
+val libatsVersion = "3.0.4"
 
 lazy val commonDeps = libraryDependencies ++= {
   val scalaTestV = "3.2.19"
   lazy val catsV = "2.13.0"
   lazy val akkaHttpV = "10.5.2"
-  lazy val enumeratumV = "1.7.5"
+  lazy val enumeratumV = "1.9.0"
 
   Seq(
     "org.scala-lang.modules" %% "scala-async" % "1.0.1",
@@ -32,7 +32,7 @@ lazy val commonDeps = libraryDependencies ++= {
 lazy val serverDependencies = libraryDependencies ++= {
   lazy val akkaV = "2.8.5"
   lazy val akkaHttpV = "10.5.2"
-  lazy val enumeratumV = "1.7.5"
+  lazy val enumeratumV = "1.9.0"
 
   Seq(
     "com.typesafe.akka" %% "akka-actor" % akkaV,
@@ -49,10 +49,10 @@ lazy val serverDependencies = libraryDependencies ++= {
     "io.github.uptane" %% "libats-metrics-prometheus" % libatsVersion,
     "io.github.uptane" %% "libats-slick" % libatsVersion,
     "io.github.uptane" %% "libats-logging" % libatsVersion,
-    "org.mariadb.jdbc" % "mariadb-java-client" % "3.5.3",
+    "org.mariadb.jdbc" % "mariadb-java-client" % "3.5.4",
     "com.beachape" %% "enumeratum" % enumeratumV,
     "com.beachape" %% "enumeratum-circe" % enumeratumV,
-    "io.scalaland" %% "chimney" % "1.7.3"
+    "io.scalaland" %% "chimney" % "1.8.1"
   )
 }
 
