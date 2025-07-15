@@ -320,10 +320,10 @@ class ReposerverHttpClient(reposerverUri: Uri,
       val req = HttpRequest(HttpMethods.POST, uri = apiUri(Path("user_repo")), entity = entity)
 
       execHttpUnmarshalledWithNamespace[RepoId](namespace, req).handleErrors {
-        case error if error.status == StatusCodes.Conflict =>
+        case error if error.response.status == StatusCodes.Conflict =>
           Future.failed(RepoConflict)
 
-        case error if error.status == StatusCodes.Locked =>
+        case error if error.response.status == StatusCodes.Locked =>
           Future.failed(KeysNotReady)
       }
     }
@@ -336,11 +336,11 @@ class ReposerverHttpClient(reposerverUri: Uri,
       else HttpRequest(HttpMethods.GET, uri = apiUri(Path(s"user_repo/root.json")))
 
     execHttpFullWithNamespace[SignedPayload[RootRole]](namespace, req).flatMap {
-      case Left(error) if error.status == StatusCodes.NotFound =>
+      case Left(error) if error.response.status == StatusCodes.NotFound =>
         FastFuture.failed(NotFound)
-      case Left(error) if error.status == StatusCodes.Locked =>
+      case Left(error) if error.response.status == StatusCodes.Locked =>
         FastFuture.failed(KeysNotReady)
-      case Left(error) if error.status == StatusCodes.FailedDependency =>
+      case Left(error) if error.response.status == StatusCodes.FailedDependency =>
         FastFuture.failed(RootNotInKeyserver)
       case Left(error) =>
         FastFuture.failed(error)
@@ -360,13 +360,13 @@ class ReposerverHttpClient(reposerverUri: Uri,
   }
 
   private def addTargetErrorHandler[T]: PartialFunction[RemoteServiceError, Future[T]] = {
-    case error if error.status == StatusCodes.PreconditionFailed =>
+    case error if error.response.status == StatusCodes.PreconditionFailed =>
       Future.failed(PrivateKeysNotInKeyserver)
-    case error if error.status == StatusCodes.NotFound =>
+    case error if error.response.status == StatusCodes.NotFound =>
       Future.failed(NotFound)
-    case error if error.status == StatusCodes.Locked =>
+    case error if error.response.status == StatusCodes.Locked =>
       Future.failed(KeysNotReady)
-    case error if error.status == StatusCodes.MethodNotAllowed =>
+    case error if error.response.status == StatusCodes.MethodNotAllowed =>
       // if the parameters are wonky (like the package-id is too long), Akka will match this
       // to another request where it fails with bad method. Catch it and respond with BadRequest
       log.warn(
@@ -407,7 +407,7 @@ class ReposerverHttpClient(reposerverUri: Uri,
     )
 
     execHttpUnmarshalledWithNamespace[Unit](namespace, req).flatMap {
-      case Left(err) if err.status == StatusCodes.NotFound => FastFuture.successful(false)
+      case Left(err) if err.response.status == StatusCodes.NotFound => FastFuture.successful(false)
       case Left(err)                                       => FastFuture.failed(err)
       case Right(_)                                        => FastFuture.successful(true)
     }
@@ -436,7 +436,7 @@ class ReposerverHttpClient(reposerverUri: Uri,
     val req = HttpRequest(HttpMethods.GET, uri = apiUri(Path("user_repo/targets.json")))
 
     execHttpUnmarshalledWithNamespace[SignedPayload[TargetsRole]](namespace, req).handleErrors {
-      case error if error.status == StatusCodes.NotFound =>
+      case error if error.response.status == StatusCodes.NotFound =>
         FastFuture.failed(NotFound)
     }
   }
@@ -719,7 +719,7 @@ class ReposerverHttpClient(reposerverUri: Uri,
 
     execHttpUnmarshalledWithNamespace[PaginationResult[FilenameComment]](namespace, req)
       .handleErrors {
-        case error if error.status == StatusCodes.NotFound =>
+        case RemoteServiceError(_, response, _, _, _, _) if response.status == StatusCodes.NotFound =>
           FastFuture.failed(NotFound)
       }
   }
@@ -735,7 +735,7 @@ class ReposerverHttpClient(reposerverUri: Uri,
     )
 
     execHttpUnmarshalledWithNamespace[Seq[FilenameComment]](namespace, req).handleErrors {
-      case error if error.status == StatusCodes.NotFound =>
+      case error if error.response.status == StatusCodes.NotFound =>
         FastFuture.failed(NotFound)
     }
   }
@@ -754,7 +754,7 @@ class ReposerverHttpClient(reposerverUri: Uri,
     val req =
       HttpRequest(HttpMethods.DELETE, uri = apiUri(Path(s"user_repo/targets/${targetFilename}")))
     execHttpUnmarshalledWithNamespace[Unit](namespace, req).handleErrors {
-      case error if error.status == StatusCodes.NotFound =>
+      case error if error.response.status == StatusCodes.NotFound =>
         FastFuture.failed(NotFound)
     }
   }
@@ -771,7 +771,7 @@ class ReposerverHttpClient(reposerverUri: Uri,
       uri = apiUri(Path(s"user_repo/targets/${targetFilename}"))
     ).withEntity(ContentTypes.`application/json`, editTargetItem.asJson.noSpaces)
     execHttpUnmarshalledWithNamespace[ClientTargetItem](namespace, req).handleErrors {
-      case error if error.status == StatusCodes.NotFound =>
+      case error if error.response.status == StatusCodes.NotFound =>
         FastFuture.failed(NotFound)
     }
   }
