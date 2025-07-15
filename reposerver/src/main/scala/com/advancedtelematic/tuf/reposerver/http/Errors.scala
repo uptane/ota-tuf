@@ -93,14 +93,14 @@ object Errors {
   def PayloadTooLarge(size: Long, max: Long) =
     RawError(
       com.advancedtelematic.libtuf.data.ErrorCodes.Reposerver.PayloadTooLarge,
-      StatusCodes.PayloadTooLarge,
+      StatusCodes.ContentTooLarge,
       s"File being uploaded is too large ($size), maximum size is $max"
     )
 
   def FilePartTooLarge(size: Long, max: Long) =
     RawError(
       com.advancedtelematic.libtuf.data.ErrorCodes.Reposerver.PayloadTooLarge,
-      StatusCodes.PayloadTooLarge,
+      StatusCodes.ContentTooLarge,
       s"Part of the file being uploaded is too large ($size), maximum part size for multipart upload is $max"
     )
 
