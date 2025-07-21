@@ -499,7 +499,7 @@ class RepoResource(keyserverClient: KeyserverClient,
             path("keys") {
               (put & entity(as[List[TufKey]])) { keys =>
                 val f = trustedDelegations
-                  .addKeys(repoId, keys)(signedRoleGeneration)
+                  .setKeys(repoId, keys)(signedRoleGeneration)
                   .map(_ => StatusCodes.NoContent)
                 f.foreach { _ =>
                   // Launch and forget. We don't care about kafka msg errors in the api response, we will log any errors if sending fails
