@@ -106,7 +106,7 @@ class TrustedDelegations(implicit val db: Database, val ec: ExecutionContext)
     await(signedRoleGeneration.signAllRolesFor(repoId, newTargets))
   }
 
-  def addKeys(repoId: RepoId, inKeys: List[TufKey])(
+  def setKeys(repoId: RepoId, inKeys: List[TufKey])(
     signedRoleGeneration: SignedRoleGeneration): Future[Any] = for {
     delegationsBlock <- getTrustedDelegationsBlock(repoId).map {
       case Some(delegations) => delegations.copy(keys = inKeys.map(k => (k.id, k)).toMap)

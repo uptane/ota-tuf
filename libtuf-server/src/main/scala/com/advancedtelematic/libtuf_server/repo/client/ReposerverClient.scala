@@ -634,7 +634,11 @@ class ReposerverHttpClient(reposerverUri: Uri,
 
   override def updateTrustedDelegationsKeys(namespace: Namespace,
                                             keys: List[TufKey]): Future[Unit] = {
-    val req = HttpRequest(HttpMethods.PUT, uri = apiUri(Path("user_repo/trusted-delegations/keys")))
+    val req = HttpRequest(
+      HttpMethods.PUT,
+      uri = apiUri(Path("user_repo/trusted-delegations/keys")),
+      entity = HttpEntity(ContentTypes.`application/json`, keys.asJson.noSpaces)
+    )
     execHttpUnmarshalledWithNamespace[Unit](namespace, req).ok
   }
 
