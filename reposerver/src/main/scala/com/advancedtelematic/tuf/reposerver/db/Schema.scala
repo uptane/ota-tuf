@@ -37,7 +37,9 @@ object Schema {
     def checksum = column[Checksum]("checksum")
     def length = column[Long]("length")
     def updatedAt = column[Instant]("updated_at")(javaInstantMapping)
-    def targetCreatedAt = column[Option[Instant]]("target_created_at")(javaInstantMapping.optionType)
+
+    def targetCreatedAt =
+      column[Option[Instant]]("target_created_at")(javaInstantMapping.optionType)
 
     def pk = primaryKey("delegated_items_pk", (repoId, roleName, filename))
 

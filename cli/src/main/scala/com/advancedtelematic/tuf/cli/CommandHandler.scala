@@ -9,7 +9,17 @@ import com.advancedtelematic.libtuf.data.ClientCodecs.*
 import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, RootRole, TargetCustom}
 import com.advancedtelematic.libtuf.data.TufCodecs.*
 import com.advancedtelematic.libtuf.data.TufDataType.TargetFormat.TargetFormat
-import com.advancedtelematic.libtuf.data.TufDataType.{HardwareIdentifier, JsonSignedPayload, RoleType, SignedPayload, TargetFilename, TargetFormat, TargetName, TargetVersion, ValidTargetFilename}
+import com.advancedtelematic.libtuf.data.TufDataType.{
+  HardwareIdentifier,
+  JsonSignedPayload,
+  RoleType,
+  SignedPayload,
+  TargetFilename,
+  TargetFormat,
+  TargetName,
+  TargetVersion,
+  ValidTargetFilename
+}
 import com.advancedtelematic.libtuf.http.{ReposerverClient, TufServerClient}
 import com.advancedtelematic.tuf.cli.CliConfigOptionOps.*
 import com.advancedtelematic.tuf.cli.Commands.*
@@ -288,14 +298,18 @@ object CommandHandler {
 
       case VerifyUserJson =>
         for {
-          payload <- io.circe.jawn.decodePath[JsonSignedPayload](config.inputPath.valueOrConfigError).toTry
+          payload <- io.circe.jawn
+            .decodePath[JsonSignedPayload](config.inputPath.valueOrConfigError)
+            .toTry
           pubKey <- CliKeyStorage.readPublicKey(config.pubKeyPath.valueOrConfigError)
         } yield {
-          val valid = payload.signatures.filter { sig =>
-            TufCrypto.isValid(sig, pubKey, payload.signed)
-          }.map { sig => 
-            sig.sig.value
-          }
+          val valid = payload.signatures
+            .filter { sig =>
+              TufCrypto.isValid(sig, pubKey, payload.signed)
+            }
+            .map { sig =>
+              sig.sig.value
+            }
 
           if (valid.isEmpty) {
             println("Invalid signatures")
