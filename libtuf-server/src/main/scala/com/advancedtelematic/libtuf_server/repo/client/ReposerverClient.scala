@@ -408,8 +408,8 @@ class ReposerverHttpClient(reposerverUri: Uri,
 
     execHttpUnmarshalledWithNamespace[Unit](namespace, req).flatMap {
       case Left(err) if err.response.status == StatusCodes.NotFound => FastFuture.successful(false)
-      case Left(err)                                       => FastFuture.failed(err)
-      case Right(_)                                        => FastFuture.successful(true)
+      case Left(err)                                                => FastFuture.failed(err)
+      case Right(_)                                                 => FastFuture.successful(true)
     }
   }
 
@@ -723,7 +723,8 @@ class ReposerverHttpClient(reposerverUri: Uri,
 
     execHttpUnmarshalledWithNamespace[PaginationResult[FilenameComment]](namespace, req)
       .handleErrors {
-        case RemoteServiceError(_, response, _, _, _, _) if response.status == StatusCodes.NotFound =>
+        case RemoteServiceError(_, response, _, _, _, _)
+            if response.status == StatusCodes.NotFound =>
           FastFuture.failed(NotFound)
       }
   }
