@@ -1,9 +1,11 @@
 package com.advancedtelematic.tuf.reposerver.http
 
+import akka.http.scaladsl.util.FastFuture
 import cats.syntax.show.*
 import com.advancedtelematic.libats.codecs.CirceRefined
 import com.advancedtelematic.libats.data.DataType.Checksum
 import com.advancedtelematic.libats.slick.db.{SlickCirceMapper, SlickUriMapper}
+import com.advancedtelematic.libtuf.data.ClientDataType.SortDirection.Asc
 import com.advancedtelematic.libtuf.data.ClientDataType.{
   AggregatedTargetItemsSort,
   SortDirection,
@@ -11,6 +13,7 @@ import com.advancedtelematic.libtuf.data.ClientDataType.{
 }
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.Package.ValidTargetOrigin
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.{AggregatedPackage, Package}
+import com.advancedtelematic.tuf.reposerver.http.Errors.TargetNotFoundError
 import slick.jdbc.MySQLProfile.api.*
 import slick.jdbc.{GetResult, SetParameter}
 import slick.sql.SqlStreamingAction
@@ -102,6 +105,7 @@ class PackageSearch()(implicit db: Database) {
       FROM aggregated_items
       WHERE repo_id = ${repoId.show} AND
         IF(${searchParams.origin.isEmpty}, true, FIND_IN_SET(origin, ${searchParams.origin}) > 0) AND
+        IF(${searchParams.originNot.isEmpty}, true, origin <> ${searchParams.originNot} > 0) AND
         IF(${searchParams.name.isEmpty}, true, name = ${searchParams.name}) AND
         IF(${searchParams.version.isEmpty}, true, version = ${searchParams.version}) AND
         IF(${searchParams.nameContains.isEmpty}, true, LOCATE(${searchParams.nameContains}, name) > 0) AND
@@ -141,6 +145,19 @@ class PackageSearch()(implicit db: Database) {
            sortDirection: SortDirection): Future[Seq[Package]] = {
     val q = findQuery(ResultQuery, repoId, offset, limit, searchParams, sortBy, sortDirection)
     db.run(q)
+  }
+
+  def findSingle(repoId: RepoId, originNot: Option[String], filename: TargetFilename)(
+    implicit ec: ExecutionContext): Future[Package] = {
+    val params =
+      PackageSearchParameters.empty.copy(originNot = originNot, filenames = Seq(filename))
+    val q = findQuery(ResultQuery, repoId, 0L, 1L, params, TargetItemsSort.CreatedAt, Asc)
+    db.run(q).flatMap {
+      case pkgs if pkgs.isEmpty =>
+        FastFuture.failed(TargetNotFoundError)
+      case pkgs =>
+        FastFuture.successful(pkgs.head)
+    }
   }
 
   private sealed trait AggregatedTargetsQuery[T] {
@@ -248,6 +265,7 @@ class PackageSearch()(implicit db: Database) {
         version is not null AND
         IF(${searchParams.origin.isEmpty}, true, FIND_IN_SET(origin, ${searchParams.origin}) > 0) AND
         IF(${searchParams.nameContains.isEmpty}, true, LOCATE(${searchParams.nameContains}, name) > 0) AND
+        IF(${searchParams.name.isEmpty}, true, name = ${searchParams.name}) AND
         IF(${searchParams.version.isEmpty}, true, version = ${searchParams.version}) AND
         IF(${searchParams.hardwareIds.isEmpty}, true, JSON_OVERLAPS(${searchParams.hardwareIds}, hardwareids) = 1) AND
         IF(${searchParams.hashes.isEmpty}, true, FIND_IN_SET(JSON_UNQUOTE(JSON_EXTRACT(checksum, '$$.hash')), ${searchParams.hashes
