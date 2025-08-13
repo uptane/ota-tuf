@@ -129,7 +129,8 @@ class KeyserverHttpClient(uri: Uri, httpClient: HttpRequest => Future[HttpRespon
       uri = apiUri(Path("root") / repoId.show / tufRole.roleType.show)
     )
     execJsonHttp[SignedPayload[T], Json](req, payload.asJson).handleErrors {
-      case RemoteServiceError(_, response, _, _, _, _) if response.status == StatusCodes.PreconditionFailed =>
+      case RemoteServiceError(_, response, _, _, _, _)
+          if response.status == StatusCodes.PreconditionFailed =>
         Future.failed(RoleKeyNotFound)
     }
   }
@@ -159,7 +160,8 @@ class KeyserverHttpClient(uri: Uri, httpClient: HttpRequest => Future[HttpRespon
   override def updateRoot(repoId: RepoId, signedPayload: SignedPayload[RootRole]): Future[Unit] = {
     val req = HttpRequest(HttpMethods.POST, uri = apiUri(Path("root") / repoId.show / "unsigned"))
     execJsonHttp[Unit, SignedPayload[RootRole]](req, signedPayload).handleErrors {
-      case err @ RemoteServiceError(_, response, _, _, _, _) if response.status == StatusCodes.BadRequest =>
+      case err @ RemoteServiceError(_, response, _, _, _, _)
+          if response.status == StatusCodes.BadRequest =>
         Future.failed(err)
     }
   }
@@ -219,7 +221,8 @@ class KeyserverHttpClient(uri: Uri, httpClient: HttpRequest => Future[HttpRespon
   override def rotateRoot(repoId: RepoId): Future[Unit] = {
     val req = HttpRequest(HttpMethods.PUT, uri = apiUri(Path("root") / repoId.show / "rotate"))
     execHttpUnmarshalled[Unit](req).handleErrors {
-      case RemoteServiceError(_, response, _, _, _, _) if response.status == StatusCodes.PreconditionFailed =>
+      case RemoteServiceError(_, response, _, _, _, _)
+          if response.status == StatusCodes.PreconditionFailed =>
         Future.failed(RoleKeyNotFound)
     }
   }
