@@ -26,7 +26,6 @@ import com.advancedtelematic.libtuf.data.ClientDataType.{
   ClientTargetItem,
   DelegatedRoleName,
   Delegation,
-  DelegationClientTargetItem,
   DelegationFriendlyName,
   DelegationInfo,
   RootRole,
@@ -178,18 +177,23 @@ trait ReposerverClient {
 
   def fetchTargets(namespace: Namespace): Future[SignedPayload[TargetsRole]]
 
+  def searchSingleTargetV2(namespace: Namespace,
+                           filename: TargetFilename,
+                           origin: Option[String] = None,
+                           originNot: Option[String] = None): Future[ClientPackage]
+
   def searchTargetsV2(namespace: Namespace,
                       offset: Option[Long],
                       limit: Option[Long],
-                      origins: Seq[String],
-                      nameContains: Option[String],
-                      name: Option[String],
-                      version: Option[String],
-                      hardwareIds: Seq[HardwareIdentifier],
-                      hashes: Seq[TargetHash],
-                      filenames: Seq[Refined[String, ValidTargetFilename]],
-                      sortBy: Option[TargetItemsSort],
-                      sortDirection: Option[SortDirection]): Future[PaginationResult[ClientPackage]]
+                      origins: Seq[String] = Seq.empty,
+                      nameContains: Option[String] = None,
+                      name: Option[String] = None,
+                      version: Option[String] = None,
+                      hardwareIds: Seq[HardwareIdentifier] = Seq.empty,
+                      hashes: Seq[TargetHash] = Seq.empty,
+                      filenames: Seq[TargetFilename] = Seq.empty,
+                      sortBy: Option[TargetItemsSort] = None,
+                      sortDirection: Option[SortDirection] = None): Future[PaginationResult[ClientPackage]]
 
   def searchTargetsGroupedV2(
     namespace: Namespace,
@@ -230,23 +234,7 @@ trait ReposerverClient {
                  hardwareIds: Seq[HardwareIdentifier] = Seq.empty,
                  proprietaryMeta: Option[Json] = None): Future[ClientTargetItem]
 
-  def fetchSingleTargetItem(namespace: Namespace,
-                            targetFilename: TargetFilename): Future[ClientTargetItem]
-
-  def fetchTargetItems(namespace: Namespace,
-                       nameContains: Option[String] = None,
-                       offset: Option[Long] = None,
-                       limit: Option[Long] = None): Future[PaginationResult[ClientTargetItem]]
-
   def fetchDelegationMetadata(namespace: Namespace, roleName: String): Future[JsonSignedPayload]
-
-  def fetchDelegationTargetItems(
-    namespace: Namespace,
-    nameContains: Option[String] = None): Future[PaginationResult[DelegationClientTargetItem]]
-
-  def fetchSingleDelegationTargetItem(
-    namespace: Namespace,
-    targetFilename: TargetFilename): Future[Seq[DelegationClientTargetItem]]
 
   def fetchTrustedDelegations(namespace: Namespace): Future[List[Delegation]]
 
@@ -441,6 +429,20 @@ class ReposerverHttpClient(reposerverUri: Uri,
     }
   }
 
+  override def searchSingleTargetV2(namespace: Namespace,
+                                    filename: TargetFilename,
+                                    origin: Option[String],
+                                    originNot: Option[String]): Future[ClientPackage] = {
+    val params = origin.map("origin" -> _) ++ originNot.map("originNot" -> _)
+
+    val req = HttpRequest(
+      HttpMethods.GET,
+      uri = apiV2Uri(Path(s"user_repo/packages/${filename.value}"))
+        .withQuery(Query(params.toSeq*))
+    )
+    execHttpUnmarshalledWithNamespace[ClientPackage](namespace, req).ok
+  }
+
   def searchTargetsV2(
     namespace: Namespace,
     offset: Option[Long],
@@ -534,60 +536,10 @@ class ReposerverHttpClient(reposerverUri: Uri,
 
   }
 
-  override def fetchSingleTargetItem(namespace: Namespace,
-                                     targetFilename: TargetFilename): Future[ClientTargetItem] = {
-    val req = HttpRequest(
-      HttpMethods.GET,
-      uri = apiUri(Path(s"user_repo/target_items/${targetFilename.value}"))
-    )
-    execHttpUnmarshalledWithNamespace[ClientTargetItem](namespace, req).ok
-  }
-
-  override def fetchTargetItems(
-    namespace: Namespace,
-    nameContains: Option[String] = None,
-    offset: Option[Long] = None,
-    limit: Option[Long] = None): Future[PaginationResult[ClientTargetItem]] = {
-    val nameContainsMap = nameContains.map(n => Map("nameContains" -> n)).getOrElse(Map.empty)
-
-    val reqUri = apiUri(Path(s"user_repo/target_items"))
-      .withQuery(Query(paginationParams(offset, limit) ++ nameContainsMap))
-    execHttpUnmarshalledWithNamespace[PaginationResult[ClientTargetItem]](
-      namespace,
-      HttpRequest(HttpMethods.GET, uri = reqUri)
-    ).ok
-  }
-
   override def fetchDelegationMetadata(namespace: Namespace,
                                        roleName: String): Future[JsonSignedPayload] = {
     val req = HttpRequest(HttpMethods.GET, uri = apiUri(Path(s"user_repo/delegations/${roleName}")))
     execHttpUnmarshalledWithNamespace[JsonSignedPayload](namespace, req).ok
-  }
-
-  override def fetchSingleDelegationTargetItem(
-    namespace: Namespace,
-    targetFilename: TargetFilename): Future[Seq[DelegationClientTargetItem]] = {
-    val req = HttpRequest(
-      HttpMethods.GET,
-      uri = apiUri(Path(s"user_repo/delegations_items/${targetFilename.value}"))
-    )
-    execHttpUnmarshalledWithNamespace[Seq[DelegationClientTargetItem]](namespace, req).ok
-  }
-
-  override def fetchDelegationTargetItems(
-    namespace: Namespace,
-    nameContains: Option[String] = None): Future[PaginationResult[DelegationClientTargetItem]] = {
-    val reqUri =
-      if (nameContains.isDefined)
-        apiUri(Path(s"user_repo/delegations_items"))
-          .withQuery(Query("nameContains" -> nameContains.get))
-      else
-        apiUri(Path(s"user_repo/delegations_items"))
-    val req = HttpRequest(HttpMethods.GET, uri = reqUri)
-    execHttpUnmarshalledWithNamespace[PaginationResult[DelegationClientTargetItem]](
-      namespace,
-      req
-    ).ok
   }
 
   override def fetchTrustedDelegations(namespace: Namespace): Future[List[Delegation]] = {

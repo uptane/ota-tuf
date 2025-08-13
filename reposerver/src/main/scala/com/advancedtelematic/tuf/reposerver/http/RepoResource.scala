@@ -3,19 +3,8 @@ package com.advancedtelematic.tuf.reposerver.http
 import java.time.Instant
 import io.circe.syntax.*
 import com.advancedtelematic.libats.data.ErrorRepresentation.*
-import akka.http.scaladsl.model.headers.{`Content-Length`, RawHeader}
-import akka.http.scaladsl.model.{
-  EntityStreamException,
-  HttpEntity,
-  HttpHeader,
-  HttpRequest,
-  HttpResponse,
-  MediaTypes,
-  ParsingException,
-  StatusCode,
-  StatusCodes,
-  Uri
-}
+import akka.http.scaladsl.model.headers.{RawHeader, `Content-Length`}
+import akka.http.scaladsl.model.{EntityStreamException, HttpEntity, HttpHeader, HttpRequest, HttpResponse, MediaTypes, ParsingException, StatusCode, StatusCodes, Uri}
 import akka.http.scaladsl.server.*
 import akka.http.scaladsl.unmarshalling.*
 import akka.http.scaladsl.util.FastFuture
@@ -30,17 +19,7 @@ import com.advancedtelematic.libats.http.Errors.{EntityAlreadyExists, MissingEnt
 import com.advancedtelematic.libats.http.RefinedMarshallingSupport.*
 import com.advancedtelematic.libats.http.UUIDKeyAkka.*
 import com.advancedtelematic.libtuf.data.ClientCodecs.*
-import com.advancedtelematic.libtuf.data.ClientDataType.{
-  ClientHashes,
-  ClientTargetItem,
-  DelegatedRoleName,
-  Delegation,
-  DelegationClientTargetItem,
-  DelegationInfo,
-  RootRole,
-  TargetCustom,
-  TargetsRole
-}
+import com.advancedtelematic.libtuf.data.ClientDataType.{ClientHashes, ClientTargetItem, DelegatedRoleName, Delegation, DelegationClientTargetItem, DelegationInfo, RootRole, TargetCustom, TargetsRole}
 import com.advancedtelematic.libtuf.data.TufCodecs.*
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 import com.advancedtelematic.libats.http.AnyvalMarshallingSupport.*
@@ -52,26 +31,15 @@ import com.advancedtelematic.libtuf_server.data.Marshalling.*
 import com.advancedtelematic.libtuf_server.data.Requests.*
 import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient
 import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient.RootRoleNotFound
-import com.advancedtelematic.libtuf_server.repo.client.ReposerverClient.{
-  EditTargetItem,
-  RequestTargetItem
-}
+import com.advancedtelematic.libtuf_server.repo.client.ReposerverClient.{EditTargetItem, RequestTargetItem}
 import com.advancedtelematic.libtuf_server.repo.server.DataType.SignedRole
 import com.advancedtelematic.tuf.reposerver.Settings
 import com.advancedtelematic.libtuf_server.repo.server.DataType.*
 import com.advancedtelematic.libtuf_server.repo.server.RepoRoleRefresh
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.*
 import com.advancedtelematic.tuf.reposerver.db.*
-import com.advancedtelematic.tuf.reposerver.delegations.{
-  DelegationsManagement,
-  RemoteDelegationClient
-}
-import com.advancedtelematic.tuf.reposerver.http.Errors.{
-  DelegationNotFound,
-  NoRepoForNamespace,
-  RequestCanceledByUpstream,
-  TargetNotFoundError
-}
+import com.advancedtelematic.tuf.reposerver.delegations.{DelegationsManagement, RemoteDelegationClient}
+import com.advancedtelematic.tuf.reposerver.http.Errors.{DelegationNotFound, NoRepoForNamespace, RequestCanceledByUpstream, TargetNotFoundError}
 import com.advancedtelematic.tuf.reposerver.http.RoleChecksumHeader.*
 import com.advancedtelematic.tuf.reposerver.target_store.TargetStore
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
@@ -88,6 +56,7 @@ import com.advancedtelematic.tuf.reposerver.http.PaginationParamsOps.PaginationR
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport
 import eu.timepit.refined.api.Refined
 import com.advancedtelematic.libtuf_server.data.Marshalling.jsonSignedPayloadMarshaller
+import com.advancedtelematic.tuf.reposerver.http.ReposerverAkkaPaths.TargetFilenamePath
 
 class RepoResource(keyserverClient: KeyserverClient,
                    namespaceValidation: NamespaceValidation,
@@ -171,9 +140,6 @@ class RepoResource(keyserverClient: KeyserverClient,
 
   val log = LoggerFactory.getLogger(this.getClass)
 
-  private val TargetFilenamePath = Segments.flatMap {
-    _.mkString("/").refineTry[ValidTargetFilename].toOption
-  }
 
   private def createRepo(namespace: Namespace, repoId: RepoId, keyType: KeyType): Route =
     complete {
