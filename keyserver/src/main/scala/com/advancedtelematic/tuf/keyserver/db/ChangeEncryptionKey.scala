@@ -1,8 +1,8 @@
 package com.advancedtelematic.tuf.keyserver.db
 
 import scala.async.Async._
-import akka.actor.ActorSystem
-import akka.stream.scaladsl.Source
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.scaladsl.Source
 import com.advancedtelematic.libats.http.{BootAppDatabaseConfig, BootAppDefaultConfig}
 import com.advancedtelematic.libats.slick.codecs.SlickRefined._
 import com.advancedtelematic.libats.slick.db.SlickCrypto

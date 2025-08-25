@@ -8,12 +8,12 @@ lazy val UnitTest = config("ut").extend(Test)
 
 lazy val commonConfigs = Seq(ItTest, UnitTest)
 
-val libatsVersion = "3.0.5"
+val libatsVersion = "5.0.0"
 
 lazy val commonDeps = libraryDependencies ++= {
   val scalaTestV = "3.2.19"
   lazy val catsV = "2.13.0"
-  lazy val akkaHttpV = "10.5.2"
+  lazy val pekkoHttpV = "1.2.0"
   lazy val enumeratumV = "1.9.0"
 
   Seq(
@@ -22,7 +22,7 @@ lazy val commonDeps = libraryDependencies ++= {
     "io.github.uptane" %% "libats" % libatsVersion,
     "org.scalatest" %% "scalatest" % scalaTestV % "test",
     "org.typelevel" %% "cats-core" % catsV,
-    "com.typesafe.akka" %% "akka-http" % akkaHttpV,
+    "org.apache.pekko" %% "pekko-http" % pekkoHttpV,
     "com.beachape" %% "enumeratum" % enumeratumV,
     "com.beachape" %% "enumeratum-circe" % enumeratumV,
     "io.github.uptane" %% "libats-http" % libatsVersion
@@ -30,22 +30,23 @@ lazy val commonDeps = libraryDependencies ++= {
 }
 
 lazy val serverDependencies = libraryDependencies ++= {
-  lazy val akkaV = "2.8.5"
-  lazy val akkaHttpV = "10.5.2"
+  lazy val pekkoV = "1.1.5"
+  lazy val pekkoHttpV = "1.2.0"
   lazy val enumeratumV = "1.9.0"
 
   Seq(
-    "com.typesafe.akka" %% "akka-actor" % akkaV,
-    "com.typesafe.akka" %% "akka-stream" % akkaV,
-    "com.typesafe.akka" %% "akka-stream-testkit" % akkaV % "test",
-    "com.typesafe.akka" %% "akka-http" % akkaHttpV,
-    "com.typesafe.akka" %% "akka-slf4j" % akkaV,
-    "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpV % "test",
-    "com.softwaremill.sttp.client" %% "akka-http-backend" % "2.3.0" % "test",
+    "org.apache.pekko" %% "pekko-actor" % pekkoV,
+    "org.apache.pekko" %% "pekko-stream" % pekkoV,
+    "org.apache.pekko" %% "pekko-stream-testkit" % pekkoV % "test",
+    "org.apache.pekko" %% "pekko-http" % pekkoHttpV,
+    "org.apache.pekko" %% "pekko-slf4j" % pekkoV,
+    "org.apache.pekko" %% "pekko-http-testkit" % pekkoHttpV % "test",
+    "com.softwaremill.sttp.client4" %% "pekko-http-backend" % "4.0.9" % "test",
+    "org.apache.pekko" %% "pekko-stream" % "1.1.4" % "test",
     "io.github.uptane" %% "libats-http" % libatsVersion,
     "io.github.uptane" %% "libats-http-tracing" % libatsVersion,
     "io.github.uptane" %% "libats-messaging" % libatsVersion,
-    "io.github.uptane" %% "libats-metrics-akka" % libatsVersion,
+    "io.github.uptane" %% "libats-metrics-pekko" % libatsVersion,
     "io.github.uptane" %% "libats-metrics-prometheus" % libatsVersion,
     "io.github.uptane" %% "libats-slick" % libatsVersion,
     "io.github.uptane" %% "libats-logging" % libatsVersion,
@@ -63,10 +64,8 @@ lazy val commonSettings = Seq(
   organizationHomepage := Some(url("https://uptane.github.io/")),
   scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8", "-Xasync", "-Xsource:3"),
   Compile / console / scalacOptions ~= (_.filterNot(_ == "-Ywarn-unused-import")),
-  resolvers += "sonatype-snapshots".at(
-    "https://s01.oss.sonatype.org/content/repositories/snapshots"
-  ),
-  resolvers += "sonatype-releases".at("https://s01.oss.sonatype.org/content/repositories/releases"),
+  resolvers += "maven-snapshots"at "https://central.sonatype.com/repository/maven-snapshots",
+  resolvers += Resolver.mavenCentral,
   licenses += ("MPL-2.0", url("http://mozilla.org/MPL/2.0/")),
   description := "scala tuf implementation support",
   buildInfoOptions += BuildInfoOption.ToMap,

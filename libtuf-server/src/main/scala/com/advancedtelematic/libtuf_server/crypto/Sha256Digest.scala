@@ -2,8 +2,8 @@ package com.advancedtelematic.libtuf_server.crypto
 
 import java.security.MessageDigest
 
-import akka.stream.scaladsl.Sink
-import akka.util.ByteString
+import org.apache.pekko.stream.scaladsl.Sink
+import org.apache.pekko.util.ByteString
 import com.advancedtelematic.libats.data.DataType.{Checksum, HashMethod, ValidChecksum}
 import com.advancedtelematic.libats.data.RefinedUtils.RefineTry
 import org.bouncycastle.crypto.digests.SHA256Digest

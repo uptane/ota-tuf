@@ -2,9 +2,9 @@ package com.advancedtelematic.tuf.reposerver.client
 
 import java.nio.file.Files
 
-import akka.http.scaladsl.model.Uri
-import akka.stream.scaladsl.{FileIO, Sink}
-import akka.util.ByteString
+import org.apache.pekko.http.scaladsl.model.Uri
+import org.apache.pekko.stream.scaladsl.{FileIO, Sink}
+import org.apache.pekko.util.ByteString
 import com.advancedtelematic.libats.data.DataType.Namespace
 import com.advancedtelematic.libats.data.RefinedUtils.RefineTry
 import com.advancedtelematic.libtuf.data.ClientDataType.RootRole

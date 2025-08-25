@@ -1,7 +1,7 @@
 package com.advancedtelematic.tuf.keyserver.daemon
 
-import akka.actor.ActorSystem
-import akka.testkit.{ImplicitSender, TestKitBase}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.testkit.{ImplicitSender, TestKitBase}
 import com.advancedtelematic.libtuf.data.TufDataType.{KeyType, RepoId, RoleType, RsaKeyType}
 import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType.{
   Key,

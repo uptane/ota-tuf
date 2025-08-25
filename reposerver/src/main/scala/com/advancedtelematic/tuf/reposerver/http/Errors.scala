@@ -1,6 +1,6 @@
 package com.advancedtelematic.tuf.reposerver.http
 
-import akka.http.scaladsl.model.{StatusCode, StatusCodes, Uri}
+import org.apache.pekko.http.scaladsl.model.{StatusCode, StatusCodes, Uri}
 import cats.data.NonEmptyList
 import com.advancedtelematic.libats.data.DataType.Namespace
 import com.advancedtelematic.libats.data.ErrorCode

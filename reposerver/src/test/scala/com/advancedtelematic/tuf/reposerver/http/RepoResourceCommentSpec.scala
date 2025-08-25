@@ -1,8 +1,8 @@
 package com.advancedtelematic.tuf.reposerver.http
 
-import akka.http.scaladsl.model.Multipart.FormData.BodyPart
-import akka.http.scaladsl.model.{HttpEntity, Multipart, StatusCodes, Uri}
-import akka.util.ByteString
+import org.apache.pekko.http.scaladsl.model.Multipart.FormData.BodyPart
+import org.apache.pekko.http.scaladsl.model.{HttpEntity, Multipart, StatusCodes, Uri}
+import org.apache.pekko.util.ByteString
 import com.advancedtelematic.libtuf.data.TufDataType.{
   RepoId,
   RsaKeyType,
@@ -27,7 +27,7 @@ import cats.syntax.show._
 import com.advancedtelematic.libats.data.PaginationResult
 import com.advancedtelematic.libtuf.data.TufCodecs._
 import com.advancedtelematic.libtuf.data.ClientCodecs._
-import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
+import com.github.pjfanning.pekkohttpcirce.FailFastCirceSupport._
 import com.advancedtelematic.libats.data.RefinedUtils._
 import com.advancedtelematic.libtuf.data.ClientDataType.TargetsRole
 import com.advancedtelematic.tuf.reposerver.util.NamespaceSpecOps.{
@@ -36,6 +36,7 @@ import com.advancedtelematic.tuf.reposerver.util.NamespaceSpecOps.{
   Namespaced
 }
 import eu.timepit.refined.api.Refined
+import PaginationResult.*
 
 class RepoResourceCommentSpec
     extends TufReposerverSpec
@@ -239,7 +240,7 @@ class RepoResourceCommentSpec
       status shouldBe StatusCodes.OK
       entityAs[PaginationResult[FilenameComment]].values.length shouldBe 2
       entityAs[PaginationResult[FilenameComment]].total shouldBe 2
-      entityAs[PaginationResult[FilenameComment]].limit shouldBe 50
+      entityAs[PaginationResult[FilenameComment]].limit shouldBe 50.toLimit
     }
   }
 
@@ -473,9 +474,9 @@ class RepoResourceCommentSpec
       // Fetch with search query
       Get(apiUri("user_repo/comments?offset=2&limit=2")).namespaced ~> routes ~> check {
         status shouldBe StatusCodes.OK
-        responseAs[PaginationResult[FilenameComment]].offset shouldBe 2
-        responseAs[PaginationResult[FilenameComment]].limit shouldBe 2
-        responseAs[PaginationResult[FilenameComment]].total shouldBe 3
+        responseAs[PaginationResult[FilenameComment]].offset shouldBe 2.toOffset
+        responseAs[PaginationResult[FilenameComment]].limit shouldBe 2.toLimit
+        responseAs[PaginationResult[FilenameComment]].total shouldBe 3L
         responseAs[PaginationResult[FilenameComment]].values.length shouldBe 1
 
         val comments = responseAs[PaginationResult[FilenameComment]].values

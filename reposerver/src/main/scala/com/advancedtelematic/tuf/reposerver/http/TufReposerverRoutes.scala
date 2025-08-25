@@ -1,7 +1,7 @@
 package com.advancedtelematic.tuf.reposerver.http
 
-import akka.http.scaladsl.server.{Directives, _}
-import akka.stream.Materializer
+import org.apache.pekko.http.scaladsl.server.{Directives, _}
+import org.apache.pekko.stream.Materializer
 import com.advancedtelematic.libats.http.DefaultRejectionHandler._
 import com.advancedtelematic.libats.http.ErrorHandler
 import com.advancedtelematic.libats.messaging.MessageBusPublisher

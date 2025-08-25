@@ -1,8 +1,8 @@
 package com.advancedtelematic.tuf.reposerver.http
 
-import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.server.{Directive, Directives}
-import akka.http.scaladsl.unmarshalling.PredefinedFromStringUnmarshallers.CsvSeq
+import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.server.{Directive, Directives, MalformedQueryParamRejection}
+import org.apache.pekko.http.scaladsl.unmarshalling.PredefinedFromStringUnmarshallers.CsvSeq
 import com.advancedtelematic.libtuf.data.ClientDataType.TargetCustom
 import com.advancedtelematic.libtuf.data.TufDataType.TargetFormat.TargetFormat
 import com.advancedtelematic.libtuf.data.TufDataType.{
@@ -12,9 +12,10 @@ import com.advancedtelematic.libtuf.data.TufDataType.{
   TargetVersion
 }
 import io.circe.*
-import akka.http.scaladsl.unmarshalling.*
-import akka.http.scaladsl.util.FastFuture
+import org.apache.pekko.http.scaladsl.unmarshalling.*
+import org.apache.pekko.http.scaladsl.util.FastFuture
 import com.advancedtelematic.libats.data.ErrorCode
+import com.advancedtelematic.libats.data.PaginationResult.{Limit, Offset}
 import com.advancedtelematic.libats.http.RefinedMarshallingSupport.*
 import com.advancedtelematic.libats.http.AnyvalMarshallingSupport.*
 import com.advancedtelematic.libats.http.Errors.RawError
@@ -23,10 +24,12 @@ import scala.collection.immutable
 import com.advancedtelematic.libtuf_server.data.Marshalling.targetFormatFromStringUnmarshaller
 import com.advancedtelematic.tuf.reposerver.http.CustomParameterUnmarshallers.nonNegativeLong
 
+import scala.math.Ordering.Implicits.infixOrderingOps
+
 object TargetCustomParameterExtractors {
 
-  import akka.http.scaladsl.server.Directives._
-  import akka.http.scaladsl.server._
+  import org.apache.pekko.http.scaladsl.server.Directives._
+  import org.apache.pekko.http.scaladsl.server._
   import com.advancedtelematic.libats.http.RefinedMarshallingSupport._
 
   val all: Directive1[TargetCustom] =
@@ -59,15 +62,26 @@ object CustomParameterUnmarshallers {
 
 object PaginationParamsOps {
 
-  implicit class PaginationResultOps(x: Option[Long]) {
-    def orDefaultOffset: Long = x.getOrElse(0L)
-    def orDefaultLimit: Long = x.getOrElse(50L)
+  implicit class PaginationResultOffsetOps(x: Option[Offset]) {
+    def orDefaultOffset: Offset = x.getOrElse(Offset(0L))
+  }
+
+  implicit class PaginationResultLimitOps(x: Option[Limit]) {
+    def orDefaultLimit: Limit = x.getOrElse(Limit(50L))
   }
 
   import Directives.*
 
-  val PaginationParams: Directive[(Long, Long)] =
-    parameters("offset".as(nonNegativeLong).?, "limit".as(nonNegativeLong).?)
-      .tmap { case (offset, limit) => offset.orDefaultOffset -> limit.orDefaultLimit }
+  val PaginationParams: Directive[(Offset, Limit)] =
+    (parameters(Symbol("limit").as[Long].?) & parameters(Symbol("offset").as[Long].?)).tflatMap {
+      case (Some(mlimit), _) if mlimit < 0 =>
+        reject(MalformedQueryParamRejection("limit", "limit cannot be negative"))
+      case (_, Some(mOffset)) if mOffset < 0 =>
+        reject(MalformedQueryParamRejection("offset", "offset cannot be negative"))
+      case (mLimit, mOffset) =>
+        val limit = mLimit.map(Limit.apply).orDefaultLimit
+        val offset = mOffset.map(Offset.apply).orDefaultOffset
+        tprovide(offset, limit)
+    }
 
 }

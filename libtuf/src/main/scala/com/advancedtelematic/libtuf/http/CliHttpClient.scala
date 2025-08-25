@@ -9,25 +9,25 @@ import com.advancedtelematic.libtuf.http.CliHttpClient.{
   CliResponse,
   HttpClient
 }
-import io.circe.syntax._
+import io.circe.syntax.*
 import io.circe.{Decoder, Encoder, Json}
 import org.slf4j.LoggerFactory
-import sttp.client.SttpClientException.{ConnectException, ReadException}
-import sttp.client.{Request, Response, SttpBackend}
+import sttp.client4.SttpClientException.{ConnectException, ReadException}
+import sttp.client4.{Backend, Request, Response}
 import sttp.model.{MediaType, StatusCode}
 
 import java.io.ByteArrayOutputStream
 import java.util.zip.GZIPOutputStream
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
 import scala.util.control.NoStackTrace
 import scala.util.{Success, Try}
 
 object CliHttpClient {
-  type CliHttpBackend = SttpBackend[Future, Nothing, Nothing]
+  type CliHttpBackend = Backend[Future]
 
-  type CliRequest = Request[Array[Byte], Nothing]
+  type CliRequest = Request[Array[Byte]]
   type CliResponse = Response[Array[Byte]]
   type HttpClient = CliRequest => Future[CliResponse]
 
@@ -53,7 +53,7 @@ abstract class CliHttpClient(httpBackend: CliHttpBackend)(implicit ec: Execution
 
   private val log = LoggerFactory.getLogger(this.getClass)
 
-  import sttp.client._
+  import sttp.client4.*
 
   protected def http = basicRequest.response(asByteArrayAlways)
 
@@ -81,7 +81,7 @@ abstract class CliHttpClient(httpBackend: CliHttpBackend)(implicit ec: Execution
       gzip.write(bodyBytes)
       gzip.close()
 
-      val body = ByteArrayBody(baos.toByteArray, Option(MediaType.ApplicationGzip))
+      val body = ByteArrayBody(baos.toByteArray, MediaType.ApplicationGzip)
 
       request
         .body(body)
@@ -119,8 +119,7 @@ abstract class CliHttpClient(httpBackend: CliHttpBackend)(implicit ec: Execution
     else
       io.circe.parser.parse(new String(response.body)).flatMap(_.as[T]).toTry
 
-  protected def handleErrorResponse[T](request: Request[Array[Byte], Nothing],
-                                       resp: Response[Array[Byte]])(
+  protected def handleErrorResponse[T](request: Request[Array[Byte]], resp: Response[Array[Byte]])(
     errorHandler: PartialFunction[(Int, ErrorRepresentation), Future[T]] = defaultErrorHandler())
     : Future[Response[T]] = {
     val parsedErr = tryErrorParsing(resp)
@@ -137,7 +136,7 @@ abstract class CliHttpClient(httpBackend: CliHttpBackend)(implicit ec: Execution
     }
   }
 
-  protected def handleResponse[T: ClassTag: Decoder](request: Request[Array[Byte], Nothing],
+  protected def handleResponse[T: ClassTag: Decoder](request: Request[Array[Byte]],
                                                      resp: Response[Array[Byte]])(
     errorHandler: PartialFunction[(Int, ErrorRepresentation), Future[T]] = defaultErrorHandler())
     : Future[Response[T]] =

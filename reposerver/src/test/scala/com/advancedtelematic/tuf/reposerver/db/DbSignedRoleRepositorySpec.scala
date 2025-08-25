@@ -1,7 +1,7 @@
 package com.advancedtelematic.tuf.reposerver.db
 
 import java.time.Instant
-import akka.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.model.StatusCodes
 import com.advancedtelematic.libats.data.DataType.{Checksum, HashMethod, ValidChecksum}
 import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RepoId, RoleType}
 import io.circe.Json

@@ -1,10 +1,10 @@
 package com.advancedtelematic.tuf.keyserver.daemon
 
 import java.security.Security
-import akka.actor.ActorSystem
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.Http.ServerBinding
-import akka.http.scaladsl.server.Route
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.Http
+import org.apache.pekko.http.scaladsl.Http.ServerBinding
+import org.apache.pekko.http.scaladsl.server.Route
 import com.advancedtelematic.tuf.keyserver.{Settings, VersionInfo}
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import com.advancedtelematic.libats.slick.db.{
@@ -38,7 +38,7 @@ class KeyserverDaemon(override val globalConfig: Config,
 
   import com.advancedtelematic.libats.http.LogDirectives._
   import com.advancedtelematic.libats.http.VersionDirectives._
-  import akka.http.scaladsl.server.Directives._
+  import org.apache.pekko.http.scaladsl.server.Directives._
 
   import system.dispatcher
 

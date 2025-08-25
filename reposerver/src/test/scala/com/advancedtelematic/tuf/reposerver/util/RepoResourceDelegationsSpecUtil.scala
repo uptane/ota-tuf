@@ -2,7 +2,7 @@ package com.advancedtelematic.tuf.reposerver.util
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import akka.http.scaladsl.model.{StatusCodes, Uri}
+import org.apache.pekko.http.scaladsl.model.{StatusCodes, Uri}
 import cats.syntax.option.*
 import cats.syntax.show.*
 import com.advancedtelematic.libats.data.DataType.{HashMethod, ValidChecksum}
@@ -32,7 +32,7 @@ import com.advancedtelematic.libtuf.data.ValidatedString.*
 import com.advancedtelematic.libtuf_server.crypto.Sha256Digest
 import com.advancedtelematic.libtuf_server.repo.server.RepoRoleRefresh
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.AddDelegationFromRemoteRequest
-import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
+import com.github.pjfanning.pekkohttpcirce.FailFastCirceSupport.*
 import io.circe.syntax.*
 import org.scalactic.source.Position
 

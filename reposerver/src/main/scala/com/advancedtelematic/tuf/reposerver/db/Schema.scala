@@ -1,7 +1,7 @@
 package com.advancedtelematic.tuf.reposerver.db
 
 import java.time.Instant
-import akka.http.scaladsl.model.Uri
+import org.apache.pekko.http.scaladsl.model.Uri
 import com.advancedtelematic.libats.data.DataType.{Checksum, Namespace}
 import com.advancedtelematic.libtuf.data.ClientDataType.{
   DelegatedRoleName,
@@ -37,7 +37,9 @@ object Schema {
     def checksum = column[Checksum]("checksum")
     def length = column[Long]("length")
     def updatedAt = column[Instant]("updated_at")(javaInstantMapping)
-    def targetCreatedAt = column[Option[Instant]]("target_created_at")(javaInstantMapping.optionType)
+
+    def targetCreatedAt =
+      column[Option[Instant]]("target_created_at")(javaInstantMapping.optionType)
 
     def pk = primaryKey("delegated_items_pk", (repoId, roleName, filename))
 

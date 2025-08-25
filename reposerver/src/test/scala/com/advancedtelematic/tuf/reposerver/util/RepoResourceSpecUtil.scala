@@ -3,8 +3,8 @@ package com.advancedtelematic.tuf.reposerver.util
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
-import akka.http.scaladsl.model.{HttpRequest, StatusCodes, Uri}
-import akka.http.scaladsl.testkit.ScalatestRouteTest
+import org.apache.pekko.http.scaladsl.model.{HttpRequest, StatusCodes, Uri}
+import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.advancedtelematic.libats.data.DataType.HashMethod
 import com.advancedtelematic.libtuf.data.ClientDataType.{
   ClientHashes,
@@ -34,7 +34,7 @@ import org.scalatest.concurrent.ScalaFutures
 import cats.syntax.show._
 import cats.syntax.option._
 import io.circe.syntax._
-import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
+import com.github.pjfanning.pekkohttpcirce.FailFastCirceSupport._
 import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.libats.http.HttpCodecs._
 

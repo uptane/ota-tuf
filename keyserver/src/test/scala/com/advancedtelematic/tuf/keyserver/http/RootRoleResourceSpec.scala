@@ -2,9 +2,9 @@ package com.advancedtelematic.tuf.keyserver.http
 
 import java.time.{Duration, Instant}
 import java.time.temporal.ChronoUnit
-import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.model.headers.RawHeader
-import akka.http.scaladsl.testkit.RouteTest
+import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.model.headers.RawHeader
+import org.apache.pekko.http.scaladsl.testkit.RouteTest
 import com.advancedtelematic.tuf.util.{
   KeyTypeSpecSupport,
   ResourceSpec,
@@ -12,7 +12,7 @@ import com.advancedtelematic.tuf.util.{
   TufKeyserverSpec
 }
 import io.circe.generic.auto.*
-import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
+import com.github.pjfanning.pekkohttpcirce.FailFastCirceSupport.*
 import cats.syntax.show.*
 import com.advancedtelematic.libats.data.ErrorRepresentation
 import com.advancedtelematic.libtuf.crypt.TufCrypto

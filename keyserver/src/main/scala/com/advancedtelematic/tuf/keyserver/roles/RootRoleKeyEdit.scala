@@ -1,6 +1,6 @@
 package com.advancedtelematic.tuf.keyserver.roles
 
-import akka.http.scaladsl.util.FastFuture
+import org.apache.pekko.http.scaladsl.util.FastFuture
 import cats.implicits._
 import com.advancedtelematic.tuf.keyserver.db.KeyRepositorySupport
 import com.advancedtelematic.libtuf.crypt.TufCrypto
