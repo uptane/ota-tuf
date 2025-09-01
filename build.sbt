@@ -8,7 +8,7 @@ lazy val UnitTest = config("ut").extend(Test)
 
 lazy val commonConfigs = Seq(ItTest, UnitTest)
 
-val libatsVersion = "3.0.5"
+val libatsVersion = "5.0.0"
 
 lazy val commonDeps = libraryDependencies ++= {
   val scalaTestV = "3.2.19"
