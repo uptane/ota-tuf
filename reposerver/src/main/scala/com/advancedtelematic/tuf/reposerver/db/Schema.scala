@@ -1,7 +1,7 @@
 package com.advancedtelematic.tuf.reposerver.db
 
 import java.time.Instant
-import akka.http.scaladsl.model.Uri
+import org.apache.pekko.http.scaladsl.model.Uri
 import com.advancedtelematic.libats.data.DataType.{Checksum, Namespace}
 import com.advancedtelematic.libtuf.data.ClientDataType.{
   DelegatedRoleName,

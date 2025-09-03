@@ -1,10 +1,10 @@
 package com.advancedtelematic.tuf.reposerver.target_store
 
-import akka.http.scaladsl.model.Uri
-import akka.http.scaladsl.util.FastFuture
-import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, Keep, Sink, Source}
-import akka.stream.{Materializer, SinkShape}
-import akka.util.ByteString
+import org.apache.pekko.http.scaladsl.model.Uri
+import org.apache.pekko.http.scaladsl.util.FastFuture
+import org.apache.pekko.stream.scaladsl.{Broadcast, Flow, GraphDSL, Keep, Sink, Source}
+import org.apache.pekko.stream.{Materializer, SinkShape}
+import org.apache.pekko.util.ByteString
 import com.advancedtelematic.libtuf.data.TufDataType
 import com.advancedtelematic.libtuf.data.TufDataType.{MultipartUploadId, RepoId, TargetFilename}
 import com.advancedtelematic.libtuf_server.crypto.Sha256Digest
@@ -39,7 +39,7 @@ class AzureTargetStoreEngine(private val settings: BlobStorageSettings)(
   ec: ExecutionContext)
     extends TargetStoreEngine {
 
-  import scala.compat.java8.FutureConverters._
+  import scala.jdk.FutureConverters._
   import scala.concurrent.duration._
 
   private[this] val log = LoggerFactory.getLogger(this.getClass)
@@ -62,7 +62,7 @@ class AzureTargetStoreEngine(private val settings: BlobStorageSettings)(
     blobClient
       .stageBlock(blockId, Flux.just[ByteBuffer](data.toByteBuffer), data.length.toLong)
       .toFuture
-      .toScala
+      .asScala
       .map(_ => blockId)
   }
 
@@ -76,7 +76,7 @@ class AzureTargetStoreEngine(private val settings: BlobStorageSettings)(
       .fold(ListBuffer.empty[String])((xs, x) => xs += x)
       .mapAsync(1) { xs =>
         import scala.jdk.CollectionConverters._
-        blobClient.commitBlockList(xs.asJava).toFuture.toScala
+        blobClient.commitBlockList(xs.asJava).toFuture.asScala
       }
       .toMat(Sink.head)(Keep.right)
 
@@ -132,7 +132,7 @@ class AzureTargetStoreEngine(private val settings: BlobStorageSettings)(
         }
       }
       .toFuture
-      .toScala
+      .asScala
 
   private[this] def containerName(repoId: TufDataType.RepoId): String =
     repoId.uuid.toString
@@ -182,7 +182,7 @@ class AzureTargetStoreEngine(private val settings: BlobStorageSettings)(
   }
 
   override def delete(repoId: TufDataType.RepoId, filename: TargetFilename): Future[Unit] =
-    mkBlobClient(repoId, filename).delete().toFuture.toScala.map(_ => ())
+    mkBlobClient(repoId, filename).delete().toFuture.asScala.map(_ => ())
 
   private lazy val multipartUploadIsNotSupportedError =
     FastFuture.failed(

@@ -5,58 +5,40 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-
-import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.server.Route
-import akka.stream.scaladsl.{FileIO, Source}
-import akka.stream.IOResult
-import akka.util.ByteString
-import akka.Done
+import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.server.Route
+import org.apache.pekko.stream.scaladsl.{FileIO, Source}
+import org.apache.pekko.stream.IOResult
+import org.apache.pekko.util.ByteString
+import org.apache.pekko.Done
 import com.advancedtelematic.libtuf.crypt.{Sha256FileDigest, TufCrypto}
-import com.advancedtelematic.libtuf.data.ClientDataType.{
-  ClientTargetItem,
-  TargetCustom,
-  TargetsRole
-}
-import com.advancedtelematic.libtuf.data.TufDataType.{
-  Ed25519KeyType,
-  RepoId,
-  RoleType,
-  SignedPayload,
-  TargetFormat,
-  TargetName,
-  TargetVersion,
-  ValidTargetFilename
-}
+import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, TargetCustom, TargetsRole}
+import com.advancedtelematic.libtuf.data.TufDataType.{Ed25519KeyType, RepoId, RoleType, SignedPayload, TargetFormat, TargetName, TargetVersion, ValidTargetFilename}
 import com.advancedtelematic.libtuf.http.ReposerverHttpClient
 import com.advancedtelematic.libtuf_server.data.Requests
 import com.advancedtelematic.tuf.reposerver.target_store.{AzureTargetStoreEngine, TargetStore}
 import com.advancedtelematic.tuf.reposerver.util.{ResourceSpec, TufReposerverSpec}
 import com.advancedtelematic.tuf.reposerver.Settings
-import org.scalatest.{time, BeforeAndAfterAll, Inspectors}
+import org.scalatest.{BeforeAndAfterAll, Inspectors, time}
 import org.scalatest.concurrent.PatienceConfiguration
 import org.scalatest.prop.Whenever
-import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
+import com.github.pjfanning.pekkohttpcirce.FailFastCirceSupport.*
 import org.scalatest.time.{Millis, Seconds, Span}
-import sttp.client._
-import sttp.client.akkahttp.{AkkaHttpBackend, AkkaHttpClient}
-import sttp.client.{Identity, Request, Response, SttpBackend}
-import sttp.client.monad.MonadError
-import sttp.client.ws.WebSocketResponse
+import sttp.client4.*
+import sttp.client4.pekkohttp.{PekkoHttpBackend, PekkoHttpClient}
 import sttp.model.{StatusCode, Uri}
-import org.scalatest.OptionValues._
-import cats.syntax.option._
-import cats.syntax.show._
-import io.circe.syntax._
-import com.advancedtelematic.libtuf.data.ClientCodecs._
-import com.advancedtelematic.libtuf.data.ClientDataType.{
-  ClientTargetItem,
-  TargetCustom,
-  TargetsRole
-}
-import com.advancedtelematic.libtuf.data.TufCodecs._
+import org.scalatest.OptionValues.*
+import cats.syntax.option.*
+import cats.syntax.show.*
+import io.circe.syntax.*
+import com.advancedtelematic.libtuf.data.ClientCodecs.*
+import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, TargetCustom, TargetsRole}
+import com.advancedtelematic.libtuf.data.TufCodecs.*
+import sttp.{capabilities, client4}
+import sttp.capabilities.pekko.PekkoStreams
+import sttp.client4.{GenericRequest, WebSocketStreamBackend}
 
-import scala.concurrent.{duration, Future}
+import scala.concurrent.{Future, duration}
 import scala.concurrent.duration.Duration
 import scala.util.{Random, Success}
 
@@ -130,25 +112,21 @@ class AzureIntegrationSpec
   }
 
   test("cli upload and download") {
-    val realClient = AkkaHttpBackend.apply()
+    val realClient = PekkoHttpBackend.apply()
     val testBackend =
-      AkkaHttpBackend.usingClient(system, http = AkkaHttpClient.stubFromRoute(Route.seal(routes)))
+      PekkoHttpBackend.usingClient(system, http = PekkoHttpClient.stubFromRoute(Route.seal(routes)))
 
-    val testBackendWithFallback = new SttpBackend[Future, Nothing, Nothing]() {
-      override def send[T](request: Request[T, Nothing]): Future[Response[T]] =
-        if (request.uri.host == "0.0.0.0") {
+    val testBackendWithFallback = new WebSocketStreamBackend[Future, PekkoStreams]() {
+      override def send[T](request: GenericRequest[T, PekkoStreams & capabilities.WebSockets & capabilities.Effect[Future]]): Future[client4.Response[T]] =
+        if (request.uri.host.contains("0.0.0.0")) {
           testBackend.send(request)
         } else {
           realClient.send(request)
         }
 
-      override def openWebsocket[T, WS_RESULT](
-        request: Request[T, Nothing],
-        handler: Nothing): Future[WebSocketResponse[WS_RESULT]] = ???
-
       override def close(): Future[Unit] = testBackend.close()
 
-      override def responseMonad: MonadError[Future] = testBackend.responseMonad
+      override def monad: sttp.monad.MonadError[Future] = testBackend.monad
     }
 
     val client = new ReposerverHttpClient(URI.create("http://0.0.0.0"), testBackendWithFallback)

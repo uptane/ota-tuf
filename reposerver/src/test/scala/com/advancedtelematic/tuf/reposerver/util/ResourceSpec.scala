@@ -1,14 +1,14 @@
 package com.advancedtelematic.tuf.reposerver.util
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.model.*
-import akka.http.scaladsl.server.{Directive1, Directives, Route}
-import akka.http.scaladsl.testkit.{RouteTestTimeout, ScalatestRouteTest}
-import akka.http.scaladsl.unmarshalling.FromEntityUnmarshaller
-import akka.http.scaladsl.util.FastFuture
-import akka.stream.scaladsl.Source
-import akka.testkit.TestDuration
-import akka.util.ByteString
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.model.*
+import org.apache.pekko.http.scaladsl.server.{Directive1, Directives, Route}
+import org.apache.pekko.http.scaladsl.testkit.{RouteTestTimeout, ScalatestRouteTest}
+import org.apache.pekko.http.scaladsl.unmarshalling.FromEntityUnmarshaller
+import org.apache.pekko.http.scaladsl.util.FastFuture
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.testkit.TestDuration
+import org.apache.pekko.util.ByteString
 import com.advancedtelematic.libats.data.DataType.{Checksum, Namespace}
 import com.advancedtelematic.libats.http.NamespaceDirectives
 import com.advancedtelematic.libats.http.tracing.NullServerRequestTracing
@@ -17,14 +17,7 @@ import com.advancedtelematic.libats.messaging.MemoryMessageBus
 import com.advancedtelematic.libats.test.MysqlDatabaseSpec
 import com.advancedtelematic.libtuf.crypt.{Sha256FileDigest, TufCrypto}
 import com.advancedtelematic.libtuf.data.ClientCodecs.*
-import com.advancedtelematic.libtuf.data.ClientDataType.{
-  ClientTargetItem,
-  RoleKeys,
-  RootRole,
-  TargetCustom,
-  TargetsRole,
-  TufRole
-}
+import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, RoleKeys, RootRole, TargetCustom, TargetsRole, TufRole}
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 import com.advancedtelematic.libtuf.data.TufDataType.*
 import com.advancedtelematic.libtuf.http.ReposerverHttpClient
@@ -34,7 +27,7 @@ import com.advancedtelematic.tuf.reposerver.http.{Errors, NamespaceValidation, T
 import com.advancedtelematic.tuf.reposerver.target_store.{LocalTargetStoreEngine, TargetStore}
 import com.advancedtelematic.tuf.reposerver.util.ResourceSpec.TargetInfo
 import io.circe.{Codec, Json}
-import sttp.client.{NothingT, SttpBackend}
+import sttp.client4.{Backend, StreamBackend}
 import sttp.model.StatusCodes
 
 import java.nio.charset.StandardCharsets
@@ -312,9 +305,8 @@ trait FakeHttpClientSpec {
 trait HttpClientSpecSupport {
   self: ResourceSpec =>
 
-  def testHttpClient(
-    req: akka.http.scaladsl.model.HttpRequest): Future[akka.http.scaladsl.model.HttpResponse] = {
-    val p = Promise[akka.http.scaladsl.model.HttpResponse]()
+  def testHttpClient(req: HttpRequest): Future[HttpResponse] = {
+    val p = Promise[HttpResponse]()
     req ~> Route.seal(routes) ~> check(p.success(response))
     p.future
   }
@@ -453,7 +445,7 @@ trait ResourceSpec
   protected def updateTargetsMetadata(repoId: RepoId, targetInfo: TargetInfo): Unit = {
     import cats.syntax.option._
     import com.advancedtelematic.libtuf.data.TufCodecs._
-    import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
+    import com.github.pjfanning.pekkohttpcirce.FailFastCirceSupport._
     import io.circe.syntax._
 
     val rootRole = fakeKeyserverClient.fetchRootRole(repoId).futureValue
@@ -495,11 +487,11 @@ trait ResourceSpec
     }
   }
 
-  def downloadTarget(client: SttpBackend[Future, Source[ByteString, Any], NothingT],
+  def downloadTarget(client: Backend[Future],
                      redirectEndpointSuyffix: String,
                      repoId: RepoId,
                      targetInfo: TargetInfo): Unit = {
-    import sttp.client._
+    import sttp.client4.*
     import sttp.model.Uri
 
     Get(
@@ -507,7 +499,7 @@ trait ResourceSpec
     ) ~> routes ~> check {
       status shouldBe StatusCodes.Found
       val uri = Uri.parse(header("Location").value.value()).toOption.get
-      uri.host should include(redirectEndpointSuyffix)
+      uri.host.value should include(redirectEndpointSuyffix)
 
       val downloadPath = Files.createTempFile("s3download", "txt")
       val req = basicRequest.get(uri).response(asPathAlways(downloadPath))

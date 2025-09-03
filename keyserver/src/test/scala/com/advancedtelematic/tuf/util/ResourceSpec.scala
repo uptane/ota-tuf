@@ -1,13 +1,13 @@
 package com.advancedtelematic.tuf.util
 
-import akka.http.scaladsl.testkit.{RouteTestTimeout, ScalatestRouteTest}
+import org.apache.pekko.http.scaladsl.testkit.{RouteTestTimeout, ScalatestRouteTest}
 import com.advancedtelematic.tuf.keyserver.http.TufKeyserverRoutes
-import akka.actor.ActorSystem
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
-import akka.http.scaladsl.server.Route
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.model.{HttpRequest, HttpResponse}
+import org.apache.pekko.http.scaladsl.server.Route
 
 import scala.concurrent.duration._
-import akka.testkit.TestDuration
+import org.apache.pekko.testkit.TestDuration
 import com.advancedtelematic.libats.test.MysqlDatabaseSpec
 import com.advancedtelematic.libtuf.data.TufDataType.{Ed25519KeyType, KeyType, RepoId, RsaKeyType}
 import com.advancedtelematic.tuf.keyserver.daemon.DefaultKeyGenerationOp

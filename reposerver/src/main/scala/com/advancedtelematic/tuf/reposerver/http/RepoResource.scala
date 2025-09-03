@@ -1,15 +1,26 @@
 package com.advancedtelematic.tuf.reposerver.http
 
-import java.time.Instant
+import com.advancedtelematic.libats.data.PaginationResult.*
 import io.circe.syntax.*
 import com.advancedtelematic.libats.data.ErrorRepresentation.*
-import akka.http.scaladsl.model.headers.{RawHeader, `Content-Length`}
-import akka.http.scaladsl.model.{EntityStreamException, HttpEntity, HttpHeader, HttpRequest, HttpResponse, MediaTypes, ParsingException, StatusCode, StatusCodes, Uri}
-import akka.http.scaladsl.server.*
-import akka.http.scaladsl.unmarshalling.*
-import akka.http.scaladsl.util.FastFuture
-import akka.stream.scaladsl.Source
-import akka.util.ByteString
+import org.apache.pekko.http.scaladsl.model.headers.{`Content-Length`, RawHeader}
+import org.apache.pekko.http.scaladsl.model.{
+  EntityStreamException,
+  HttpEntity,
+  HttpHeader,
+  HttpRequest,
+  HttpResponse,
+  MediaTypes,
+  ParsingException,
+  StatusCode,
+  StatusCodes,
+  Uri
+}
+import org.apache.pekko.http.scaladsl.server.*
+import org.apache.pekko.http.scaladsl.unmarshalling.*
+import org.apache.pekko.http.scaladsl.util.FastFuture
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.util.ByteString
 import cats.data.Validated.{Invalid, Valid}
 import com.advancedtelematic.libats.codecs.CirceRefined.*
 import com.advancedtelematic.libats.codecs.CirceValidatedGeneric.validatedGenericDecoder
@@ -17,13 +28,24 @@ import com.advancedtelematic.libats.data.DataType.HashMethod.HashMethod
 import com.advancedtelematic.libats.data.RefinedUtils.*
 import com.advancedtelematic.libats.http.Errors.{EntityAlreadyExists, MissingEntity}
 import com.advancedtelematic.libats.http.RefinedMarshallingSupport.*
-import com.advancedtelematic.libats.http.UUIDKeyAkka.*
+import com.advancedtelematic.libats.http.UUIDKeyPekko.*
 import com.advancedtelematic.libtuf.data.ClientCodecs.*
-import com.advancedtelematic.libtuf.data.ClientDataType.{ClientHashes, ClientTargetItem, DelegatedRoleName, Delegation, DelegationClientTargetItem, DelegationInfo, RootRole, TargetCustom, TargetsRole}
+import com.advancedtelematic.libtuf.data.ClientDataType.{
+  ClientHashes,
+  ClientTargetItem,
+  DelegatedRoleName,
+  Delegation,
+  DelegationClientTargetItem,
+  DelegationInfo,
+  RootRole,
+  TargetCustom,
+  TargetsRole
+}
 import com.advancedtelematic.libtuf.data.TufCodecs.*
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 import com.advancedtelematic.libats.http.AnyvalMarshallingSupport.*
 import com.advancedtelematic.libats.data.DataType.{Namespace, ValidChecksum}
+import com.advancedtelematic.libats.data.PaginationResult.{Limit, Offset}
 import com.advancedtelematic.libats.data.{ErrorRepresentation, PaginationResult}
 import com.advancedtelematic.libtuf.data.{ClientCodecs, TufCodecs}
 import com.advancedtelematic.libtuf.data.TufDataType.*
@@ -31,18 +53,29 @@ import com.advancedtelematic.libtuf_server.data.Marshalling.*
 import com.advancedtelematic.libtuf_server.data.Requests.*
 import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient
 import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient.RootRoleNotFound
-import com.advancedtelematic.libtuf_server.repo.client.ReposerverClient.{EditTargetItem, RequestTargetItem}
+import com.advancedtelematic.libtuf_server.repo.client.ReposerverClient.{
+  EditTargetItem,
+  RequestTargetItem
+}
 import com.advancedtelematic.libtuf_server.repo.server.DataType.SignedRole
 import com.advancedtelematic.tuf.reposerver.Settings
 import com.advancedtelematic.libtuf_server.repo.server.DataType.*
 import com.advancedtelematic.libtuf_server.repo.server.RepoRoleRefresh
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.*
 import com.advancedtelematic.tuf.reposerver.db.*
-import com.advancedtelematic.tuf.reposerver.delegations.{DelegationsManagement, RemoteDelegationClient}
-import com.advancedtelematic.tuf.reposerver.http.Errors.{DelegationNotFound, NoRepoForNamespace, RequestCanceledByUpstream, TargetNotFoundError}
+import com.advancedtelematic.tuf.reposerver.delegations.{
+  DelegationsManagement,
+  RemoteDelegationClient
+}
+import com.advancedtelematic.tuf.reposerver.http.Errors.{
+  DelegationNotFound,
+  NoRepoForNamespace,
+  RequestCanceledByUpstream,
+  TargetNotFoundError
+}
 import com.advancedtelematic.tuf.reposerver.http.RoleChecksumHeader.*
 import com.advancedtelematic.tuf.reposerver.target_store.TargetStore
-import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
+import com.github.pjfanning.pekkohttpcirce.FailFastCirceSupport.*
 import io.circe.Json
 import org.slf4j.LoggerFactory
 import slick.jdbc.MySQLProfile.api.*
@@ -52,11 +85,11 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 import com.advancedtelematic.tuf.reposerver.data.RepoCodecs.*
 import com.advancedtelematic.tuf.reposerver.http.CustomParameterUnmarshallers.nonNegativeLong
-import com.advancedtelematic.tuf.reposerver.http.PaginationParamsOps.PaginationResultOps
-import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport
+import com.advancedtelematic.tuf.reposerver.http.PaginationParamsOps.*
+import com.github.pjfanning.pekkohttpcirce.FailFastCirceSupport
 import eu.timepit.refined.api.Refined
 import com.advancedtelematic.libtuf_server.data.Marshalling.jsonSignedPayloadMarshaller
-import com.advancedtelematic.tuf.reposerver.http.ReposerverAkkaPaths.TargetFilenamePath
+import com.advancedtelematic.tuf.reposerver.http.ReposerverPekkoPaths.TargetFilenamePath
 
 class RepoResource(keyserverClient: KeyserverClient,
                    namespaceValidation: NamespaceValidation,
@@ -94,7 +127,7 @@ class RepoResource(keyserverClient: KeyserverClient,
 
   private val timeoutResponseHandler: HttpRequest => HttpResponse = _ => {
     log.warn(
-      s"Request timed out from client. Returning ${StatusCodes.NetworkReadTimeout}. timeouts: akka-idle-timeout=$akkaIdleTimeout,akka-request-timeout=$akkaRequestTimeout,reposerver-request-timeout=$userRepoUploadRequestTimeout"
+      s"Request timed out from client. Returning ${StatusCodes.NetworkReadTimeout}. timeouts: pekko-idle-timeout=$pekkoIdleTimeout,pekko-request-timeout=$pekkoRequestTimeout,reposerver-request-timeout=$userRepoUploadRequestTimeout"
     )
     HttpResponse(
       StatusCodes.NetworkReadTimeout,
@@ -104,7 +137,7 @@ class RepoResource(keyserverClient: KeyserverClient,
 
   /*
     extractRequestEntity is needed for tests only. We should get this value from the `Content-Length` header.
-    Http clients send this as a header, but akka-http-testkit takes the header and makes it available only
+    Http clients send this as a header, but pekko-http-testkit takes the header and makes it available only
     through this method.
    */
   private val withContentLengthCheck: Directive1[Long] =
@@ -139,7 +172,6 @@ class RepoResource(keyserverClient: KeyserverClient,
       }
 
   val log = LoggerFactory.getLogger(this.getClass)
-
 
   private def createRepo(namespace: Namespace, repoId: RepoId, keyType: KeyType): Route =
     complete {
@@ -291,8 +323,8 @@ class RepoResource(keyserverClient: KeyserverClient,
 
   def findComments(repoId: RepoId,
                    nameContains: Option[String] = None,
-                   offset: Option[Long],
-                   limit: Option[Long]): Route =
+                   offset: Offset,
+                   limit: Limit): Route =
     complete {
       filenameCommentRepo.find(repoId, nameContains, offset, limit).map {
         _.map { case (filename, comment) => FilenameComment(filename, comment) }
@@ -515,15 +547,11 @@ class RepoResource(keyserverClient: KeyserverClient,
           (get & pathPrefix(TargetFilenamePath)) { filename =>
             complete(delegations.findTargetByFilename(repoId, filename))
           } ~
-            (pathEnd & parameters(
-              "offset".as(nonNegativeLong).?,
-              "limit".as(nonNegativeLong).?,
-              "nameContains".?
-            )) { (offset, limit, nameContains) =>
+            (pathEnd & PaginationParams & parameter("nameContains".?)) { (_, _, nameContains) =>
               // so currently the backend is parsing the json metadata file directly so we
               // dont do pagination here. Just return everything
               val targets = delegations.findTargets(repoId, nameContains).map { t =>
-                PaginationResult(t, t.length, 0, t.length)
+                PaginationResult(t, t.length, 0L.toOffset, t.length.toLimit)
               }
               complete(targets)
             }
@@ -655,12 +683,9 @@ class RepoResource(keyserverClient: KeyserverClient,
         } ~
         pathPrefix("comments") {
 
-          (pathEnd & parameters(
-            "offset".as(nonNegativeLong).?,
-            "limit".as(nonNegativeLong).?,
-            "nameContains".?
-          )) { (offset, limit, nameContains) =>
-            findComments(repoId, nameContains, offset, limit)
+          (pathEnd & PaginationParams & parameter("nameContains".?)) {
+            (offset, limit, nameContains) =>
+              findComments(repoId, nameContains, offset, limit)
           } ~
             pathPrefix(TargetFilenamePath) { filename =>
               put {
@@ -693,19 +718,19 @@ class RepoResource(keyserverClient: KeyserverClient,
               }
             complete(targetItem)
           } ~
-            (get & pathEnd & parameters(
-              "offset".as(nonNegativeLong).?,
-              "limit".as(nonNegativeLong).?,
-              "nameContains".?
-            )) { (offset, limit, nameContains) =>
-              val targetItems = targetItemRepo.findForPaginated(repoId, nameContains, offset, limit)
-              val clientTargetItems = targetItems.map(_.map { targetItem =>
-                val clientHashes: ClientHashes = Map[HashMethod, Refined[String, ValidChecksum]](
-                  targetItem.checksum.method -> targetItem.checksum.hash
-                )
-                ClientTargetItem(clientHashes, targetItem.length, Some(targetItem.custom.asJson))
-              })
-              complete(clientTargetItems)
+            (get & pathEnd & PaginationParams & parameter("nameContains".?)) {
+              (offset, limit, nameContains) =>
+                println(s"offset=$offset limit=$limit")
+
+                val targetItems =
+                  targetItemRepo.findForPaginated(repoId, nameContains, offset, limit)
+                val clientTargetItems = targetItems.map(_.map { targetItem =>
+                  val clientHashes: ClientHashes = Map[HashMethod, Refined[String, ValidChecksum]](
+                    targetItem.checksum.method -> targetItem.checksum.hash
+                  )
+                  ClientTargetItem(clientHashes, targetItem.length, Some(targetItem.custom.asJson))
+                })
+                complete(clientTargetItems)
             }
         }
     }

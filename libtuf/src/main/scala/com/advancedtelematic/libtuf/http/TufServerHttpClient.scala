@@ -33,7 +33,7 @@ import com.azure.storage.blob.BlobClientBuilder
 import eu.timepit.refined._
 import eu.timepit.refined.api.Refined
 import org.slf4j.LoggerFactory
-import sttp.client._
+import sttp.client4.*
 import sttp.model.{Header, HeaderNames, StatusCode, Uri}
 
 import scala.concurrent.duration._
@@ -209,13 +209,13 @@ class ReposerverHttpClient(uri: URI, httpBackend: CliHttpBackend)(implicit ec: E
       .response(asByteArrayAlways)
 
     val httpF: Future[Unit] = httpBackend.send(req).flatMap {
-      case r @ Response(_, StatusCode.Found, _, _, _) =>
+      case r @ Response(_, StatusCode.Found, _, _, _, _) =>
         r.header("Location")
           .fold[Either[String, Uri]](Left("No 'Location' header found."))(x => Uri.parse(x)) match {
           case Left(err) =>
             Future.failed(new Throwable(err))
 
-          case Right(uri) if uri.host.endsWith("core.windows.net") =>
+          case Right(uri) if uri.host.exists(_.endsWith("core.windows.net")) =>
             uploadToAzure(uri, inputPath, timeout)
 
           case Right(uri) =>

@@ -1,6 +1,6 @@
 package com.advancedtelematic.tuf.reposerver.http
 
-import akka.http.scaladsl.util.FastFuture
+import org.apache.pekko.http.scaladsl.util.FastFuture
 import cats.syntax.show.*
 import com.advancedtelematic.libats.codecs.CirceRefined
 import com.advancedtelematic.libats.data.DataType.Checksum

@@ -1,10 +1,10 @@
 package com.advancedtelematic.libtuf_server.keyserver
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.model.Uri.Path
-import akka.http.scaladsl.model.Uri.Path.{Empty, Slash}
-import akka.http.scaladsl.model.headers.RawHeader
-import akka.http.scaladsl.model.{StatusCodes, *}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.model.Uri.Path
+import org.apache.pekko.http.scaladsl.model.Uri.Path.{Empty, Slash}
+import org.apache.pekko.http.scaladsl.model.headers.RawHeader
+import org.apache.pekko.http.scaladsl.model.{StatusCodes, *}
 import cats.syntax.show.*
 import com.advancedtelematic.libats.data.ErrorCode
 import com.advancedtelematic.libats.http.Errors.{RawError, RemoteServiceError}
@@ -97,7 +97,7 @@ class KeyserverHttpClient(uri: Uri, httpClient: HttpRequest => Future[HttpRespon
     with KeyserverClient {
 
   import KeyserverClient._
-  import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
+  import com.github.pjfanning.pekkohttpcirce.FailFastCirceSupport._
   import io.circe.syntax._
   import com.advancedtelematic.libats.http.ServiceHttpClient._
   import system.dispatcher

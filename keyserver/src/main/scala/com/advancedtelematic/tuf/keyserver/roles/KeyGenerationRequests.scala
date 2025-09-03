@@ -2,7 +2,7 @@ package com.advancedtelematic.tuf.keyserver.roles
 
 import java.time.temporal.ChronoUnit
 import java.time.{Duration, Instant}
-import akka.http.scaladsl.util.FastFuture
+import org.apache.pekko.http.scaladsl.util.FastFuture
 import cats.data.Validated.{Invalid, Valid}
 import cats.data.ValidatedNel
 import com.advancedtelematic.libtuf.data.ClientCodecs.*

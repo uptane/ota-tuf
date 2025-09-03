@@ -1,7 +1,12 @@
 package com.advancedtelematic.tuf.reposerver.http
 
-import akka.http.scaladsl.server.Directives.onComplete
-import akka.http.scaladsl.server.{AuthorizationFailedRejection, Directive, Directive1, Directives}
+import org.apache.pekko.http.scaladsl.server.Directives.onComplete
+import org.apache.pekko.http.scaladsl.server.{
+  AuthorizationFailedRejection,
+  Directive,
+  Directive1,
+  Directives
+}
 import com.advancedtelematic.libats.data.DataType.Namespace
 import com.advancedtelematic.libats.http.Errors.MissingEntity
 import com.advancedtelematic.libats.http.NamespaceDirectives

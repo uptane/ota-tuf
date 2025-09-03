@@ -5,8 +5,8 @@ import org.scalatest.LoneElement.*
 import cats.implicits.*
 import io.circe.syntax.*
 import org.scalatest.OptionValues.*
-import akka.http.scaladsl.model.{HttpEntity, StatusCodes}
-import akka.util.ByteString
+import org.apache.pekko.http.scaladsl.model.{HttpEntity, StatusCodes}
+import org.apache.pekko.util.ByteString
 import com.advancedtelematic.libats.data.PaginationResult
 import com.advancedtelematic.tuf.reposerver.util.{
   RepoResourceDelegationsSpecUtil,
@@ -14,7 +14,7 @@ import com.advancedtelematic.tuf.reposerver.util.{
   TufReposerverSpec
 }
 import com.advancedtelematic.tuf.reposerver.util.NamespaceSpecOps.*
-import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
+import com.github.pjfanning.pekkohttpcirce.FailFastCirceSupport.*
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.*
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.Package.*
 import com.advancedtelematic.libats.data.DataType.HashMethod
@@ -27,6 +27,7 @@ import com.advancedtelematic.libats.codecs.CirceRefined.*
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import PaginationResult.*
 
 class RepoTargetsResourceSpec
     extends TufReposerverSpec
@@ -806,12 +807,14 @@ class RepoTargetsResourceSpec
         status shouldBe StatusCodes.NoContent
       }
 
+
+
       Get(apiUriV2(s"user_repo/hardwareids-packages")).namespaced ~> routes ~> check {
         status shouldBe StatusCodes.OK
         val result = responseAs[PaginationResult[HardwareIdentifier]]
-        result.total shouldBe 3
-        result.offset shouldBe 0
-        result.limit shouldBe 3
+        result.total shouldBe 3L
+        result.offset shouldBe 0L.toOffset
+        result.limit shouldBe 3L.toLimit
         result.values.map(_.value) should contain theSameElementsAs List(
           "myid001",
           "myid002",

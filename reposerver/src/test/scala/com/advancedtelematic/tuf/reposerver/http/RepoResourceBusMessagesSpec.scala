@@ -1,10 +1,10 @@
 package com.advancedtelematic.tuf.reposerver.http
 
-import akka.http.scaladsl.model.Multipart.FormData.BodyPart
-import akka.http.scaladsl.model.{HttpEntity, Multipart, StatusCodes, Uri}
+import org.apache.pekko.http.scaladsl.model.Multipart.FormData.BodyPart
+import org.apache.pekko.http.scaladsl.model.{HttpEntity, Multipart, StatusCodes, Uri}
 import com.advancedtelematic.tuf.reposerver.util.NamespaceSpecOps._
-import akka.testkit.TestProbe
-import akka.util.ByteString
+import org.apache.pekko.testkit.TestProbe
+import org.apache.pekko.util.ByteString
 import com.advancedtelematic.libats.data.DataType.HashMethod
 import com.advancedtelematic.libtuf.data.ClientDataType.{
   ClientHashes,
@@ -41,7 +41,7 @@ import org.scalatest.time.{Seconds, Span}
 import cats.syntax.show._
 import cats.syntax.option._
 import io.circe.syntax._
-import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
+import com.github.pjfanning.pekkohttpcirce.FailFastCirceSupport._
 import com.advancedtelematic.libtuf.data.TufCodecs._
 import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.libats.http.HttpCodecs._

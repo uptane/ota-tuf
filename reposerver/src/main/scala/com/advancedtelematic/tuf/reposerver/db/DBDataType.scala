@@ -1,6 +1,6 @@
 package com.advancedtelematic.tuf.reposerver.db
 
-import akka.http.scaladsl.model.Uri
+import org.apache.pekko.http.scaladsl.model.Uri
 
 import java.time.Instant
 import com.advancedtelematic.libats.data.DataType.Checksum

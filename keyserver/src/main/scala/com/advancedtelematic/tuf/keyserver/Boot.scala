@@ -1,10 +1,10 @@
 package com.advancedtelematic.tuf.keyserver
 
 import java.security.Security
-import akka.actor.ActorSystem
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.Http.ServerBinding
-import akka.http.scaladsl.server.{Directives, Route}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.Http
+import org.apache.pekko.http.scaladsl.Http.ServerBinding
+import org.apache.pekko.http.scaladsl.server.{Directives, Route}
 import com.advancedtelematic.libats.http.LogDirectives._
 import com.advancedtelematic.libats.http.VersionDirectives._
 import com.advancedtelematic.libats.http.tracing.Tracing
@@ -17,9 +17,9 @@ import com.advancedtelematic.libats.slick.db.{
 import com.advancedtelematic.libats.slick.monitoring.DatabaseMetrics
 import com.advancedtelematic.metrics.prometheus.PrometheusMetricsSupport
 import com.advancedtelematic.metrics.{
-  AkkaHttpConnectionMetrics,
-  AkkaHttpRequestMetrics,
-  MetricsSupport
+  MetricsSupport,
+  PekkoHttpConnectionMetrics,
+  PekkoHttpRequestMetrics
 }
 import com.advancedtelematic.tuf.keyserver.http.TufKeyserverRoutes
 import com.codahale.metrics.MetricRegistry
@@ -54,8 +54,8 @@ class KeyserverBoot(override val globalConfig: Config,
     with DatabaseMetrics
     with BootMigrations
     with SlickEncryptionConfig
-    with AkkaHttpRequestMetrics
-    with AkkaHttpConnectionMetrics
+    with PekkoHttpRequestMetrics
+    with PekkoHttpConnectionMetrics
     with PrometheusMetricsSupport {
 
   import system.dispatcher

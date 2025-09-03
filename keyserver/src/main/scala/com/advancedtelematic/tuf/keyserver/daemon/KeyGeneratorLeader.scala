@@ -1,8 +1,8 @@
 package com.advancedtelematic.tuf.keyserver.daemon
 
-import akka.actor.Status.{Failure, Success}
-import akka.actor.{Actor, ActorLogging, Props, Status, SupervisorStrategy}
-import akka.routing.RoundRobinPool
+import org.apache.pekko.actor.Status.{Failure, Success}
+import org.apache.pekko.actor.{Actor, ActorLogging, Props, Status, SupervisorStrategy}
+import org.apache.pekko.routing.RoundRobinPool
 import cats.syntax.show._
 import com.advancedtelematic.tuf.keyserver.daemon.KeyGeneratorLeader.Tick
 import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType._
@@ -12,7 +12,7 @@ import com.advancedtelematic.libtuf.crypt.TufCrypto
 
 import scala.async.Async._
 import scala.concurrent.duration._
-import akka.pattern.pipe
+import org.apache.pekko.pattern.pipe
 import com.advancedtelematic.tuf.keyserver.daemon.KeyGenerationOp.KeyGenerationOp
 import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType.KeyGenRequestStatus
 import com.advancedtelematic.tuf.keyserver.db.{KeyGenRequestSupport, KeyRepositorySupport}

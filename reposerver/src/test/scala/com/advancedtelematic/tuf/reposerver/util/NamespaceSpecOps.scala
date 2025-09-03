@@ -1,7 +1,7 @@
 package com.advancedtelematic.tuf.reposerver.util
 
-import akka.http.scaladsl.model.{HttpRequest, StatusCodes}
-import akka.http.scaladsl.model.headers.RawHeader
+import org.apache.pekko.http.scaladsl.model.{HttpRequest, StatusCodes}
+import org.apache.pekko.http.scaladsl.model.headers.RawHeader
 import com.advancedtelematic.libats.data.DataType.Namespace
 import com.advancedtelematic.libtuf.data.TufDataType.RepoId
 import com.advancedtelematic.tuf.reposerver.util.NamespaceSpecOps.{
@@ -50,7 +50,7 @@ trait RepositoryTestOps {
 
       val uuid = Post(apiUri(s"user_repo")).namespaced(ns) ~> routes ~> check {
         status shouldBe StatusCodes.OK
-        import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
+        import com.github.pjfanning.pekkohttpcirce.FailFastCirceSupport.*
         responseAs[UUID]
       }
 

@@ -1,6 +1,6 @@
 package com.advancedtelematic.libtuf_server.repo.server
 
-import akka.http.scaladsl.util.FastFuture
+import org.apache.pekko.http.scaladsl.util.FastFuture
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit

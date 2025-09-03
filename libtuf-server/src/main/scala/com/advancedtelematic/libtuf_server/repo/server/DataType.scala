@@ -2,8 +2,8 @@ package com.advancedtelematic.libtuf_server.repo.server
 
 import java.net.URI
 import java.time.Instant
-import akka.http.scaladsl.model.Uri
-import akka.http.scaladsl.util.FastFuture
+import org.apache.pekko.http.scaladsl.model.Uri
+import org.apache.pekko.http.scaladsl.util.FastFuture
 import com.advancedtelematic.libats.data.DataType.Checksum
 import com.advancedtelematic.libtuf.data.{ClientDataType, TufCodecs}
 import com.advancedtelematic.libtuf.data.ClientDataType.TufRole
@@ -20,11 +20,11 @@ import scala.util.Try
 object DataType {
   import com.advancedtelematic.libtuf.data.TufCodecs._
 
-  implicit class JavaUriToAkkaUriConversion(value: URI) {
+  implicit class JavaUriToPekkoUriConversion(value: URI) {
     def toUri: Uri = Uri(value.toString)
   }
 
-  implicit class AkkaUriToJavaUriConversion(value: Uri) {
+  implicit class PekkoUriToJavaUriConversion(value: Uri) {
     def toURI: URI = URI.create(value.toString)
   }
 

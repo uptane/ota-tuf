@@ -4,7 +4,7 @@ import java.time.Instant
 
 import cats.syntax.option._
 import cats.syntax.either._
-import akka.http.scaladsl.model.Uri
+import org.apache.pekko.http.scaladsl.model.Uri
 import io.circe.syntax._
 import cats.data.Validated.Valid
 import cats.data.ValidatedNel

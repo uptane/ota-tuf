@@ -16,7 +16,7 @@ import com.advancedtelematic.libtuf.data.TufDataType.RepoId
 import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.libtuf_server.repo.server.SignedRoleGeneration
 import com.advancedtelematic.tuf.reposerver.db.SignedRoleRepositorySupport
-import akka.http.scaladsl.util.FastFuture
+import org.apache.pekko.http.scaladsl.util.FastFuture
 
 import scala.concurrent.{ExecutionContext, Future}
 import slick.jdbc.MySQLProfile.api._

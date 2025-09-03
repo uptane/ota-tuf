@@ -1,12 +1,11 @@
 package com.advancedtelematic.tuf.cli.http
 
 import java.net.URI
-
 import com.advancedtelematic.libtuf.http.CliHttpClient
 import com.advancedtelematic.libtuf.http.CliHttpClient.CliHttpBackend
 import com.advancedtelematic.tuf.cli.DataType.{OAuth2Token, OAuthConfig}
 import io.circe.Decoder
-import sttp.client.asynchttpclient.future.AsyncHttpClientFutureBackend
+import sttp.client4.httpclient.HttpClientFutureBackend
 import sttp.model.Uri
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -14,7 +13,7 @@ import scala.concurrent.{ExecutionContext, Future}
 object OAuth2Client {
 
   def apply(conf: OAuthConfig)(implicit ec: ExecutionContext): OAuth2Client =
-    new OAuth2Client(conf, AsyncHttpClientFutureBackend())
+    new OAuth2Client(conf, HttpClientFutureBackend())
 
   def tokenFor(conf: OAuthConfig)(implicit ec: ExecutionContext): Future[OAuth2Token] =
     apply(conf).authToken()

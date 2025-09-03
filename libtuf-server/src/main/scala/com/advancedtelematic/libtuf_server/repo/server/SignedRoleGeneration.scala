@@ -2,7 +2,7 @@ package com.advancedtelematic.libtuf_server.repo.server
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import akka.http.scaladsl.util.FastFuture
+import org.apache.pekko.http.scaladsl.util.FastFuture
 import com.advancedtelematic.libats.http.Errors.MissingEntityId
 import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.libtuf.data.ClientDataType._

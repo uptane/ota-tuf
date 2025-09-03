@@ -1,6 +1,6 @@
 package com.advancedtelematic.tuf.reposerver.http
 
-import akka.http.scaladsl.util.FastFuture
+import org.apache.pekko.http.scaladsl.util.FastFuture
 import cats.data.Validated.{Invalid, Valid}
 import cats.data.ValidatedNel
 import com.advancedtelematic.libtuf.data.ClientDataType.{

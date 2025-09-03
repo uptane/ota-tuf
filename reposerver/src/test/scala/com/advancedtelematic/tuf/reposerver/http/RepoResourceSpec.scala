@@ -3,11 +3,11 @@ package com.advancedtelematic.tuf.reposerver.http
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import org.scalatest.EitherValues._
-import akka.http.scaladsl.model.Multipart.FormData.BodyPart
-import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.headers._
-import akka.stream.scaladsl.Source
-import akka.util.ByteString
+import org.apache.pekko.http.scaladsl.model.Multipart.FormData.BodyPart
+import org.apache.pekko.http.scaladsl.model._
+import org.apache.pekko.http.scaladsl.model.headers._
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.util.ByteString
 import cats.data.NonEmptyList
 import cats.syntax.either._
 import cats.syntax.option._
@@ -46,7 +46,7 @@ import com.advancedtelematic.tuf.reposerver.target_store.TargetStoreEngine.{
 }
 import com.advancedtelematic.tuf.reposerver.util.NamespaceSpecOps._
 import com.advancedtelematic.tuf.reposerver.util._
-import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
+import com.github.pjfanning.pekkohttpcirce.FailFastCirceSupport._
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.refineV
 import io.circe.syntax._
@@ -61,6 +61,7 @@ import org.scalatest.OptionValues._
 
 import java.net.URI
 import com.advancedtelematic.libtuf_server.data.Marshalling.*
+import PaginationResult.*
 
 class RepoResourceSpec
     extends TufReposerverSpec
@@ -1781,9 +1782,9 @@ class RepoResourceSpec
         status shouldBe StatusCodes.OK
         val paged = responseAs[PaginationResult[ClientTargetItem]]
         paged.total shouldBe 100
-        paged.offset shouldBe 0 // default
-        paged.limit shouldBe 50 // default
-        paged.values.length shouldEqual (paged.limit)
+        paged.offset shouldBe 0.toOffset // default
+        paged.limit shouldBe 50.toLimit // default
+        paged.values.length shouldEqual paged.limit.toLong
         val targetCustoms = paged.map { clientTargetItem =>
           clientTargetItem.custom.asJson.as[TargetCustom] match {
             case Right(custom) => custom
@@ -1804,9 +1805,9 @@ class RepoResourceSpec
         val paged = responseAs[PaginationResult[ClientTargetItem]]
         println(paged)
         paged.total shouldBe 100
-        paged.offset shouldBe 1
-        paged.limit shouldBe 50 // default
-        paged.values.length shouldEqual (paged.limit)
+        paged.offset shouldBe 1.toOffset
+        paged.limit shouldBe 50.toLimit // default
+        paged.values.length shouldEqual paged.limit.toLong
         val targetCustoms = paged.map { clientTargetItem =>
           clientTargetItem.custom.asJson.as[TargetCustom] match {
             case Right(custom) => custom
@@ -1827,9 +1828,9 @@ class RepoResourceSpec
         status shouldBe StatusCodes.OK
         val paged = responseAs[PaginationResult[ClientTargetItem]]
         paged.total shouldBe 100
-        paged.offset shouldBe 0
-        paged.limit shouldBe 2
-        paged.values.length shouldEqual (paged.limit)
+        paged.offset shouldBe 0.toOffset
+        paged.limit shouldBe 2.toLimit
+        paged.values.length shouldEqual paged.limit.toLong
         val targetCustoms = paged.map { clientTargetItem =>
           clientTargetItem.custom.asJson.as[TargetCustom] match {
             case Right(custom) => custom
@@ -1848,9 +1849,9 @@ class RepoResourceSpec
         status shouldBe StatusCodes.OK
         val paged = responseAs[PaginationResult[ClientTargetItem]]
         paged.total shouldBe 100
-        paged.offset shouldBe 30
-        paged.limit shouldBe 30
-        paged.values.length shouldEqual (paged.limit)
+        paged.offset shouldBe 30.toOffset
+        paged.limit shouldBe 30.toLimit
+        paged.values.length shouldEqual paged.limit.toLong
         val targetCustoms = paged.map { clientTargetItem =>
           clientTargetItem.custom.asJson.as[TargetCustom] match {
             case Right(custom) => custom
@@ -1870,9 +1871,9 @@ class RepoResourceSpec
         status shouldBe StatusCodes.OK
         val paged = responseAs[PaginationResult[ClientTargetItem]]
         paged.total shouldBe 100
-        paged.offset shouldBe 30
-        paged.limit shouldBe 60
-        paged.values.length shouldEqual (paged.limit)
+        paged.offset shouldBe 30.toOffset
+        paged.limit shouldBe 60.toLimit
+        paged.values.length shouldEqual paged.limit.toLong
         val targetCustoms = paged.map { clientTargetItem =>
           clientTargetItem.custom.asJson.as[TargetCustom] match {
             case Right(custom) => custom
@@ -1892,8 +1893,8 @@ class RepoResourceSpec
         status shouldBe StatusCodes.OK
         val paged = responseAs[PaginationResult[ClientTargetItem]]
         paged.total shouldBe 100
-        paged.offset shouldBe 30
-        paged.limit shouldBe 90
+        paged.offset shouldBe 30.toOffset
+        paged.limit shouldBe 90.toLimit
         paged.values.length shouldEqual 70 // 100 (total) - 30 (offset)
         val targetCustoms = paged.map { clientTargetItem =>
           clientTargetItem.custom.asJson.as[TargetCustom] match {
