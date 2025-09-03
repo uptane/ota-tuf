@@ -1,12 +1,12 @@
 package com.advancedtelematic.tuf.reposerver
 
 import java.security.Security
-import akka.actor.ActorSystem
-import akka.event.Logging
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.Http.ServerBinding
-import akka.http.scaladsl.model._
-import akka.http.scaladsl.server.{Directives, Route}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.event.Logging
+import org.apache.pekko.http.scaladsl.Http
+import org.apache.pekko.http.scaladsl.Http.ServerBinding
+import org.apache.pekko.http.scaladsl.model._
+import org.apache.pekko.http.scaladsl.server.{Directives, Route}
 import com.advancedtelematic.libats.http.{BootApp, BootAppDatabaseConfig, BootAppDefaultConfig}
 import com.advancedtelematic.libats.http.LogDirectives._
 import com.advancedtelematic.libats.http.VersionDirectives._
@@ -18,7 +18,7 @@ import com.advancedtelematic.libats.slick.db.{BootMigrations, DatabaseSupport}
 import com.advancedtelematic.libats.slick.monitoring.DatabaseMetrics
 import com.advancedtelematic.libtuf_server.keyserver.KeyserverHttpClient
 import com.advancedtelematic.metrics.prometheus.PrometheusMetricsSupport
-import com.advancedtelematic.metrics.{AkkaHttpRequestMetrics, MetricsSupport}
+import com.advancedtelematic.metrics.{MetricsSupport, PekkoHttpRequestMetrics}
 import com.advancedtelematic.tuf.reposerver
 import com.advancedtelematic.tuf.reposerver.delegations.HttpRemoteDelegationClient
 import com.advancedtelematic.tuf.reposerver.http.{NamespaceValidation, TufReposerverRoutes}
@@ -70,14 +70,14 @@ trait Settings {
 
   lazy val userRepoSizeLimit = _config.getLong("http.server.sizeLimit")
 
-  // not using Config.getDuration() here because that parses different formats than what Akka uses
+  // not using Config.getDuration() here because that parses different formats than what Pekko uses
   lazy val userRepoUploadRequestTimeout = Duration(
     _config.getString("http.server.uploadRequestTimeout")
   )
 
-  lazy val akkaRequestTimeout = _config.getString("akka.http.server.request-timeout")
+  lazy val pekkoRequestTimeout = _config.getString("pekko.http.server.request-timeout")
 
-  lazy val akkaIdleTimeout = _config.getString("akka.http.server.idle-timeout")
+  lazy val pekkoIdleTimeout = _config.getString("pekko.http.server.idle-timeout")
 }
 
 class ReposerverBoot(override val globalConfig: Config,
@@ -92,7 +92,7 @@ class ReposerverBoot(override val globalConfig: Config,
     with BootMigrations
     with MetricsSupport
     with DatabaseMetrics
-    with AkkaHttpRequestMetrics
+    with PekkoHttpRequestMetrics
     with PrometheusMetricsSupport {
 
   private lazy val log = LoggerFactory.getLogger(this.getClass)

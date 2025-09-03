@@ -1,9 +1,9 @@
 package com.advancedtelematic.libtuf_server.db
 
-import akka.Done
-import akka.actor.ActorSystem
-import akka.stream.scaladsl.{Flow, Sink, Source}
-import akka.stream.Materializer
+import org.apache.pekko.Done
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.scaladsl.{Flow, Sink, Source}
+import org.apache.pekko.stream.Materializer
 import com.advancedtelematic.libtuf.data.TufDataType.RepoId
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 import com.advancedtelematic.libtuf_server.db.SignatureMethodMigration.Row

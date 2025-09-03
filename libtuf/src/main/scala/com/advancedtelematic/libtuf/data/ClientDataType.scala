@@ -26,8 +26,8 @@ import eu.timepit.refined.api.{Refined, Validate}
 import eu.timepit.refined.predicates.all.NonEmpty
 import io.circe.{Decoder, Json}
 import io.circe.generic.semiauto.*
-import akka.http.scaladsl.model.Uri
-import akka.http.scaladsl.unmarshalling.Unmarshaller
+import org.apache.pekko.http.scaladsl.model.Uri
+import org.apache.pekko.http.scaladsl.unmarshalling.Unmarshaller
 import enumeratum.*
 import com.advancedtelematic.libats.codecs.CirceRefined.*
 import com.advancedtelematic.libats.http.HttpCodecs.*

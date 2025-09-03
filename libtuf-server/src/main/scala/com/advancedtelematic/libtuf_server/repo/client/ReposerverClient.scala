@@ -1,15 +1,15 @@
 package com.advancedtelematic.libtuf_server.repo.client
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.marshalling.Marshal
-import akka.http.scaladsl.model.*
-import akka.http.scaladsl.model.Uri.Path.Slash
-import akka.http.scaladsl.model.Uri.{Path, Query}
-import akka.http.scaladsl.unmarshalling.FromEntityUnmarshaller
-import akka.http.scaladsl.util.FastFuture
-import akka.stream.Materializer
-import akka.stream.scaladsl.Source
-import akka.util.ByteString
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.marshalling.Marshal
+import org.apache.pekko.http.scaladsl.model.*
+import org.apache.pekko.http.scaladsl.model.Uri.Path.Slash
+import org.apache.pekko.http.scaladsl.model.Uri.{Path, Query}
+import org.apache.pekko.http.scaladsl.unmarshalling.FromEntityUnmarshaller
+import org.apache.pekko.http.scaladsl.util.FastFuture
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.util.ByteString
 import com.advancedtelematic.libats.codecs.CirceCodecs.*
 import com.advancedtelematic.libats.data.DataType.{Checksum, Namespace, ValidChecksum}
 import com.advancedtelematic.libats.data.{ErrorCode, PaginationResult}
@@ -76,10 +76,10 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success}
 import com.advancedtelematic.libats.http.HttpCodecs.*
-import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
+import com.github.pjfanning.pekkohttpcirce.FailFastCirceSupport.*
 import io.circe.Json
-import akka.http.scaladsl.unmarshalling.*
-import akka.http.scaladsl.marshalling.*
+import org.apache.pekko.http.scaladsl.unmarshalling.*
+import org.apache.pekko.http.scaladsl.marshalling.*
 
 object ReposerverClient {
 
@@ -182,18 +182,19 @@ trait ReposerverClient {
                            origin: Option[String] = None,
                            originNot: Option[String] = None): Future[ClientPackage]
 
-  def searchTargetsV2(namespace: Namespace,
-                      offset: Option[Long],
-                      limit: Option[Long],
-                      origins: Seq[String] = Seq.empty,
-                      nameContains: Option[String] = None,
-                      name: Option[String] = None,
-                      version: Option[String] = None,
-                      hardwareIds: Seq[HardwareIdentifier] = Seq.empty,
-                      hashes: Seq[TargetHash] = Seq.empty,
-                      filenames: Seq[TargetFilename] = Seq.empty,
-                      sortBy: Option[TargetItemsSort] = None,
-                      sortDirection: Option[SortDirection] = None): Future[PaginationResult[ClientPackage]]
+  def searchTargetsV2(
+    namespace: Namespace,
+    offset: Option[Long],
+    limit: Option[Long],
+    origins: Seq[String] = Seq.empty,
+    nameContains: Option[String] = None,
+    name: Option[String] = None,
+    version: Option[String] = None,
+    hardwareIds: Seq[HardwareIdentifier] = Seq.empty,
+    hashes: Seq[TargetHash] = Seq.empty,
+    filenames: Seq[TargetFilename] = Seq.empty,
+    sortBy: Option[TargetItemsSort] = None,
+    sortDirection: Option[SortDirection] = None): Future[PaginationResult[ClientPackage]]
 
   def searchTargetsGroupedV2(
     namespace: Namespace,
@@ -287,7 +288,7 @@ class ReposerverHttpClient(reposerverUri: Uri,
   import ReposerverClient.*
   import com.advancedtelematic.libats.http.ServiceHttpClient
   import ServiceHttpClient.*
-  import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
+  import com.github.pjfanning.pekkohttpcirce.FailFastCirceSupport.*
   import io.circe.syntax.*
 
   val log = LoggerFactory.getLogger(this.getClass)
@@ -355,7 +356,7 @@ class ReposerverHttpClient(reposerverUri: Uri,
     case error if error.response.status == StatusCodes.Locked =>
       Future.failed(KeysNotReady)
     case error if error.response.status == StatusCodes.MethodNotAllowed =>
-      // if the parameters are wonky (like the package-id is too long), Akka will match this
+      // if the parameters are wonky (like the package-id is too long), Pekko will match this
       // to another request where it fails with bad method. Catch it and respond with BadRequest
       log.warn(
         "Caught http 405 error from reposerver attempting to add target. Converting it to 400"

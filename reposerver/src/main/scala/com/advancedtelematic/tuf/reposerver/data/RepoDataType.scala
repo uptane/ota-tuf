@@ -1,6 +1,6 @@
 package com.advancedtelematic.tuf.reposerver.data
 
-import akka.http.scaladsl.model.Uri
+import org.apache.pekko.http.scaladsl.model.Uri
 import com.advancedtelematic.libats.data.DataType.Checksum
 import com.advancedtelematic.libtuf.data.ClientDataType.*
 import com.advancedtelematic.libtuf.data.TufDataType.{

@@ -4,7 +4,7 @@ import java.time.Instant
 import org.scalatest.OptionValues.*
 
 import java.time.temporal.ChronoUnit
-import akka.http.scaladsl.model.{StatusCodes, Uri}
+import org.apache.pekko.http.scaladsl.model.{StatusCodes, Uri}
 import cats.syntax.option.*
 import cats.syntax.show.*
 import com.advancedtelematic.libats.data
@@ -37,7 +37,7 @@ import com.advancedtelematic.tuf.reposerver.util.{
   ResourceSpec,
   TufReposerverSpec
 }
-import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
+import com.github.pjfanning.pekkohttpcirce.FailFastCirceSupport.*
 import eu.timepit.refined.api.Refined
 import io.circe.syntax.*
 import org.scalactic.source.Position

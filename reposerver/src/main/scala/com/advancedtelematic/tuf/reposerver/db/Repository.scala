@@ -1,14 +1,14 @@
 package com.advancedtelematic.tuf.reposerver.db
 
 import java.time.Instant
-import akka.http.scaladsl.model.Uri
+import org.apache.pekko.http.scaladsl.model.Uri
 
 import scala.util.Success
 import scala.util.Failure
-import akka.NotUsed
-import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.util.FastFuture
-import akka.stream.scaladsl.Source
+import org.apache.pekko.NotUsed
+import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.util.FastFuture
+import org.apache.pekko.stream.scaladsl.Source
 import com.advancedtelematic.libats.data.DataType.Namespace
 import com.advancedtelematic.libats.data.{ErrorCode, PaginationResult}
 import com.advancedtelematic.libats.http.Errors.{
@@ -48,12 +48,13 @@ import com.advancedtelematic.tuf.reposerver.db.TargetItemRepositorySupport.Missi
 import com.advancedtelematic.tuf.reposerver.http.Errors.*
 import com.advancedtelematic.libtuf_server.repo.server.Errors.SignedRoleNotFound
 import SlickMappings.{delegatedRoleNameMapper, delegationFriendlyNameMapper}
+import com.advancedtelematic.libats.data.PaginationResult.{Limit, Offset}
 import shapeless.ops.function.FnToProduct
 import shapeless.{Generic, HList, Succ}
 import com.advancedtelematic.libtuf_server.repo.server.SignedRoleProvider
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.TargetItem
 import com.advancedtelematic.tuf.reposerver.db.Schema.TargetItemTable
-import com.advancedtelematic.tuf.reposerver.http.PaginationParamsOps.PaginationResultOps
+import com.advancedtelematic.tuf.reposerver.http.PaginationParamsOps.*
 import slick.ast.Ordering
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -155,17 +156,11 @@ protected[db] class TargetItemRepository()(implicit db: Database, ec: ExecutionC
 
   def findForPaginated(repoId: RepoId,
                        nameContains: Option[String] = None,
-                       offset: Option[Long] = None,
-                       limit: Option[Long] = None): Future[PaginationResult[TargetItem]] = db.run {
-    val items =
-      findForQuery(repoId, nameContains).sortBy(t => ColumnOrdered(t.updatedAt, Ordering().asc))
-    val totalItemsLength = items.length.result
-    val actualOffset = offset.orDefaultOffset
-    val actualLimit = limit.orDefaultLimit
-    val page = items.drop(actualOffset).take(actualLimit).result
-    totalItemsLength.zip(page).map { case (total, values) =>
-      PaginationResult(values, total, actualOffset, actualLimit)
-    }
+                       offset: Offset,
+                       limit: Limit): Future[PaginationResult[TargetItem]] = db.run {
+    findForQuery(repoId, nameContains)
+      .sortBy(t => ColumnOrdered(t.updatedAt, Ordering().asc))
+      .paginateResult(offset, limit)
   }
 
   def exists(repoId: RepoId, filename: TargetFilename): Future[Boolean] =
@@ -412,8 +407,8 @@ protected[db] class FilenameCommentRepository()(implicit db: Database, ec: Execu
 
   def find(repoId: RepoId,
            nameContains: Option[String] = None,
-           offset: Option[Long],
-           limit: Option[Long]): Future[PaginationResult[(TargetFilename, TargetComment)]] =
+           offset: Offset,
+           limit: Limit): Future[PaginationResult[(TargetFilename, TargetComment)]] =
     db.run {
       val allFileNameComments = filenameComments.filter(_.repoId === repoId)
       val comments = if (nameContains.isDefined) {
@@ -423,7 +418,7 @@ protected[db] class FilenameCommentRepository()(implicit db: Database, ec: Execu
       comments
         .sortBy(_.filename)
         .map(filenameComment => (filenameComment.filename, filenameComment.comment))
-        .paginateResult(offset.orDefaultOffset, limit.orDefaultLimit)
+        .paginateResult(offset, limit)
     }
 
   def findForFilenames(

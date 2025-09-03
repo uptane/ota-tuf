@@ -1,6 +1,6 @@
 package io.github.uptane.tuf.tuf_server
 
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 import com.advancedtelematic.libats.boot.{VersionInfo, VersionInfoProvider}
 import com.advancedtelematic.libats.http.BootAppDefaultConfig
 import com.advancedtelematic.tuf.keyserver.KeyserverBoot

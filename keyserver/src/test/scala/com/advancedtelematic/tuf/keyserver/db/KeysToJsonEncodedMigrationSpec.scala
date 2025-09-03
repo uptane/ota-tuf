@@ -1,7 +1,7 @@
 package com.advancedtelematic.tuf.keyserver.db
 
-import akka.actor.ActorSystem
-import akka.testkit.TestKitBase
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.testkit.TestKitBase
 import com.advancedtelematic.libats.data.RefinedUtils.*
 import com.advancedtelematic.libats.test.{LongTest, MysqlDatabaseSpec}
 import com.advancedtelematic.libtuf.data.TufDataType.{RSATufKey, ValidKeyId}

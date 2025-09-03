@@ -1,7 +1,7 @@
 package com.advancedtelematic.tuf.reposerver.http
 
 import java.time.Instant
-import akka.http.scaladsl.util.FastFuture
+import org.apache.pekko.http.scaladsl.util.FastFuture
 import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.libtuf.data.ClientDataType.{TimestampRole, _}
 import com.advancedtelematic.libtuf.data.TufDataType.{Ed25519KeyType, RepoId, RoleType}

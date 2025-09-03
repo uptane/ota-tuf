@@ -1,13 +1,19 @@
 package com.advancedtelematic.tuf.reposerver.delegations
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.coding.Coders
-import akka.http.scaladsl.model.headers.HttpEncodings.{deflate, gzip}
-import akka.http.scaladsl.model.headers.{`Accept-Encoding`, HttpEncodings, RawHeader}
-import akka.http.scaladsl.model.{HttpEntity, HttpMethods, HttpRequest, HttpResponse, Uri}
-import akka.http.scaladsl.unmarshalling.{FromEntityUnmarshaller, Unmarshaller}
-import akka.http.scaladsl.util.FastFuture
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.Http
+import org.apache.pekko.http.scaladsl.coding.Coders
+import org.apache.pekko.http.scaladsl.model.headers.HttpEncodings.{deflate, gzip}
+import org.apache.pekko.http.scaladsl.model.headers.{`Accept-Encoding`, HttpEncodings, RawHeader}
+import org.apache.pekko.http.scaladsl.model.{
+  HttpEntity,
+  HttpMethods,
+  HttpRequest,
+  HttpResponse,
+  Uri
+}
+import org.apache.pekko.http.scaladsl.unmarshalling.{FromEntityUnmarshaller, Unmarshaller}
+import org.apache.pekko.http.scaladsl.util.FastFuture
 import com.advancedtelematic.tuf.reposerver.http.Errors
 import org.slf4j.LoggerFactory
 

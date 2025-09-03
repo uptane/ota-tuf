@@ -1,10 +1,10 @@
 package com.advancedtelematic.tuf.keyserver.http
 
-import akka.http.scaladsl.marshalling.ToResponseMarshallable
-import akka.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.marshalling.ToResponseMarshallable
+import org.apache.pekko.http.scaladsl.model.StatusCodes
 import cats.data.Validated.{Invalid, Valid}
 import com.advancedtelematic.libats.data.ErrorRepresentation
-import com.advancedtelematic.libats.http.UUIDKeyAkka.*
+import com.advancedtelematic.libats.http.UUIDKeyPekko.*
 import com.advancedtelematic.libtuf.data.ClientCodecs.*
 import com.advancedtelematic.libtuf.data.ErrorCodes
 import com.advancedtelematic.libtuf.data.TufCodecs.*
@@ -16,7 +16,7 @@ import com.advancedtelematic.tuf.keyserver.data.KeyServerDataType.KeyGenRequestS
 import com.advancedtelematic.tuf.keyserver.db.SignedRootRoleRepository.MissingSignedRole
 import com.advancedtelematic.tuf.keyserver.db.{KeyGenRequestSupport, SignedRootRoleRepository}
 import com.advancedtelematic.tuf.keyserver.roles.*
-import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
+import com.github.pjfanning.pekkohttpcirce.FailFastCirceSupport.*
 import io.circe.*
 import io.circe.syntax.*
 import slick.jdbc.MySQLProfile.api.*
@@ -30,7 +30,7 @@ class RootRoleResource()(implicit val db: Database, val ec: ExecutionContext)
     with Settings {
 
   import ClientRootGenRequest.*
-  import akka.http.scaladsl.server.Directives.*
+  import org.apache.pekko.http.scaladsl.server.Directives.*
 
   val keyGenerationRequests = new KeyGenerationRequests()
   val signedRootRoles = new SignedRootRoles()

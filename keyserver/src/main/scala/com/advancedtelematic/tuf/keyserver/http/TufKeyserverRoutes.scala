@@ -1,8 +1,8 @@
 package com.advancedtelematic.tuf.keyserver.http
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.server.{Directives, _}
-import akka.stream.Materializer
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.server.{Directives, _}
+import org.apache.pekko.stream.Materializer
 import com.advancedtelematic.libats.http.ErrorHandler
 import com.advancedtelematic.libats.http.DefaultRejectionHandler._
 import com.advancedtelematic.libats.slick.monitoring.DbHealthResource

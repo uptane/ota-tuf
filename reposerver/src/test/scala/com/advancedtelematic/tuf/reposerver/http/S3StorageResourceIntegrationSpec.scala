@@ -5,53 +5,40 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-
-import akka.http.scaladsl.model.Multipart.FormData.BodyPart
-import akka.http.scaladsl.model.headers.{Location, _}
-import akka.http.scaladsl.model.{HttpEntity, Multipart, StatusCodes}
-import akka.http.scaladsl.server.Route
-import akka.util.ByteString
-import cats.syntax.option._
-import cats.syntax.show._
+import org.apache.pekko.http.scaladsl.model.Multipart.FormData.BodyPart
+import org.apache.pekko.http.scaladsl.model.headers.{Location, *}
+import org.apache.pekko.http.scaladsl.model.{HttpEntity, Multipart, StatusCodes}
+import org.apache.pekko.http.scaladsl.server.Route
+import org.apache.pekko.util.ByteString
+import cats.syntax.option.*
+import cats.syntax.show.*
 import com.advancedtelematic.libtuf.crypt.{Sha256FileDigest, TufCrypto}
-import com.advancedtelematic.libtuf.data.ClientCodecs._
-import com.advancedtelematic.libtuf.data.ClientDataType.{
-  ClientTargetItem,
-  TargetCustom,
-  TargetsRole
-}
-import com.advancedtelematic.libtuf.data.TufCodecs._
-import com.advancedtelematic.libtuf.data.TufDataType.RepoId._
-import com.advancedtelematic.libtuf.data.TufDataType.{
-  Ed25519KeyType,
-  RepoId,
-  RoleType,
-  SignedPayload,
-  TargetFormat,
-  TargetName,
-  TargetVersion,
-  ValidTargetFilename
-}
+import com.advancedtelematic.libtuf.data.ClientCodecs.*
+import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, TargetCustom, TargetsRole}
+import com.advancedtelematic.libtuf.data.TufCodecs.*
+import com.advancedtelematic.libtuf.data.TufDataType.RepoId.*
+import com.advancedtelematic.libtuf.data.TufDataType.{Ed25519KeyType, RepoId, RoleType, SignedPayload, TargetFormat, TargetName, TargetVersion, ValidTargetFilename}
 import com.advancedtelematic.libtuf.http.ReposerverHttpClient
 import com.advancedtelematic.libtuf_server.data.Requests
 import com.advancedtelematic.tuf.reposerver.Settings
 import com.advancedtelematic.tuf.reposerver.target_store.{S3TargetStoreEngine, TargetStore}
 import com.advancedtelematic.tuf.reposerver.util.{ResourceSpec, TufReposerverSpec}
-import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
-import io.circe.syntax._
-import org.scalatest.OptionValues._
+import com.github.pjfanning.pekkohttpcirce.FailFastCirceSupport.*
+import io.circe.syntax.*
+import org.scalatest.OptionValues.*
 import org.scalatest.concurrent.PatienceConfiguration
 import org.scalatest.prop.Whenever
 import org.scalatest.time.{Millis, Seconds, Span}
-import org.scalatest.{time, BeforeAndAfterAll, Inspectors}
-import sttp.client.akkahttp.{AkkaHttpBackend, AkkaHttpClient}
-import sttp.client.monad.MonadError
-import sttp.client.ws.WebSocketResponse
-import sttp.client.{Request, Response, SttpBackend, _}
+import org.scalatest.{BeforeAndAfterAll, Inspectors, time}
+import sttp.capabilities
+import sttp.client4.{Backend, GenericRequest, Request, Response}
+import sttp.client4.pekkohttp.{PekkoHttpBackend, PekkoHttpClient}
 import sttp.model.{StatusCode, Uri}
+import sttp.monad.MonadError
+import sttp.shared.Identity
 
 import scala.concurrent.Future
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class S3StorageResourceIntegrationSpec
     extends ResourceSpec
@@ -153,27 +140,24 @@ class S3StorageResourceIntegrationSpec
   test(
     "cli client can upload binary to s3 which can be downloaded through reposerver using redirects"
   ) {
-    val realClient = AkkaHttpBackend.apply()
+    val realClient = PekkoHttpBackend.apply()
     val testBackend =
-      AkkaHttpBackend.usingClient(system, http = AkkaHttpClient.stubFromRoute(Route.seal(routes)))
+      PekkoHttpBackend.usingClient(system, http = PekkoHttpClient.stubFromRoute(Route.seal(routes)))
 
-    val testBackendWithFallback = new SttpBackend[Future, Nothing, Nothing]() {
-      override def send[T](request: Request[T, Nothing]): Future[Response[T]] =
-        responseMonad.flatMap(testBackend.send(request.followRedirects(false))) {
+    val testBackendWithFallback = new Backend[Future]() {
+      override def send[T](request: GenericRequest[T, Any & capabilities.Effect[Future]]): Future[Response[T]] =
+        monad.flatMap(testBackend.send(request.followRedirects(false))) {
           case resp if resp.code == StatusCode.Found =>
-            val location = Uri.parse(resp.header("Location").get).toOption.get
-            realClient.send(request.copy(uri = location: Identity[Uri]))
+            realClient.send(request.followRedirects(true))
           case resp =>
             fail(s"invalid response: $resp")
         }
 
-      override def openWebsocket[T, WS_RESULT](
-        request: Request[T, Nothing],
-        handler: Nothing): Future[WebSocketResponse[WS_RESULT]] = ???
-
       override def close(): Future[Unit] = testBackend.close()
 
-      override def responseMonad: MonadError[Future] = testBackend.responseMonad
+      override def monad: MonadError[Future] = testBackend.monad
+
+
     }
 
     val client = new ReposerverHttpClient(URI.create("http://0.0.0.0"), testBackendWithFallback)

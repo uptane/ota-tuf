@@ -1,7 +1,7 @@
 package com.advancedtelematic.tuf.keyserver.daemon
 
-import akka.actor.{ActorSystem, Props, Status}
-import akka.testkit.{ImplicitSender, TestKitBase, TestProbe}
+import org.apache.pekko.actor.{ActorSystem, Props, Status}
+import org.apache.pekko.testkit.{ImplicitSender, TestKitBase, TestProbe}
 import com.advancedtelematic.libats.http.Errors.MissingEntity
 import com.advancedtelematic.libtuf.data.TufDataType.{
   Ed25519TufKey,

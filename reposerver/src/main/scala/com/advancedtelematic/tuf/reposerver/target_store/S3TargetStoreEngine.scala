@@ -7,11 +7,11 @@ import java.util.Date
 
 import scala.async.Async._
 import scala.jdk.CollectionConverters._
-import akka.actor.ActorSystem
-import akka.http.scaladsl.model.Uri
-import akka.http.scaladsl.util.FastFuture
-import akka.stream.scaladsl.{FileIO, Source, StreamConverters}
-import akka.util.ByteString
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.model.Uri
+import org.apache.pekko.http.scaladsl.util.FastFuture
+import org.apache.pekko.stream.scaladsl.{FileIO, Source, StreamConverters}
+import org.apache.pekko.util.ByteString
 import com.advancedtelematic.libtuf.data.TufDataType.{
   GetSignedUrlResult,
   InitMultipartUploadResult,

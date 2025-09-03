@@ -2,12 +2,12 @@ package com.advancedtelematic.tuf.reposerver.target_store
 
 import java.nio.file.{Path, Paths}
 
-import akka.Done
-import akka.actor.ActorSystem
-import akka.http.scaladsl.model.Uri
-import akka.stream.Materializer
-import akka.stream.scaladsl.{Keep, Sink, Source}
-import akka.util.ByteString
+import org.apache.pekko.Done
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.model.Uri
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
+import org.apache.pekko.util.ByteString
 import com.advancedtelematic.libats.data.DataType.Checksum
 import com.advancedtelematic.libtuf.data.TufDataType.{
   GetSignedUrlResult,

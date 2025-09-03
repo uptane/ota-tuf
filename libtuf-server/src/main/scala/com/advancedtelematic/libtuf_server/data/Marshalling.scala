@@ -1,9 +1,10 @@
 package com.advancedtelematic.libtuf_server.data
 
-import akka.http.scaladsl.marshalling.{Marshaller, ToEntityMarshaller}
-import akka.http.scaladsl.model.MediaTypes
-import akka.http.scaladsl.server.PathMatchers
-import akka.http.scaladsl.unmarshalling.Unmarshaller
+import org.apache.pekko.http.scaladsl.marshalling.{Marshaller, ToEntityMarshaller}
+import org.apache.pekko.http.scaladsl.model.MediaTypes
+import org.apache.pekko.http.scaladsl.server.PathMatchers
+import org.apache.pekko.http.scaladsl.unmarshalling.Unmarshaller
+import org.apache.pekko
 import com.advancedtelematic.libats.data.RefinedUtils.*
 import com.advancedtelematic.libtuf.crypt.CanonicalJson.*
 import com.advancedtelematic.libtuf.data.ClientDataType.DelegatedRoleName
@@ -21,7 +22,7 @@ import scala.util.Try
 
 object Marshalling {
 
-  implicit val targetFormatFromStringUnmarshaller: akka.http.scaladsl.unmarshalling.Unmarshaller[
+  implicit val targetFormatFromStringUnmarshaller: pekko.http.scaladsl.unmarshalling.Unmarshaller[
     String,
     com.advancedtelematic.libtuf.data.TufDataType.TargetFormat.TargetFormat
   ] = Unmarshaller.strict[String, TargetFormat](s => TargetFormat.withName(s.toUpperCase))

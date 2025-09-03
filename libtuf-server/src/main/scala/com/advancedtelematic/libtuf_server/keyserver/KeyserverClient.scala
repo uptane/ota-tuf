@@ -1,10 +1,10 @@
 package com.advancedtelematic.libtuf_server.keyserver
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.model.Uri.Path
-import akka.http.scaladsl.model.Uri.Path.{Empty, Slash}
-import akka.http.scaladsl.model.headers.RawHeader
-import akka.http.scaladsl.model.{StatusCodes, *}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.model.Uri.Path
+import org.apache.pekko.http.scaladsl.model.Uri.Path.{Empty, Slash}
+import org.apache.pekko.http.scaladsl.model.headers.RawHeader
+import org.apache.pekko.http.scaladsl.model.{StatusCodes, *}
 import cats.syntax.show.*
 import com.advancedtelematic.libats.data.ErrorCode
 import com.advancedtelematic.libats.http.Errors.{RawError, RemoteServiceError}
@@ -97,7 +97,7 @@ class KeyserverHttpClient(uri: Uri, httpClient: HttpRequest => Future[HttpRespon
     with KeyserverClient {
 
   import KeyserverClient._
-  import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
+  import com.github.pjfanning.pekkohttpcirce.FailFastCirceSupport._
   import io.circe.syntax._
   import com.advancedtelematic.libats.http.ServiceHttpClient._
   import system.dispatcher
@@ -129,7 +129,8 @@ class KeyserverHttpClient(uri: Uri, httpClient: HttpRequest => Future[HttpRespon
       uri = apiUri(Path("root") / repoId.show / tufRole.roleType.show)
     )
     execJsonHttp[SignedPayload[T], Json](req, payload.asJson).handleErrors {
-      case RemoteServiceError(_, response, _, _, _, _) if response.status == StatusCodes.PreconditionFailed =>
+      case RemoteServiceError(_, response, _, _, _, _)
+          if response.status == StatusCodes.PreconditionFailed =>
         Future.failed(RoleKeyNotFound)
     }
   }
@@ -159,7 +160,8 @@ class KeyserverHttpClient(uri: Uri, httpClient: HttpRequest => Future[HttpRespon
   override def updateRoot(repoId: RepoId, signedPayload: SignedPayload[RootRole]): Future[Unit] = {
     val req = HttpRequest(HttpMethods.POST, uri = apiUri(Path("root") / repoId.show / "unsigned"))
     execJsonHttp[Unit, SignedPayload[RootRole]](req, signedPayload).handleErrors {
-      case err @ RemoteServiceError(_, response, _, _, _, _) if response.status == StatusCodes.BadRequest =>
+      case err @ RemoteServiceError(_, response, _, _, _, _)
+          if response.status == StatusCodes.BadRequest =>
         Future.failed(err)
     }
   }
@@ -219,7 +221,8 @@ class KeyserverHttpClient(uri: Uri, httpClient: HttpRequest => Future[HttpRespon
   override def rotateRoot(repoId: RepoId): Future[Unit] = {
     val req = HttpRequest(HttpMethods.PUT, uri = apiUri(Path("root") / repoId.show / "rotate"))
     execHttpUnmarshalled[Unit](req).handleErrors {
-      case RemoteServiceError(_, response, _, _, _, _) if response.status == StatusCodes.PreconditionFailed =>
+      case RemoteServiceError(_, response, _, _, _, _)
+          if response.status == StatusCodes.PreconditionFailed =>
         Future.failed(RoleKeyNotFound)
     }
   }

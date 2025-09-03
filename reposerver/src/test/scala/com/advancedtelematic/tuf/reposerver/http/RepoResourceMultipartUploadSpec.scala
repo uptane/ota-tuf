@@ -2,11 +2,11 @@ package com.advancedtelematic.tuf.reposerver.http
 
 import java.net.URL
 
-import akka.http.scaladsl.model.headers.RawHeader
-import akka.http.scaladsl.model.{StatusCodes, Uri}
-import akka.http.scaladsl.server.Route
-import akka.stream.scaladsl.Source
-import akka.util.ByteString
+import org.apache.pekko.http.scaladsl.model.headers.RawHeader
+import org.apache.pekko.http.scaladsl.model.{StatusCodes, Uri}
+import org.apache.pekko.http.scaladsl.server.Route
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.util.ByteString
 import com.advancedtelematic.libats.data.DataType.Namespace
 import com.advancedtelematic.libats.data.ErrorRepresentation
 import com.advancedtelematic.libats.http.Errors.RawError
@@ -32,7 +32,7 @@ import com.advancedtelematic.tuf.reposerver.util.{
   ResourceSpec,
   TufReposerverSpec
 }
-import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
+import com.github.pjfanning.pekkohttpcirce.FailFastCirceSupport._
 
 import scala.concurrent.Future
 

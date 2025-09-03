@@ -1,6 +1,6 @@
 package com.advancedtelematic.tuf.reposerver.delegations
 
-import akka.http.scaladsl.model.Uri
+import org.apache.pekko.http.scaladsl.model.Uri
 import cats.implicits.*
 import cats.data.Validated.{Invalid, Valid}
 import cats.data.{NonEmptyList, Validated, ValidatedNel}
@@ -39,9 +39,9 @@ import slick.jdbc.MySQLProfile.api.*
 import scala.async.Async.*
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
-import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
-import akka.http.scaladsl.unmarshalling.*
-import akka.http.scaladsl.util.FastFuture
+import com.github.pjfanning.pekkohttpcirce.FailFastCirceSupport.*
+import org.apache.pekko.http.scaladsl.unmarshalling.*
+import org.apache.pekko.http.scaladsl.util.FastFuture
 import com.advancedtelematic.libats.data.DataType.Checksum
 import com.advancedtelematic.libtuf.data.TufCodecs.*
 import com.advancedtelematic.libtuf.data.ClientCodecs.*
