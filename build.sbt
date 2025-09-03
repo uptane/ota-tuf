@@ -64,7 +64,7 @@ lazy val commonSettings = Seq(
   organizationHomepage := Some(url("https://uptane.github.io/")),
   scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8", "-Xasync", "-Xsource:3"),
   Compile / console / scalacOptions ~= (_.filterNot(_ == "-Ywarn-unused-import")),
-  resolvers += "maven-snapshots"at "https://central.sonatype.com/repository/maven-snapshots",
+  resolvers += "maven-snapshots".at("https://central.sonatype.com/repository/maven-snapshots"),
   resolvers += Resolver.mavenCentral,
   licenses += ("MPL-2.0", url("http://mozilla.org/MPL/2.0/")),
   description := "scala tuf implementation support",
@@ -136,7 +136,7 @@ lazy val cli = (project in file("cli"))
     topLevelDirectory := Some("uptane-sign"),
     executableScriptName := "uptane-sign",
     Universal / mappings += (file("cli/LICENSE") -> "docs/LICENSE"),
-    libraryDependencies += "com.typesafe" % "config" % "1.4.3" % Test
+    libraryDependencies += "com.typesafe" % "config" % "1.4.4" % Test
   )
   .dependsOn(libtuf)
 
