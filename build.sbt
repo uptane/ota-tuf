@@ -41,7 +41,7 @@ lazy val serverDependencies = libraryDependencies ++= {
     "org.apache.pekko" %% "pekko-http" % pekkoHttpV,
     "org.apache.pekko" %% "pekko-slf4j" % pekkoV,
     "org.apache.pekko" %% "pekko-http-testkit" % pekkoHttpV % "test",
-    "com.softwaremill.sttp.client4" %% "pekko-http-backend" % "4.0.9" % "test",
+    "com.softwaremill.sttp.client4" %% "pekko-http-backend" % "4.0.10" % "test",
     "org.apache.pekko" %% "pekko-stream" % "1.1.4" % "test",
     "io.github.uptane" %% "libats-http" % libatsVersion,
     "io.github.uptane" %% "libats-http-tracing" % libatsVersion,
