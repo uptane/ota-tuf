@@ -136,7 +136,7 @@ lazy val cli = (project in file("cli"))
     topLevelDirectory := Some("uptane-sign"),
     executableScriptName := "uptane-sign",
     Universal / mappings += (file("cli/LICENSE") -> "docs/LICENSE"),
-    libraryDependencies += "com.typesafe" % "config" % "1.4.4" % Test
+    libraryDependencies += "com.typesafe" % "config" % "1.4.5" % Test
   )
   .dependsOn(libtuf)
 
