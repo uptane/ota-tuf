@@ -19,7 +19,11 @@ import com.advancedtelematic.tuf.reposerver.data.RepoDataType.*
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.Package.*
 import com.advancedtelematic.libats.data.DataType.HashMethod
 import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, TargetsRole}
-import com.advancedtelematic.libtuf.data.TufDataType.{HardwareIdentifier, SignedPayload, TargetFilename}
+import com.advancedtelematic.libtuf.data.TufDataType.{
+  HardwareIdentifier,
+  SignedPayload,
+  TargetFilename
+}
 import com.advancedtelematic.libtuf_server.crypto.Sha256Digest
 import eu.timepit.refined.api.Refined
 import io.circe.Json
@@ -171,7 +175,7 @@ class RepoTargetsResourceSpec
     Get(apiUriV2(s"user_repo/search?originNot=123")).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[Package]].values
-      values should have size(2)
+      values should have size 2
     }
 
     Get(apiUriV2(s"user_repo/search?originNot=targets.json")).namespaced ~> routes ~> check {
@@ -188,7 +192,6 @@ class RepoTargetsResourceSpec
       values.loneElement.origin.value shouldBe "targets.json"
     }
   }
-
 
   testWithRepo("filters by origin") { implicit ns => implicit repoId =>
     addTargetToRepo(repoId)
@@ -251,13 +254,17 @@ class RepoTargetsResourceSpec
       status shouldBe StatusCodes.NoContent
     }
 
-    Get(apiUriV2(s"user_repo/packages/mypkg?originNot=${delegatedRoleName.value}")).namespaced ~> routes ~> check {
+    Get(
+      apiUriV2(s"user_repo/packages/mypkg?originNot=${delegatedRoleName.value}")
+    ).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val value = responseAs[Package]
       value.name.value shouldBe "library"
     }
 
-    Get(apiUriV2(s"user_repo/packages/mypath/mytargetName?originNot=targets.json")).namespaced ~> routes ~> check {
+    Get(
+      apiUriV2(s"user_repo/packages/mypath/mytargetName?originNot=targets.json")
+    ).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val value = responseAs[Package]
       value.filename.value shouldBe "mypath/mytargetName"
@@ -806,8 +813,6 @@ class RepoTargetsResourceSpec
       ).namespaced ~> routes ~> check {
         status shouldBe StatusCodes.NoContent
       }
-
-
 
       Get(apiUriV2(s"user_repo/hardwareids-packages")).namespaced ~> routes ~> check {
         status shouldBe StatusCodes.OK
