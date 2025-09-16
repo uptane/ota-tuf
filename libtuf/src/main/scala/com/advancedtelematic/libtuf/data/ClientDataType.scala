@@ -9,19 +9,8 @@ import com.advancedtelematic.libats.data.RefinedUtils.RefineTry
 import com.advancedtelematic.libtuf.data.ClientDataType.ClientPackage.TargetOrigin
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 import com.advancedtelematic.libtuf.data.TufDataType.TargetFormat.TargetFormat
-import com.advancedtelematic.libtuf.data.TufDataType.{
-  HardwareIdentifier,
-  KeyId,
-  RoleType,
-  TargetFilename,
-  TargetName,
-  TargetVersion,
-  TufKey
-}
-import com.advancedtelematic.libtuf.data.ValidatedString.{
-  ValidatedString,
-  ValidatedStringValidation
-}
+import com.advancedtelematic.libtuf.data.TufDataType.{HardwareIdentifier, KeyId, RoleType, TargetFilename, TargetName, TargetVersion, TufKey, ValidTargetFilename}
+import com.advancedtelematic.libtuf.data.ValidatedString.{ValidatedString, ValidatedStringValidation}
 import eu.timepit.refined.api.{Refined, Validate}
 import eu.timepit.refined.predicates.all.NonEmpty
 import io.circe.{Decoder, Json}
@@ -382,5 +371,29 @@ object ClientDataType {
                                      hardwareIds: Seq[HardwareIdentifier],
                                      origins: Seq[TargetOrigin],
                                      lastVersionAt: Instant)
+
+}
+
+case class PackageSearchParameters(origin: Seq[String],
+                                   originNot: Option[String],
+                                   nameContains: Option[String],
+                                   name: Option[String],
+                                   version: Option[String],
+                                   hardwareIds: Seq[HardwareIdentifier],
+                                   hashes: Seq[Refined[String, ValidChecksum]],
+                                   filenames: Seq[Refined[String, ValidTargetFilename]])
+
+object PackageSearchParameters {
+
+  def empty: PackageSearchParameters = PackageSearchParameters(
+    origin = Seq.empty,
+    originNot = None,
+    nameContains = None,
+    name = None,
+    version = None,
+    hardwareIds = Seq.empty,
+    hashes = Seq.empty,
+    filenames = Seq.empty
+  )
 
 }
