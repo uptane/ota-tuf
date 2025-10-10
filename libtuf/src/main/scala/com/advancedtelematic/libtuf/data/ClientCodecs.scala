@@ -251,4 +251,7 @@ object ClientCodecs {
   implicit val clientAggregatedPackageCodec: Codec[ClientAggregatedPackage] =
     deriveCodec[ClientAggregatedPackage]
 
+  implicit val packageSearchParametersCodec: Codec[PackageSearchParameters] =
+    deriveCodec[PackageSearchParameters]
+
 }

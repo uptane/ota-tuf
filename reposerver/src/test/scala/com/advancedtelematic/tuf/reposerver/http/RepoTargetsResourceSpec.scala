@@ -1,5 +1,6 @@
 package com.advancedtelematic.tuf.reposerver.http
 
+import com.advancedtelematic.libtuf.data.ClientCodecs.*
 import com.advancedtelematic.tuf.reposerver.data.RepoCodecs.*
 import org.scalatest.LoneElement.*
 import cats.implicits.*
@@ -15,7 +16,7 @@ import com.advancedtelematic.tuf.reposerver.data.RepoDataType.*
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.Package.*
 import com.advancedtelematic.libats.data.DataType.HashMethod
 import com.advancedtelematic.libtuf.data.ClientDataType.{ClientTargetItem, TargetsRole}
-import com.advancedtelematic.libtuf.data.TufDataType.{HardwareIdentifier, SignedPayload, TargetFilename}
+import com.advancedtelematic.libtuf.data.TufDataType.{HardwareIdentifier, SignedPayload, TargetFilename, ValidTargetFilename}
 import com.advancedtelematic.libtuf_server.crypto.Sha256Digest
 import eu.timepit.refined.api.Refined
 import io.circe.Json
@@ -24,6 +25,8 @@ import com.advancedtelematic.libats.codecs.CirceRefined.*
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import PaginationResult.*
+import com.advancedtelematic.libtuf.data.PackageSearchParameters
+import eu.timepit.refined.refineMV
 
 class RepoTargetsResourceSpec
     extends TufReposerverSpec
@@ -54,7 +57,7 @@ class RepoTargetsResourceSpec
       status shouldBe StatusCodes.NoContent
     }
 
-    Get(apiUriV2(s"user_repo/search")).namespaced ~> routes ~> check {
+    Post(apiUriV2(s"user_repo/search")).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
 
       val values = responseAs[PaginationResult[Package]].values
@@ -85,7 +88,7 @@ class RepoTargetsResourceSpec
 
     pushSignedDelegatedMetadataOk(signedDelegationRole)
 
-    Get(apiUriV2(s"user_repo/search")).namespaced ~> routes ~> check {
+    Post(apiUriV2(s"user_repo/search")).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[Package]].values
       values should have size 1
@@ -95,7 +98,7 @@ class RepoTargetsResourceSpec
 
     pushSignedDelegatedMetadataOk(signedDelegationRole1)
 
-    Get(apiUriV2(s"user_repo/search")).namespaced ~> routes ~> check {
+    Post(apiUriV2(s"user_repo/search")).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
 
       val values = responseAs[PaginationResult[Package]].values
@@ -115,14 +118,14 @@ class RepoTargetsResourceSpec
 
       pushSignedDelegatedMetadataOk(signedDelegationRole)
 
-      Get(apiUriV2(s"user_repo/search")).namespaced ~> routes ~> check {
+      Post(apiUriV2(s"user_repo/search")).namespaced ~> routes ~> check {
         status shouldBe StatusCodes.OK
         val values = responseAs[PaginationResult[Package]].values
         values should have size 1
       }
 
       val newTargets: Map[TargetFilename, ClientTargetItem] = Map(
-        Refined.unsafeApply("mypath/othertarget") -> ClientTargetItem(
+        refineMV[ValidTargetFilename]("mypath/othertarget") -> ClientTargetItem(
           Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash),
           2,
           Json
@@ -139,7 +142,7 @@ class RepoTargetsResourceSpec
 
       pushSignedDelegatedMetadataOk(signedDelegationRole1)
 
-      Get(apiUriV2(s"user_repo/search")).namespaced ~> routes ~> check {
+      Post(apiUriV2(s"user_repo/search")).namespaced ~> routes ~> check {
         status shouldBe StatusCodes.OK
 
         val value = responseAs[PaginationResult[Package]].values.loneElement
@@ -164,27 +167,30 @@ class RepoTargetsResourceSpec
       status shouldBe StatusCodes.NoContent
     }
 
-    Get(apiUriV2(s"user_repo/search?originNot=123")).namespaced ~> routes ~> check {
+    val params = PackageSearchParameters.empty.copy(originNot = Option("123"))
+
+    Post(apiUriV2(s"user_repo/search"), params).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[Package]].values
-      values should have size(2)
+      values should have size 2
     }
 
-    Get(apiUriV2(s"user_repo/search?originNot=targets.json")).namespaced ~> routes ~> check {
+    val params1 = PackageSearchParameters.empty.copy(originNot = Option("targets.json"))
+
+    Post(apiUriV2(s"user_repo/search"), params1).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[Package]].values
       values.loneElement.origin.value shouldBe delegatedRoleName.value
     }
 
-    Get(
-      apiUriV2(s"user_repo/search?originNot=${delegatedRoleName.value}")
-    ).namespaced ~> routes ~> check {
+    val params2 = PackageSearchParameters.empty.copy(originNot = delegatedRoleName.value.some)
+
+    Post(apiUriV2(s"user_repo/search"), params2).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[Package]].values
       values.loneElement.origin.value shouldBe "targets.json"
     }
   }
-
 
   testWithRepo("filters by origin") { implicit ns => implicit repoId =>
     addTargetToRepo(repoId)
@@ -202,29 +208,35 @@ class RepoTargetsResourceSpec
       status shouldBe StatusCodes.NoContent
     }
 
-    Get(apiUriV2(s"user_repo/search?origin=targets.json")).namespaced ~> routes ~> check {
+    val params = PackageSearchParameters.empty.copy(origin = Seq("targets.json"))
+
+    Post(apiUriV2(s"user_repo/search"), params).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[Package]].values
       values should have size 1
     }
 
-    Get(
-      apiUriV2(s"user_repo/search?origin=${delegatedRoleName.value}")
-    ).namespaced ~> routes ~> check {
+    val params1 = PackageSearchParameters.empty.copy(origin = Seq(delegatedRoleName.value))
+
+    Post(apiUriV2(s"user_repo/search"), params1).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[Package]].values
       values should have size 1
     }
 
-    Get(
-      apiUriV2(s"user_repo/search?origin=${delegatedRoleName.value},targets.json")
-    ).namespaced ~> routes ~> check {
+    val params2 =
+      PackageSearchParameters.empty.copy(origin = Seq(delegatedRoleName.value, "targets.json"))
+
+    Post(apiUriV2(s"user_repo/search"), params2).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[Package]].values
       values should have size 2
     }
 
-    Get(apiUriV2(s"user_repo/search?origin=doesnotexist")).namespaced ~> routes ~> check {
+    val params3 =
+      PackageSearchParameters.empty.copy(origin = Seq("doesnotexist"))
+
+    Post(apiUriV2(s"user_repo/search"), params3).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[Package]].values
       values shouldBe empty
@@ -247,13 +259,17 @@ class RepoTargetsResourceSpec
       status shouldBe StatusCodes.NoContent
     }
 
-    Get(apiUriV2(s"user_repo/packages/mypkg?originNot=${delegatedRoleName.value}")).namespaced ~> routes ~> check {
+    Get(
+      apiUriV2(s"user_repo/packages/mypkg?originNot=${delegatedRoleName.value}")
+    ).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val value = responseAs[Package]
       value.name.value shouldBe "library"
     }
 
-    Get(apiUriV2(s"user_repo/packages/mypath/mytargetName?originNot=targets.json")).namespaced ~> routes ~> check {
+    Get(
+      apiUriV2(s"user_repo/packages/mypath/mytargetName?originNot=targets.json")
+    ).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val value = responseAs[Package]
       value.filename.value shouldBe "mypath/mytargetName"
@@ -276,31 +292,46 @@ class RepoTargetsResourceSpec
       status shouldBe StatusCodes.NoContent
     }
 
-    Get(apiUriV2(s"user_repo/search?name=library")).namespaced ~> routes ~> check {
+    val params =
+      PackageSearchParameters.empty.copy(name = "library".some)
+
+    Post(apiUriV2(s"user_repo/search"), params).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[Package]].values
       values should have size 1
     }
 
-    Get(apiUriV2(s"user_repo/search?name=mytargetName")).namespaced ~> routes ~> check {
+    val params1 =
+      PackageSearchParameters.empty.copy(name = "mytargetName".some)
+
+    Post(apiUriV2(s"user_repo/search"), params1).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[Package]].values
       values should have size 1
     }
 
-    Get(apiUriV2(s"user_repo/search?name=doesnotexist")).namespaced ~> routes ~> check {
+    val params2 =
+      PackageSearchParameters.empty.copy(name = "doesnotexist".some)
+
+    Post(apiUriV2(s"user_repo/search"), params2).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[Package]].values
       values shouldBe empty
     }
 
-    Get(apiUriV2(s"user_repo/search?version=doesnotexist")).namespaced ~> routes ~> check {
+    val params3 =
+      PackageSearchParameters.empty.copy(version = "doesnotexist".some)
+
+    Post(apiUriV2(s"user_repo/search"), params3).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[Package]].values
       values shouldBe empty
     }
 
-    Get(apiUriV2(s"user_repo/search?version=0.0.1")).namespaced ~> routes ~> check {
+    val params4 =
+      PackageSearchParameters.empty.copy(version = "0.0.1".some)
+
+    Post(apiUriV2(s"user_repo/search"), params4).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[Package]].values
       values should have size 1
@@ -323,7 +354,7 @@ class RepoTargetsResourceSpec
       status shouldBe StatusCodes.NoContent
     }
 
-    Get(
+    Post(
       apiUriV2(s"user_repo/search?sortBy=filename&sortDirection=asc")
     ).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
@@ -336,7 +367,7 @@ class RepoTargetsResourceSpec
       result.values.map(_.filename.value) shouldBe Seq("mypath/mytargetName", "zotherpackage")
     }
 
-    Get(
+    Post(
       apiUriV2(s"user_repo/search?sortBy=filename&sortDirection=desc")
     ).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
@@ -350,39 +381,40 @@ class RepoTargetsResourceSpec
     }
   }
 
-  testWithRepo("sorts by created_at DESC using custom createdAt") { implicit ns => implicit repoId =>
-    addTargetToRepo(repoId)
+  testWithRepo("sorts by created_at DESC using custom createdAt") {
+    implicit ns => implicit repoId =>
+      addTargetToRepo(repoId)
 
-    uploadOfflineSignedTargetsRole()
+      uploadOfflineSignedTargetsRole()
 
-    val testTargets: Map[TargetFilename, ClientTargetItem] = Map(
-      Refined.unsafeApply("mypath/mytargetName") -> ClientTargetItem(
-        Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash),
-        2,
-        Json
-          .obj(
-            "name" -> "mytargetName".asJson,
-            "version" -> "0.0.2".asJson,
-            "hardwareIds" -> List("delegated-hardware-id-001").asJson,
-            "createdAt" -> Instant.now().plus(12, ChronoUnit.HOURS).asJson,
-          )
-          .some
+      val testTargets: Map[TargetFilename, ClientTargetItem] = Map(
+        refineMV[ValidTargetFilename]("mypath/mytargetName") -> ClientTargetItem(
+          Map(HashMethod.SHA256 -> Sha256Digest.digest("hi".getBytes).hash),
+          2,
+          Json
+            .obj(
+              "name" -> "mytargetName".asJson,
+              "version" -> "0.0.2".asJson,
+              "hardwareIds" -> List("delegated-hardware-id-001").asJson,
+              "createdAt" -> Instant.now().plus(12, ChronoUnit.HOURS).asJson
+            )
+            .some
+        )
       )
-    )
 
-    val signedDelegationRole = buildSignedDelegatedTargets(targets = testTargets)
+      val signedDelegationRole = buildSignedDelegatedTargets(targets = testTargets)
 
-    pushSignedDelegatedMetadataOk(signedDelegationRole)
+      pushSignedDelegatedMetadataOk(signedDelegationRole)
 
-    Put(
-      apiUri("user_repo/targets/zotherpackage?name=library&version=0.0.1&hardwareIds=myid001"),
-      testEntity
-    ).namespaced ~> routes ~> check {
-      status shouldBe StatusCodes.NoContent
-    }
+      Put(
+        apiUri("user_repo/targets/zotherpackage?name=library&version=0.0.1&hardwareIds=myid001"),
+        testEntity
+      ).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.NoContent
+      }
 
-    Get(apiUriV2(s"user_repo/search?sortBy=createdAt")).namespaced ~> routes ~> check {
-      status shouldBe StatusCodes.OK
+      Post(apiUriV2(s"user_repo/search?sortBy=createdAt")).namespaced ~> routes ~> check {
+        status shouldBe StatusCodes.OK
 
       val result = responseAs[PaginationResult[Package]]
 
@@ -392,7 +424,6 @@ class RepoTargetsResourceSpec
       result.values.map(_.filename.value) shouldBe Seq("mypath/mytargetName", "zotherpackage")
     }
   }
-
 
   testWithRepo("sorts by created_at DESC") { implicit ns => implicit repoId =>
     addTargetToRepo(repoId)
@@ -410,7 +441,7 @@ class RepoTargetsResourceSpec
       status shouldBe StatusCodes.NoContent
     }
 
-    Get(apiUriV2(s"user_repo/search?sortBy=createdAt")).namespaced ~> routes ~> check {
+    Post(apiUriV2(s"user_repo/search?sortBy=createdAt")).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
 
       val result = responseAs[PaginationResult[Package]]
@@ -438,21 +469,26 @@ class RepoTargetsResourceSpec
       status shouldBe StatusCodes.NoContent
     }
 
-    Get(
-      apiUriV2(
-        s"user_repo/search?hashes=352ce6b496cece167046d00d8a6431ffa43646b378cce4e3013d1d9aeef8dbb4,a1fb50e6c86fae1679ef3351296fd6713411a08cf8dd1790a4fd05fae8688161"
+    val params =
+      PackageSearchParameters.empty.copy(hashes =
+        Seq(
+          refineMV("352ce6b496cece167046d00d8a6431ffa43646b378cce4e3013d1d9aeef8dbb4"),
+          refineMV("a1fb50e6c86fae1679ef3351296fd6713411a08cf8dd1790a4fd05fae8688161")
+        )
       )
-    ).namespaced ~> routes ~> check {
+
+    Post(apiUriV2(s"user_repo/search"), params).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[Package]].values
       values should have size 1
     }
 
-    Get(
-      apiUriV2(
-        s"user_repo/search?hashes=0000000000000000000000000000000000000000000000000000000000000000"
+    val params1 =
+      PackageSearchParameters.empty.copy(hashes =
+        Seq(refineMV("0000000000000000000000000000000000000000000000000000000000000000"))
       )
-    ).namespaced ~> routes ~> check {
+
+    Post(apiUriV2(s"user_repo/search"), params1).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[Package]].values
       values shouldBe empty
@@ -475,19 +511,25 @@ class RepoTargetsResourceSpec
       status shouldBe StatusCodes.NoContent
     }
 
-    Get(apiUriV2(s"user_repo/search?nameContains=lib")).namespaced ~> routes ~> check {
+    val params = PackageSearchParameters.empty.copy(nameContains = "lib".some)
+
+    Post(apiUriV2(s"user_repo/search"), params).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[Package]].values
       values should have size 1
     }
 
-    Get(apiUriV2(s"user_repo/search?nameContains=mytarget")).namespaced ~> routes ~> check {
+    val params1 = PackageSearchParameters.empty.copy(nameContains = "mytarget".some)
+
+    Post(apiUriV2(s"user_repo/search"), params1).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[Package]].values
       values should have size 1
     }
 
-    Get(apiUriV2(s"user_repo/search?nameContains=doesnotexist")).namespaced ~> routes ~> check {
+    val params2 = PackageSearchParameters.empty.copy(nameContains = "doesnotexist".some)
+
+    Post(apiUriV2(s"user_repo/search"), params2).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[Package]].values
       values shouldBe empty
@@ -510,29 +552,41 @@ class RepoTargetsResourceSpec
       status shouldBe StatusCodes.NoContent
     }
 
-    Get(apiUriV2(s"user_repo/search?hardwareIds=myid001")).namespaced ~> routes ~> check {
+    val params =
+      PackageSearchParameters.empty.copy(hardwareIds = Seq(refineMV("myid001")))
+
+    Post(apiUriV2(s"user_repo/search"), params).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[Package]].values
       values should have size 1
     }
 
-    Get(
-      apiUriV2(s"user_repo/search?hardwareIds=delegated-hardware-id-001")
-    ).namespaced ~> routes ~> check {
+    val params1 =
+      PackageSearchParameters.empty.copy(hardwareIds =
+        Seq(refineMV("delegated-hardware-id-001"))
+      )
+
+    Post(apiUriV2(s"user_repo/search"), params1).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[Package]].values
       values should have size 1
     }
 
-    Get(apiUriV2(s"user_repo/search?hardwareIds=somethingelse")).namespaced ~> routes ~> check {
+    val params2 =
+      PackageSearchParameters.empty.copy(hardwareIds = Seq(refineMV("somethingelse")))
+
+    Post(apiUriV2(s"user_repo/search"), params2).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[Package]].values
       values shouldBe empty
     }
 
-    Get(
-      apiUriV2(s"user_repo/search?hardwareIds=delegated-hardware-id-001,myid001")
-    ).namespaced ~> routes ~> check {
+    val params3 =
+      PackageSearchParameters.empty.copy(hardwareIds =
+        Seq(refineMV("delegated-hardware-id-001"), refineMV("myid001"))
+      )
+
+    Post(apiUriV2(s"user_repo/search")).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[Package]].values
       values should have size 2
@@ -555,27 +609,44 @@ class RepoTargetsResourceSpec
       status shouldBe StatusCodes.NoContent
     }
 
-    Get(apiUriV2(s"user_repo/search?filenames=library-0.0.1")).namespaced ~> routes ~> check {
+    val params =
+      PackageSearchParameters.empty.copy(filenames = Seq(refineMV("library-0.0.1")))
+
+    Post(
+      apiUriV2(s"user_repo/search"),
+      params
+    ).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[Package]].values
       values should have size 1
     }
 
-    Get(apiUriV2(s"user_repo/search?filenames=mypath/mytargetName")).namespaced ~> routes ~> check {
+    val params1 =
+      PackageSearchParameters.empty.copy(filenames =
+        Seq(refineMV("mypath/mytargetName"))
+      )
+
+    Post(apiUriV2(s"user_repo/search"), params1).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[Package]].values
       values should have size 1
     }
 
-    Get(apiUriV2(s"user_repo/search?filenames=somethingelse")).namespaced ~> routes ~> check {
+    val params2 =
+      PackageSearchParameters.empty.copy(filenames = Seq(refineMV("somethingelse")))
+
+    Post(apiUriV2(s"user_repo/search"), params2).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[Package]].values
       values shouldBe empty
     }
 
-    Get(
-      apiUriV2(s"user_repo/search?filenames=library-0.0.1,mypath/mytargetName")
-    ).namespaced ~> routes ~> check {
+    val params3 =
+      PackageSearchParameters.empty.copy(filenames =
+        Seq(refineMV("library-0.0.1"), refineMV("mypath/mytargetName"))
+      )
+
+    Post(apiUriV2(s"user_repo/search"), params3).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[Package]].values
       values should have size 2
@@ -802,8 +873,6 @@ class RepoTargetsResourceSpec
       ).namespaced ~> routes ~> check {
         status shouldBe StatusCodes.NoContent
       }
-
-
 
       Get(apiUriV2(s"user_repo/hardwareids-packages")).namespaced ~> routes ~> check {
         status shouldBe StatusCodes.OK
