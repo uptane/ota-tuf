@@ -19,47 +19,13 @@ import com.advancedtelematic.libats.http.HttpCodecs.*
 import com.advancedtelematic.libats.http.tracing.Tracing.ServerRequestTracing
 import com.advancedtelematic.libats.http.tracing.TracingHttpClient
 import com.advancedtelematic.libtuf.data.ClientCodecs.*
-import com.advancedtelematic.libtuf.data.ClientDataType.{
-  AggregatedTargetItemsSort,
-  ClientAggregatedPackage,
-  ClientPackage,
-  ClientTargetItem,
-  DelegatedRoleName,
-  Delegation,
-  DelegationFriendlyName,
-  DelegationInfo,
-  RootRole,
-  SortDirection,
-  TargetHash,
-  TargetItemsSort,
-  TargetsRole
-}
+import com.advancedtelematic.libtuf.data.ClientDataType.{AggregatedTargetItemsSort, ClientAggregatedPackage, ClientPackage, ClientTargetItem, DelegatedRoleName, Delegation, DelegationFriendlyName, DelegationInfo, RootRole, SortDirection, TargetHash, TargetItemsSort, TargetsRole}
+import com.advancedtelematic.libtuf.data.PackageSearchParameters
 import com.advancedtelematic.libtuf.data.TufCodecs.*
 import com.advancedtelematic.libtuf.data.TufDataType.TargetFormat.TargetFormat
-import com.advancedtelematic.libtuf.data.TufDataType.{
-  HardwareIdentifier,
-  JsonSignedPayload,
-  KeyType,
-  RepoId,
-  SignedPayload,
-  TargetFilename,
-  TargetName,
-  TargetVersion,
-  TufKey,
-  ValidTargetFilename
-}
-import com.advancedtelematic.libtuf_server.data.Requests.{
-  CommentRequest,
-  CreateRepositoryRequest,
-  ExpireNotBeforeRequest,
-  FilenameComment,
-  TargetComment
-}
-import com.advancedtelematic.libtuf_server.repo.client.ReposerverClient.{
-  KeysNotReady,
-  NotFound,
-  RootNotInKeyserver
-}
+import com.advancedtelematic.libtuf.data.TufDataType.{HardwareIdentifier, JsonSignedPayload, KeyType, RepoId, SignedPayload, TargetFilename, TargetName, TargetVersion, TufKey, ValidTargetFilename}
+import com.advancedtelematic.libtuf_server.data.Requests.{CommentRequest, CreateRepositoryRequest, ExpireNotBeforeRequest, FilenameComment, TargetComment}
+import com.advancedtelematic.libtuf_server.repo.client.ReposerverClient.{KeysNotReady, NotFound, RootNotInKeyserver}
 import eu.timepit.refined.api.Refined
 
 //import com.advancedtelematic.tuf.reposerver.data.RepoDataType.Package
@@ -457,29 +423,24 @@ class ReposerverHttpClient(reposerverUri: Uri,
     filenames: Seq[Refined[String, ValidTargetFilename]],
     sortBy: Option[TargetItemsSort],
     sortDirection: Option[SortDirection]): Future[PaginationResult[ClientPackage]] = {
+
+    val params = PackageSearchParameters(
+      origin = origins,
+      originNot = None,
+      nameContains = nameContains,
+      name = name,
+      version = version,
+      hardwareIds = hardwareIds,
+      hashes = hashes,
+      filenames = filenames
+    )
+
     val req = HttpRequest(
-      HttpMethods.GET,
+      HttpMethods.POST,
       uri = apiV2Uri(Path(s"user_repo/search"))
         .withQuery(
           Query(
             paginationParams(offset, limit)
-              ++ (if (origins.isEmpty) { Map.empty[String, String] }
-                  else { Map("origin" -> origins.mkString(",")) })
-              ++ nameContains.map(n => Map("nameContains" -> n)).getOrElse(Map.empty)
-              ++ name.map(n => Map("name" -> n)).getOrElse(Map.empty)
-              ++ version.map(n => Map("version" -> n)).getOrElse(Map.empty)
-              ++ (if (hardwareIds.isEmpty) { Map.empty[String, String] }
-                  else {
-                    Map("hardwareIds" -> hardwareIds.map(_.value).mkString(","))
-                  })
-              ++ (if (hashes.isEmpty) { Map.empty[String, String] }
-                  else {
-                    Map("hashes" -> hashes.map(_.value).mkString(","))
-                  })
-              ++ (if (filenames.isEmpty) { Map.empty[String, String] }
-                  else {
-                    Map("filenames" -> filenames.map(_.value).mkString(","))
-                  })
               ++ sortBy.map(s => Map("sortBy" -> s.entryName)).getOrElse(Map.empty)
               ++ sortDirection
                 .map(sortD => Map("sortDirection" -> sortD.entryName))
@@ -487,7 +448,8 @@ class ReposerverHttpClient(reposerverUri: Uri,
           )
         )
     )
-    execHttpUnmarshalledWithNamespace[PaginationResult[ClientPackage]](namespace, req).ok
+
+    execJsonHttpWithNamespace[PaginationResult[ClientPackage], PackageSearchParameters](namespace, req, params).ok
   }
 
   def searchTargetsGroupedV2(

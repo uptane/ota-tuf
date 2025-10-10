@@ -14,17 +14,15 @@ import com.advancedtelematic.libtuf.data.TufDataType.{
 }
 import com.advancedtelematic.tuf.reposerver.db.RepoNamespaceRepositorySupport
 import com.advancedtelematic.tuf.reposerver.http.PaginationParamsOps.PaginationParams
-import com.github.pjfanning.pekkohttpcirce.FailFastCirceSupport.*
 import com.advancedtelematic.tuf.reposerver.data.RepoCodecs.*
 import com.advancedtelematic.libtuf.data.ClientCodecs.*
-import com.advancedtelematic.libtuf.data.ClientDataType
+import com.advancedtelematic.libtuf.data.{ClientDataType, PackageSearchParameters}
 import com.advancedtelematic.libtuf.data.ClientDataType.{
   AggregatedTargetItemsSort,
   ClientAggregatedPackage,
   ClientPackage,
   TargetItemsSort
 }
-import com.advancedtelematic.tuf.reposerver.data.RepoDataType.Package.*
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.refineV
 import slick.jdbc.MySQLProfile.api.*
@@ -33,30 +31,7 @@ import PaginationResult.*
 import scala.concurrent.ExecutionContext
 import com.advancedtelematic.libats.codecs.CirceRefined.*
 import com.advancedtelematic.tuf.reposerver.http.ReposerverPekkoPaths.TargetFilenamePath
-
-case class PackageSearchParameters(origin: Seq[String],
-                                   originNot: Option[String],
-                                   nameContains: Option[String],
-                                   name: Option[String],
-                                   version: Option[String],
-                                   hardwareIds: Seq[HardwareIdentifier],
-                                   hashes: Seq[Refined[String, ValidChecksum]],
-                                   filenames: Seq[Refined[String, ValidTargetFilename]])
-
-object PackageSearchParameters {
-
-  def empty: PackageSearchParameters = PackageSearchParameters(
-    origin = Seq.empty,
-    originNot = None,
-    nameContains = None,
-    name = None,
-    version = None,
-    hardwareIds = Seq.empty,
-    hashes = Seq.empty,
-    filenames = Seq.empty
-  )
-
-}
+import com.github.pjfanning.pekkohttpcirce.FailFastCirceSupport
 
 class RepoTargetsResource(namespaceValidation: NamespaceValidation)(
   implicit val db: Database,
@@ -67,6 +42,7 @@ class RepoTargetsResource(namespaceValidation: NamespaceValidation)(
   import cats.syntax.either.*
   import TargetItemsSort.*
   import com.advancedtelematic.libtuf.data.ClientDataType.SortDirection
+  import FailFastCirceSupport.*
 
   private implicit val hardwareIdentifierUnmarshaller
     : Unmarshaller[String, Refined[String, ValidHardwareIdentifier]] = Unmarshaller.strict { str =>
@@ -139,16 +115,19 @@ class RepoTargetsResource(namespaceValidation: NamespaceValidation)(
           }
         },
         path("search") {
-          (get & PaginationParams & SearchParams & SortByTargetItemsParam) { case (offset, limit, searchParams, sortBy, sortDirection) =>
+          import FailFastCirceSupport.*
 
-            val f = for {
-              count <- packageSearch.count(repoId, searchParams)
-              values <- packageSearch.find(repoId, offset, limit, searchParams, sortBy, sortDirection)
-            } yield {
-              PaginationResult(values.map(_.transformInto[ClientPackage]), count, offset, limit)
+          (post & PaginationParams & SortByTargetItemsParam) { case (offset, limit, sortBy, sortDirection) =>
+            entity(as[Option[PackageSearchParameters]]) { searchParams =>
+              val f = for {
+                count <- packageSearch.count(repoId, searchParams.getOrElse(PackageSearchParameters.empty))
+                values <- packageSearch.find(repoId, offset, limit, searchParams.getOrElse(PackageSearchParameters.empty), sortBy, sortDirection)
+              } yield {
+                PaginationResult(values.map(_.transformInto[ClientPackage]), count, offset, limit)
+              }
+
+              complete(f)
             }
-
-            complete(f)
           }
         },
         path("grouped-search") {
