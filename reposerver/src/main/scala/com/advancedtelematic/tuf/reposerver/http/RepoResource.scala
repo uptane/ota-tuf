@@ -26,7 +26,7 @@ import com.advancedtelematic.libats.codecs.CirceRefined.*
 import com.advancedtelematic.libats.codecs.CirceValidatedGeneric.validatedGenericDecoder
 import com.advancedtelematic.libats.data.DataType.HashMethod.HashMethod
 import com.advancedtelematic.libats.data.RefinedUtils.*
-import com.advancedtelematic.libats.http.Errors.{EntityAlreadyExists, MissingEntity}
+import com.advancedtelematic.libats.http.Errors.{EntityAlreadyExists, MissingEntity, MissingEntityId}
 import com.advancedtelematic.libats.http.RefinedMarshallingSupport.*
 import com.advancedtelematic.libats.http.UUIDKeyPekko.*
 import com.advancedtelematic.libtuf.data.ClientCodecs.*
@@ -35,12 +35,14 @@ import com.advancedtelematic.libtuf.data.ClientDataType.{
   ClientTargetItem,
   DelegatedRoleName,
   Delegation,
+  Delegations,
   DelegationClientTargetItem,
   DelegationInfo,
   RootRole,
   TargetCustom,
   TargetsRole
 }
+import com.advancedtelematic.libtuf.crypt.CanonicalJson._
 import com.advancedtelematic.libtuf.data.TufCodecs.*
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 import com.advancedtelematic.libats.http.AnyvalMarshallingSupport.*
@@ -82,12 +84,13 @@ import slick.jdbc.MySQLProfile.api.*
 
 import scala.async.Async.*
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 import com.advancedtelematic.tuf.reposerver.data.RepoCodecs.*
 import com.advancedtelematic.tuf.reposerver.http.PaginationParamsOps.*
 import eu.timepit.refined.api.Refined
 import com.advancedtelematic.libtuf_server.data.Marshalling.jsonSignedPayloadMarshaller
 import com.advancedtelematic.tuf.reposerver.http.ReposerverPekkoPaths.TargetFilenamePath
+import org.bouncycastle.util.encoders.Base64
 
 class RepoResource(keyserverClient: KeyserverClient,
                    namespaceValidation: NamespaceValidation,
@@ -122,6 +125,38 @@ class RepoResource(keyserverClient: KeyserverClient,
   private val targetRoleEdit = new TargetRoleEdit(signedRoleGeneration)
   private val delegations = new DelegationsManagement()
   private val trustedDelegations = new TrustedDelegations
+
+  /**
+   * Wraps a Future that may fail with RoleKeyNotFound, and if it does,
+   * generates the unsigned metadata and returns it in the error response.
+   * This handles errors from ensureTargetsCanBeSigned (before any database modifications).
+   */
+  private def handleOfflineKeysError[T](
+    repoId: RepoId,
+    future: Future[T],
+    transform: Seq[TargetItem] => Try[Seq[TargetItem]] = items => Success(items),
+    delegations: Option[Delegations] = None
+  ): Future[T] = {
+    future.recoverWith {
+      case err if err == KeyserverClient.RoleKeyNotFound =>
+        (for {
+          root <- keyserverClient.fetchRootRole(repoId)
+          targetsRoleInfo = root.signed.roles(RoleType.TARGETS)
+          allItems <- targetItemRepo.findFor(repoId)
+          transformedItems <- Future.fromTry(transform(allItems))
+          baseTargetsRole <- signedRoleGeneration.genTargetsFromExistingItems(repoId, delegations)
+          itemsMap = transformedItems.map { item =>
+            val hashes = Map(item.checksum.method -> item.checksum.hash)
+            item.filename -> ClientTargetItem(hashes, item.length, item.custom.map(_.asJson))
+          }.toMap
+          targetsRole = baseTargetsRole.copy(targets = itemsMap)
+          metadataBase64 = Base64.toBase64String(targetsRole.asJson.canonical.getBytes)
+        } yield (metadataBase64, targetsRoleInfo)).flatMap { case (metadataBase64, targetsRoleInfo) =>
+          Future.failed(Errors.TargetsKeysNotFoundWithMetadata(metadataBase64, targetsRoleInfo.keyids, targetsRoleInfo.threshold))
+        }
+    }
+  }
+
 
   private val timeoutResponseHandler: HttpRequest => HttpResponse = _ => {
     log.warn(
@@ -194,11 +229,18 @@ class RepoResource(keyserverClient: KeyserverClient,
       }
     } ~ createRepo(namespace, repoId, KeyType.default)
 
-  private def addTargetItem(namespace: Namespace, item: TargetItem): Future[JsonSignedPayload] =
-    for {
-      result <- targetRoleEdit.addTargetItem(item)
-      _ <- tufTargetsPublisher.targetAdded(namespace, item)
-    } yield result
+  private def addTargetItem(namespace: Namespace, item: TargetItem): Future[JsonSignedPayload] = {
+    handleOfflineKeysError(
+      item.repoId,
+      signedRoleGeneration.ensureTargetsCanBeSigned(item.repoId)
+        .recover { case _: MissingEntityId[_] => () },
+      transform = TargetItemTransformations.transformItemsForAdd(item)
+    ).flatMap { _ =>
+      targetRoleEdit.addTargetItem(item).flatMap { result =>
+        tufTargetsPublisher.targetAdded(namespace, item).map(_ => result)
+      }
+    }
+  }
 
   private def addTarget(namespace: Namespace,
                         filename: TargetFilename,
@@ -340,6 +382,11 @@ class RepoResource(keyserverClient: KeyserverClient,
     complete {
       for {
         targetItem <- targetStore.targetItemRepo.findByFilename(repoId, filename)
+        _ <- handleOfflineKeysError(
+          repoId,
+          signedRoleGeneration.ensureTargetsCanBeSigned(repoId),
+          transform = TargetItemTransformations.transformItemsForDelete(filename)
+        )
         _ <- targetRoleEdit.deleteTargetItem(repoId, filename)
         _ <- targetStore.delete(targetItem)
         _ <- tufTargetsPublisher.targetsMetaModified(namespace)
@@ -351,6 +398,11 @@ class RepoResource(keyserverClient: KeyserverClient,
                      filename: TargetFilename,
                      targetEdit: EditTargetItem): Future[ClientTargetItem] =
     for {
+      _ <- handleOfflineKeysError(
+        repoId,
+        signedRoleGeneration.ensureTargetsCanBeSigned(repoId),
+        transform = TargetItemTransformations.transformItemsForEdit(filename, targetEdit)
+      )
       _ <- targetRoleEdit.editTargetItemCustom(repoId, filename, targetEdit)
       targetItem <- targetItemRepo.findByFilename(repoId, filename)
     } yield ClientTargetItem(
@@ -425,9 +477,20 @@ class RepoResource(keyserverClient: KeyserverClient,
          */
         pathPrefix("trusted-delegations") {
           (pathEnd & put & entity(as[List[Delegation]])) { payload =>
-            val f = trustedDelegations
-              .add(repoId, payload)(signedRoleGeneration)
-              .map(_ => StatusCodes.NoContent)
+            val f = for {
+              existingTargetsRole <- signedRoleRepository.find[TargetsRole](repoId)
+              // We need to pass the delegations block for the offline keys case, so we do the validation here
+              delegationsBlock <- trustedDelegations.validate(payload, existingTargetsRole.role)
+                .fold(
+                  errors => FastFuture.failed(Errors.InvalidTrustedDelegations(errors)),
+                  FastFuture.successful
+                )
+              result <- handleOfflineKeysError(
+                repoId,
+                trustedDelegations.add(repoId, payload)(signedRoleGeneration).map(_ => StatusCodes.NoContent),
+                delegations = Some(delegationsBlock)
+              )
+            } yield result
             f.foreach { _ =>
               // Launch and forget. We don't care about kafka msg errors in the api response, we will log any errors if sending fails
               tufTargetsPublisher.targetsMetaModified(namespace)
@@ -438,9 +501,20 @@ class RepoResource(keyserverClient: KeyserverClient,
               complete(trustedDelegations.get(repoId))
             } ~
             (path(DelegatedRoleNamePath) & delete) { delegatedRoleName =>
-              val f = trustedDelegations
-                .remove(repoId, delegatedRoleName)(signedRoleGeneration)
-                .map(_ => StatusCodes.NoContent)
+              val f = for {
+                // We're doing a transformation for the offline keys case like we do for targetItems,
+                // but since it's the only one and it's trivial we do it inline.
+                delegations <- trustedDelegations.getTrustedDelegationsBlock(repoId)
+                newDelegations = delegations.map { d =>
+                  val newRoles = d.roles.filter(_.name != delegatedRoleName)
+                  d.copy(roles = newRoles)
+                }
+                result <- handleOfflineKeysError(
+                  repoId,
+                  trustedDelegations.remove(repoId, delegatedRoleName)(signedRoleGeneration).map(_ => StatusCodes.NoContent),
+                  delegations = newDelegations
+                )
+              } yield result
               f.foreach { _ =>
                 // Launch and forget. We don't care about kafka msg errors in the api response, we will log any errors if sending fails
                 tufTargetsPublisher.targetsMetaModified(namespace)
@@ -494,9 +568,19 @@ class RepoResource(keyserverClient: KeyserverClient,
             } ~
             path("keys") {
               (put & entity(as[List[TufKey]])) { keys =>
-                val f = trustedDelegations
-                  .setKeys(repoId, keys)(signedRoleGeneration)
-                  .map(_ => StatusCodes.NoContent)
+                val f = for {
+                  // This is for the offline keys case; we are constructing the delegations block that would be
+                  // created by this call, but we have to handle the case where there aren't any delegations yet
+                  delegationsBlock <- trustedDelegations.getTrustedDelegationsBlock(repoId).map {
+                    case Some(delegations) => delegations.copy(keys = keys.map(k => (k.id, k)).toMap)
+                    case None              => Delegations(keys.map(k => (k.id, k)).toMap, List())
+                  }
+                  result <- handleOfflineKeysError(
+                    repoId,
+                    trustedDelegations.setKeys(repoId, keys)(signedRoleGeneration).map(_ => StatusCodes.NoContent),
+                    delegations = Some(delegationsBlock)
+                  )
+                } yield result
                 f.foreach { _ =>
                   // Launch and forget. We don't care about kafka msg errors in the api response, we will log any errors if sending fails
                   tufTargetsPublisher.targetsMetaModified(namespace)
@@ -601,9 +685,14 @@ class RepoResource(keyserverClient: KeyserverClient,
         // Ben thinks we should just move this under the patch endpoint below at PATCH:user_repo/targets/{targetFileName}
         pathPrefix("proprietary-custom" / TargetFilenamePath) { filename =>
           (patch & entity(as[Json])) { proprietaryCustom =>
-            val f =
+            val f = handleOfflineKeysError(
+              repoId,
+              signedRoleGeneration.ensureTargetsCanBeSigned(repoId),
+              transform = TargetItemTransformations.transformItemsForProprietaryUpdate(filename, proprietaryCustom)
+            ).flatMap { _ =>
               targetRoleEdit.updateTargetProprietaryCustom(repoId, filename, proprietaryCustom)
-            complete(f.map(_ => StatusCodes.NoContent))
+            }.map(_ => StatusCodes.NoContent)
+            complete(f)
           }
         } ~
         pathPrefix("targets") {

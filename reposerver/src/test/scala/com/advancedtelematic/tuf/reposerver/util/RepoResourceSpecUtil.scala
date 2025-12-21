@@ -9,10 +9,12 @@ import com.advancedtelematic.libats.data.DataType.HashMethod
 import com.advancedtelematic.libtuf.data.ClientDataType.{
   ClientHashes,
   ClientTargetItem,
+  Delegations,
   TargetCustom,
   TargetsRole
 }
 import com.advancedtelematic.libtuf.data.TufDataType.{
+  JsonSignedPayload,
   KeyType,
   RepoId,
   RoleType,
@@ -25,22 +27,28 @@ import com.advancedtelematic.libtuf.data.TufDataType.{
 }
 import com.advancedtelematic.libtuf_server.crypto.Sha256Digest
 import com.advancedtelematic.libtuf_server.repo.client.ReposerverClient.RequestTargetItem
-import com.advancedtelematic.tuf.reposerver.db.SignedRoleRepositorySupport
-import com.advancedtelematic.tuf.reposerver.http.RoleChecksumHeader
+import com.advancedtelematic.tuf.reposerver.data.RepoDataType.TargetItem
+import com.advancedtelematic.tuf.reposerver.db.{SignedRoleRepositorySupport, TargetItemRepositorySupport}
+import com.advancedtelematic.tuf.reposerver.http.{RoleChecksumHeader, TufRepoSignedRoleGeneration}
 import eu.timepit.refined.api.Refined
 import io.circe.Json
-import org.scalatest.Suite
+import org.scalatest.{Assertion, Suite}
 import org.scalatest.concurrent.ScalaFutures
+import cats.syntax.either._
 import cats.syntax.show._
 import cats.syntax.option._
 import io.circe.syntax._
 import com.github.pjfanning.pekkohttpcirce.FailFastCirceSupport._
 import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.libats.http.HttpCodecs._
+import com.advancedtelematic.libats.data.ErrorRepresentation
+
+import scala.concurrent.Future
 
 trait RepoResourceSpecUtil
     extends ResourceSpec
     with SignedRoleRepositorySupport
+    with TargetItemRepositorySupport
     with ScalaFutures
     with ScalatestRouteTest { this: Suite =>
 
@@ -109,4 +117,36 @@ trait RepoResourceSpecUtil
   val offlineTargetFilename: TargetFilename = Refined.unsafeApply("some/file/name")
 
   val offlineTargets = createOfflineTargets(offlineTargetFilename)
+
+  private def normalizeCustomJson(custom: Option[Json]): Option[Json] = {
+    custom.map { json =>
+      json.asObject.map { obj =>
+        Json.fromJsonObject(obj.remove("createdAt").remove("updatedAt"))
+      }.getOrElse(json)
+    }
+  }
+
+  def extractTargetsRoleFromError(errorRepr: ErrorRepresentation): TargetsRole = {
+    val metadataBase64 = errorRepr.cause.flatMap(_.as[io.circe.JsonObject].toOption)
+      .flatMap(_.apply("unsigned_metadata_base64"))
+      .flatMap(_.asString)
+      .getOrElse(throw new RuntimeException("Could not extract unsigned_metadata_base64 from error response"))
+    val decodedJson = new String(java.util.Base64.getDecoder.decode(metadataBase64), java.nio.charset.StandardCharsets.UTF_8)
+    io.circe.parser.parse(decodedJson).flatMap(_.as[TargetsRole]).valueOr(throw _)
+  }
+
+  def assertOfflineMetadataMatches(offlineMetadata: TargetsRole, onlineMetadata: TargetsRole): Assertion = {
+    // Normalize targets by removing createdAt/updatedAt from custom JSON
+    val normalizedOfflineTargets = offlineMetadata.targets.map { case (filename, item) =>
+      filename -> item.copy(custom = normalizeCustomJson(item.custom))
+    }
+    val normalizedOnlineTargets = onlineMetadata.targets.map { case (filename, item) =>
+      filename -> item.copy(custom = normalizeCustomJson(item.custom))
+    }
+
+    // Compare signed portions
+    normalizedOfflineTargets shouldBe normalizedOnlineTargets
+    offlineMetadata.delegations shouldBe onlineMetadata.delegations
+    offlineMetadata.version shouldBe onlineMetadata.version
+  }
 }

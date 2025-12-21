@@ -17,12 +17,15 @@ import com.advancedtelematic.libats.data.DataType.{HashMethod, Namespace}
 import com.advancedtelematic.libats.data.{ErrorRepresentation, PaginationResult}
 import com.advancedtelematic.libats.data.RefinedUtils.RefineTry
 import com.advancedtelematic.libats.http.Errors.RawError
+import com.advancedtelematic.tuf.reposerver.http.ErrorCodes
 import com.advancedtelematic.libtuf.crypt.CanonicalJson._
 import com.advancedtelematic.libtuf.crypt.TufCrypto
 import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.libtuf.data.ClientDataType.{
   ClientHashes,
   ClientTargetItem,
+  DelegatedRoleName,
+  Delegation,
   RoleTypeOps,
   RootRole,
   SnapshotRole,
@@ -32,14 +35,16 @@ import com.advancedtelematic.libtuf.data.ClientDataType.{
 }
 import com.advancedtelematic.libtuf.data.TufCodecs._
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
-import com.advancedtelematic.libtuf.data.TufDataType.{RepoId, RoleType, _}
+import com.advancedtelematic.libtuf.data.TufDataType.{Ed25519KeyType, RepoId, RoleType, TufKey, _}
+import com.advancedtelematic.libtuf.data.ValidatedString.*
 import com.advancedtelematic.libtuf_server.crypto.Sha256Digest
 import com.advancedtelematic.libtuf_server.data.Requests._
 import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient
 import com.advancedtelematic.libtuf_server.repo.client.ReposerverClient.EditTargetItem
 import com.advancedtelematic.libtuf_server.repo.server.DataType.SignedRole
+import com.advancedtelematic.tuf.reposerver.data.RepoDataType.{StorageMethod, TargetItem}
 import com.advancedtelematic.tuf.reposerver.db.SignedRoleDbTestUtil._
-import com.advancedtelematic.tuf.reposerver.db.SignedRoleRepositorySupport
+import com.advancedtelematic.tuf.reposerver.db.{SignedRoleRepositorySupport, TargetItemRepositorySupport}
 import com.advancedtelematic.tuf.reposerver.target_store.TargetStoreEngine.{
   TargetBytes,
   TargetRetrieveResult
@@ -72,7 +77,8 @@ class RepoResourceSpec
     with Inspectors
     with Whenever
     with PatienceConfiguration
-    with SignedRoleRepositorySupport {
+    with SignedRoleRepositorySupport
+    with TargetItemRepositorySupport {
 
   override val ec: scala.concurrent.ExecutionContextExecutor = this.executor
 
@@ -529,20 +535,6 @@ class RepoResourceSpec
       .futureValue shouldBe Errors.TargetNotFoundError
   }
 
-  test("delete fails for offline signed targets.json") {
-    val repoId = addTargetToRepo()
-    val root = fakeKeyserverClient.fetchRootRole(repoId).futureValue
-
-    fakeKeyserverClient
-      .deletePrivateKey(repoId, root.signed.roles(RoleType.TARGETS).keyids.head)
-      .futureValue
-
-    Delete(apiUri(s"repo/${repoId.show}/targets/myfile01")) ~> routes ~> check {
-      status shouldBe StatusCodes.PreconditionFailed
-      responseAs[ErrorRepresentation].code shouldBe KeyserverClient.RoleKeyNotFound.code
-    }
-  }
-
   test("Bumps version number when adding a new target") {
     val newRepoId = addTargetToRepo()
 
@@ -724,6 +716,45 @@ class RepoResourceSpec
     Get(apiUri(s"repo/${repoId.show}/targets/some/target/raw/thing")) ~> routes ~> check {
       status shouldBe StatusCodes.OK
       responseEntity.dataBytes.runReduce(_ ++ _).futureValue shouldBe testEntity.getData()
+    }
+  }
+
+  test("PUT /targets/{filename} uploads binary file and adds target to metadata") {
+    val repoId = addTargetToRepo()
+    
+    // Create a 1KB binary file
+    val fileSize = 1024
+    val fileContent = ByteString(Array.fill(fileSize)(0x42.toByte))
+    val fileHash = Sha256Digest.digest(fileContent.toArray)
+    val filename = "test-binary-file.bin"
+    
+    // Upload the file
+    Put(
+      apiUri(s"repo/${repoId.show}/targets/$filename?name=test-target&version=1.0.0"),
+      HttpEntity(ContentTypes.`application/octet-stream`, fileContent)
+    ) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+    
+    // Verify the file is stored in the storage backend
+    Get(apiUri(s"repo/${repoId.show}/targets/$filename")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val retrievedContent = responseEntity.dataBytes.runReduce(_ ++ _).futureValue
+      retrievedContent shouldBe fileContent
+      retrievedContent.length shouldBe fileSize
+    }
+    
+    // Verify the target is added to metadata with correct hash and size
+    Get(apiUri(s"repo/${repoId.show}/targets.json")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val signed = responseAs[SignedPayload[TargetsRole]]
+      val targetsRole = signed.signed
+      val targetFilename = filename.refineTry[ValidTargetFilename].get
+      
+      targetsRole.targets.keys should contain(targetFilename)
+      val targetItem = targetsRole.targets(targetFilename)
+      targetItem.length shouldBe fileSize
+      targetItem.hashes(HashMethod.SHA256) shouldBe fileHash.hash
     }
   }
 
@@ -1213,21 +1244,6 @@ class RepoResourceSpec
     Get(apiUri(s"repo/${repoId.show}/targets/${offlineTargetFilename.value}")) ~> routes ~> check {
       status shouldBe StatusCodes.Found
       header[Location].map(_.value()) should contain("https://ats.com")
-    }
-  }
-
-  test("POST /targets, creating a target fails with 412 when targets.json is offline") {
-    val repoId = RepoId.generate()
-    fakeKeyserverClient.createRoot(repoId).futureValue
-
-    val root = fakeKeyserverClient.fetchRootRole(repoId).futureValue
-
-    fakeKeyserverClient
-      .deletePrivateKey(repoId, root.signed.roles(RoleType.TARGETS).keyids.head)
-      .futureValue
-
-    Post(apiUri(s"repo/${repoId.show}/targets/myfile01"), testFile) ~> routes ~> check {
-      status shouldBe StatusCodes.PreconditionFailed
     }
   }
 
@@ -2189,6 +2205,384 @@ class RepoResourceSpec
     }
     val parsedJson = parse(responseBody).getOrElse(fail(s"Failed to parse response: $responseBody"))
     responseBody shouldBe parsedJson.canonical
+  }
+
+  test("PUT /trusted-delegations produces same metadata online and offline") {
+    val repoId1 = addTargetToRepo()
+    val repoId2 = addTargetToRepo()
+    
+    // Set up both repos identically: add trusted delegation keys
+    val newKeys = Ed25519KeyType.crypto.generateKeyPair()
+    Put(apiUri(s"repo/${repoId1.show}/trusted-delegations/keys"), List(newKeys.pubkey).asJson) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+    Put(apiUri(s"repo/${repoId2.show}/trusted-delegations/keys"), List(newKeys.pubkey).asJson) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+    
+    // Take keys offline for repoId1
+    val root1 = fakeKeyserverClient.fetchRootRole(repoId1).futureValue
+    fakeKeyserverClient.deletePrivateKey(repoId1, root1.signed.roles(RoleType.TARGETS).keyids.head).futureValue
+    
+    // Create the new delegation
+    val delegation = Delegation(
+      name = "test-delegation".unsafeApply[DelegatedRoleName],
+      keyids = List(newKeys.pubkey.id),
+      threshold = 1,
+      terminating = false,
+      paths = List.empty
+    )
+    
+    // Perform operation on repoId1 (offline keys) - get metadata from error response
+    val offlineMetadata = Put(apiUri(s"repo/${repoId1.show}/trusted-delegations"), List(delegation).asJson) ~> routes ~> check {
+      status shouldBe StatusCodes.PreconditionFailed
+      extractTargetsRoleFromError(responseAs[ErrorRepresentation])
+    }
+    
+    // Perform operation on repoId2 (online keys) - get metadata from success response
+    Put(apiUri(s"repo/${repoId2.show}/trusted-delegations"), List(delegation).asJson) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+    val onlineMetadata = Get(apiUri(s"repo/${repoId2.show}/targets.json")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      responseAs[SignedPayload[TargetsRole]].signed
+    }
+    
+    // Compare signed portions
+    assertOfflineMetadataMatches(offlineMetadata, onlineMetadata)
+  }
+
+  test("DELETE /trusted-delegations/{name} produces same metadata online and offline") {
+    val repoId1 = addTargetToRepo()
+    val repoId2 = addTargetToRepo()
+    
+    // Set up both repos identically: add keys and delegations
+    val newKeys = Ed25519KeyType.crypto.generateKeyPair()
+    Put(apiUri(s"repo/${repoId1.show}/trusted-delegations/keys"), List(newKeys.pubkey).asJson) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+    Put(apiUri(s"repo/${repoId2.show}/trusted-delegations/keys"), List(newKeys.pubkey).asJson) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+
+    val delegation1 = Delegation(
+      name = "delegation-1".unsafeApply[DelegatedRoleName],
+      keyids = List(newKeys.pubkey.id),
+      threshold = 1,
+      terminating = false,
+      paths = List.empty
+    )
+    val delegation2 = Delegation(
+      name = "delegation-2".unsafeApply[DelegatedRoleName],
+      keyids = List(newKeys.pubkey.id),
+      threshold = 1,
+      terminating = false,
+      paths = List.empty
+    )
+
+    // Add both delegations to both repos
+    Put(apiUri(s"repo/${repoId1.show}/trusted-delegations"), List(delegation1, delegation2).asJson) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+    Put(apiUri(s"repo/${repoId2.show}/trusted-delegations"), List(delegation1, delegation2).asJson) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+    
+    // Take keys offline for repoId1
+    val root1 = fakeKeyserverClient.fetchRootRole(repoId1).futureValue
+    fakeKeyserverClient.deletePrivateKey(repoId1, root1.signed.roles(RoleType.TARGETS).keyids.head).futureValue
+    
+    // Perform operation on repoId1 (offline keys) - get metadata from error response
+    val offlineMetadata = Delete(apiUri(s"repo/${repoId1.show}/trusted-delegations/${delegation1.name.value}")) ~> routes ~> check {
+      status shouldBe StatusCodes.PreconditionFailed
+      extractTargetsRoleFromError(responseAs[ErrorRepresentation])
+    }
+    
+    // Perform operation on repoId2 (online keys) - get metadata from success response
+    Delete(apiUri(s"repo/${repoId2.show}/trusted-delegations/${delegation1.name.value}")) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+    val onlineMetadata = Get(apiUri(s"repo/${repoId2.show}/targets.json")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      responseAs[SignedPayload[TargetsRole]].signed
+    }
+    
+    // Compare signed portions
+    assertOfflineMetadataMatches(offlineMetadata, onlineMetadata)
+  }
+
+  test("PUT /trusted-delegations/keys produces same metadata online and offline") {
+    val repoId1 = addTargetToRepo()
+    val repoId2 = addTargetToRepo()
+    
+    // Set up both repos identically: add initial keys and delegation
+    val initialKeys = Ed25519KeyType.crypto.generateKeyPair()
+    Put(apiUri(s"repo/${repoId1.show}/trusted-delegations/keys"), List(initialKeys.pubkey).asJson) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+    Put(apiUri(s"repo/${repoId2.show}/trusted-delegations/keys"), List(initialKeys.pubkey).asJson) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+
+    val delegation = Delegation(
+      name = "test-delegation".unsafeApply[DelegatedRoleName],
+      keyids = List(initialKeys.pubkey.id),
+      threshold = 1,
+      terminating = false,
+      paths = List.empty
+    )
+
+    Put(apiUri(s"repo/${repoId1.show}/trusted-delegations"), List(delegation).asJson) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+    Put(apiUri(s"repo/${repoId2.show}/trusted-delegations"), List(delegation).asJson) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+    
+    // Take keys offline for repoId1
+    val root1 = fakeKeyserverClient.fetchRootRole(repoId1).futureValue
+    fakeKeyserverClient.deletePrivateKey(repoId1, root1.signed.roles(RoleType.TARGETS).keyids.head).futureValue
+    
+    // Create new keys
+    val newKeys = Ed25519KeyType.crypto.generateKeyPair()
+    
+    // Perform operation on repoId1 (offline keys) - get metadata from error response
+    val offlineMetadata = Put(apiUri(s"repo/${repoId1.show}/trusted-delegations/keys"), List(newKeys.pubkey).asJson) ~> routes ~> check {
+      status shouldBe StatusCodes.PreconditionFailed
+      extractTargetsRoleFromError(responseAs[ErrorRepresentation])
+    }
+    
+    // Perform operation on repoId2 (online keys) - get metadata from success response
+    Put(apiUri(s"repo/${repoId2.show}/trusted-delegations/keys"), List(newKeys.pubkey).asJson) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+    val onlineMetadata = Get(apiUri(s"repo/${repoId2.show}/targets.json")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      responseAs[SignedPayload[TargetsRole]].signed
+    }
+    
+    // Compare signed portions
+    assertOfflineMetadataMatches(offlineMetadata, onlineMetadata)
+  }
+
+  test("PUT /targets/{filename} produces same metadata online and offline") {
+    val repoId1 = RepoId.generate()
+    val repoId2 = RepoId.generate()
+    fakeKeyserverClient.createRoot(repoId1).futureValue
+    fakeKeyserverClient.createRoot(repoId2).futureValue
+
+    // Set up both repos identically: add a target first to ensure the targets role exists
+    val initialFileContent = ByteString(Array.fill(512)(0x41.toByte))
+    Put(
+      apiUri(s"repo/${repoId1.show}/targets/initialfile?name=initial&version=1.0.0"),
+      HttpEntity(ContentTypes.`application/octet-stream`, initialFileContent)
+    ) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+    Put(
+      apiUri(s"repo/${repoId2.show}/targets/initialfile?name=initial&version=1.0.0"),
+      HttpEntity(ContentTypes.`application/octet-stream`, initialFileContent)
+    ) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+
+    // Take keys offline for repoId1
+    val root1 = fakeKeyserverClient.fetchRootRole(repoId1).futureValue
+    fakeKeyserverClient.deletePrivateKey(repoId1, root1.signed.roles(RoleType.TARGETS).keyids.head).futureValue
+
+    // Create a 1KB binary file
+    val fileSize = 1024
+    val fileContent = ByteString(Array.fill(fileSize)(0x42.toByte))
+    val filename = "test-binary-file.bin"
+    val targetFilename = filename.refineTry[ValidTargetFilename].get
+
+    // Perform operation on repoId1 (offline keys) - get metadata from error response
+    val offlineMetadata = Put(
+      apiUri(s"repo/${repoId1.show}/targets/$filename?name=test-target&version=1.0.0"),
+      HttpEntity(ContentTypes.`application/octet-stream`, fileContent)
+    ) ~> routes ~> check {
+      status shouldBe StatusCodes.PreconditionFailed
+      extractTargetsRoleFromError(responseAs[ErrorRepresentation])
+    }
+
+    // Perform operation on repoId2 (online keys) - get metadata from success response
+    Put(
+      apiUri(s"repo/${repoId2.show}/targets/$filename?name=test-target&version=1.0.0"),
+      HttpEntity(ContentTypes.`application/octet-stream`, fileContent)
+    ) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+    val onlineMetadata = Get(apiUri(s"repo/${repoId2.show}/targets.json")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      responseAs[SignedPayload[TargetsRole]].signed
+    }
+
+    // Compare signed portions
+    assertOfflineMetadataMatches(offlineMetadata, onlineMetadata)
+
+    // Verify the file WAS stored in both repos (binary should be persisted even if keys are offline)
+    val storedFile1 = localStorage.retrieve(repoId1, targetFilename).futureValue
+    storedFile1 match {
+      case TargetBytes(bytes, size) =>
+        val retrievedContent = bytes.runReduce(_ ++ _).futureValue
+        retrievedContent shouldBe fileContent
+        retrievedContent.length shouldBe fileSize
+        size shouldBe fileSize
+      case _ => fail("Expected TargetBytes but got TargetRedirect")
+    }
+
+    val storedFile2 = localStorage.retrieve(repoId2, targetFilename).futureValue
+    storedFile2 match {
+      case TargetBytes(bytes, size) =>
+        val retrievedContent = bytes.runReduce(_ ++ _).futureValue
+        retrievedContent shouldBe fileContent
+        retrievedContent.length shouldBe fileSize
+        size shouldBe fileSize
+      case _ => fail("Expected TargetBytes but got TargetRedirect")
+    }
+
+    // Verify the target was NOT persisted to the TargetItems table for repoId1 (no side effects in metadata)
+    targetItemRepo.exists(repoId1, targetFilename).futureValue shouldBe false
+    // But it WAS persisted for repoId2 (online keys)
+    targetItemRepo.exists(repoId2, targetFilename).futureValue shouldBe true
+  }
+
+  test("POST /targets produces same metadata online and offline") {
+    val repoId1 = addTargetToRepo()
+    val repoId2 = addTargetToRepo()
+    
+    // Take keys offline for repoId1
+    val root1 = fakeKeyserverClient.fetchRootRole(repoId1).futureValue
+    fakeKeyserverClient.deletePrivateKey(repoId1, root1.signed.roles(RoleType.TARGETS).keyids.head).futureValue
+    
+    val newFilename = "new-target-file".refineTry[ValidTargetFilename].get
+    val newChecksum = Sha256Digest.digest("new content".getBytes)
+    val testUri = Uri("https://ats.com/newfile")
+    val targetName = TargetName("newtarget")
+    val targetVersion = TargetVersion("1.0.0")
+    val requestItem = testFile.copy(
+      uri = testUri,
+      name = targetName.some,
+      version = targetVersion.some,
+      checksum = newChecksum,
+      length = "new content".getBytes.length
+    )
+    
+    // Perform operation on repoId1 (offline keys) - get metadata from error response
+    val offlineMetadata = Post(apiUri(s"repo/${repoId1.show}/targets/${newFilename.value}"), requestItem) ~> routes ~> check {
+      status shouldBe StatusCodes.PreconditionFailed
+      extractTargetsRoleFromError(responseAs[ErrorRepresentation])
+    }
+    
+    // Perform operation on repoId2 (online keys) - get metadata from success response
+    val onlineMetadata = Post(apiUri(s"repo/${repoId2.show}/targets/${newFilename.value}"), requestItem) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      responseAs[JsonSignedPayload].signed.as[TargetsRole].valueOr(throw _)
+    }
+    
+    // Compare signed portions
+    assertOfflineMetadataMatches(offlineMetadata, onlineMetadata)
+  }
+
+  test("DELETE /targets produces same metadata online and offline") {
+    val repoId1 = addTargetToRepo()
+    val repoId2 = addTargetToRepo()
+    
+    // Take keys offline for repoId1
+    val root1 = fakeKeyserverClient.fetchRootRole(repoId1).futureValue
+    fakeKeyserverClient.deletePrivateKey(repoId1, root1.signed.roles(RoleType.TARGETS).keyids.head).futureValue
+    
+    val filenameToDelete = "myfile01".refineTry[ValidTargetFilename].get
+    
+    // Perform operation on repoId1 (offline keys) - get metadata from error response
+    val offlineMetadata = Delete(apiUri(s"repo/${repoId1.show}/targets/${filenameToDelete.value}")) ~> routes ~> check {
+      status shouldBe StatusCodes.PreconditionFailed
+      extractTargetsRoleFromError(responseAs[ErrorRepresentation])
+    }
+    
+    // Perform operation on repoId2 (online keys) - get metadata from success response
+    Delete(apiUri(s"repo/${repoId2.show}/targets/${filenameToDelete.value}")) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+    val onlineMetadataAfter = Get(apiUri(s"repo/${repoId2.show}/targets.json")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      responseAs[SignedPayload[TargetsRole]].signed
+    }
+    
+    // Compare signed portions
+    assertOfflineMetadataMatches(offlineMetadata, onlineMetadataAfter)
+    
+    // Verify the target was NOT deleted from the TargetItems table for repoId1 (no side effects)
+    val targetItem1 = targetItemRepo.findByFilename(repoId1, filenameToDelete).futureValue
+    targetItem1.filename shouldBe filenameToDelete
+    
+    // But it WAS deleted for repoId2 (online keys)
+    targetItemRepo.exists(repoId2, filenameToDelete).futureValue shouldBe false
+  }
+
+  test("PATCH /targets produces same metadata online and offline") {
+    val repoId1 = addTargetToRepo()
+    val repoId2 = addTargetToRepo()
+    
+    // Take keys offline for repoId1
+    val root1 = fakeKeyserverClient.fetchRootRole(repoId1).futureValue
+    fakeKeyserverClient.deletePrivateKey(repoId1, root1.signed.roles(RoleType.TARGETS).keyids.head).futureValue
+    
+    val filenameToEdit = "myfile01".refineTry[ValidTargetFilename].get
+    val testUri = URI.create("https://toradex.com")
+    val editRequest = EditTargetItem(
+      uri = Some(testUri),
+      hardwareIds = Seq[HardwareIdentifier](Refined.unsafeApply("hw1")),
+      proprietaryCustom = Some(Json.obj("test" -> "value".asJson))
+    )
+    
+    // Perform operation on repoId1 (offline keys) - get metadata from error response
+    val offlineMetadata = Patch(apiUri(s"repo/${repoId1.show}/targets/${filenameToEdit.value}"), editRequest) ~> routes ~> check {
+      status shouldBe StatusCodes.PreconditionFailed
+      extractTargetsRoleFromError(responseAs[ErrorRepresentation])
+    }
+    
+    // Perform operation on repoId2 (online keys) - get metadata from success response
+    Patch(apiUri(s"repo/${repoId2.show}/targets/${filenameToEdit.value}"), editRequest) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+    }
+    val onlineMetadata = Get(apiUri(s"repo/${repoId2.show}/targets.json")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      responseAs[SignedPayload[TargetsRole]].signed
+    }
+    
+    // Compare signed portions
+    assertOfflineMetadataMatches(offlineMetadata, onlineMetadata)
+  }
+
+  test("PATCH /proprietary-custom produces same metadata online and offline") {
+    val repoId1 = addTargetToRepo()
+    val repoId2 = addTargetToRepo()
+    
+    // Take keys offline for repoId1
+    val root1 = fakeKeyserverClient.fetchRootRole(repoId1).futureValue
+    fakeKeyserverClient.deletePrivateKey(repoId1, root1.signed.roles(RoleType.TARGETS).keyids.head).futureValue
+    
+    val filenameToUpdate = "myfile01".refineTry[ValidTargetFilename].get
+    val proprietaryUpdate = Json.obj("newkey" -> "newvalue".asJson, "nested" -> Json.obj("inner" -> 42.asJson))
+    
+    // Perform operation on repoId1 (offline keys) - get metadata from error response
+    val offlineMetadata = Patch(apiUri(s"repo/${repoId1.show}/proprietary-custom/${filenameToUpdate.value}"), proprietaryUpdate) ~> routes ~> check {
+      status shouldBe StatusCodes.PreconditionFailed
+      extractTargetsRoleFromError(responseAs[ErrorRepresentation])
+    }
+    
+    // Perform operation on repoId2 (online keys) - get metadata from success response
+    Patch(apiUri(s"repo/${repoId2.show}/proprietary-custom/${filenameToUpdate.value}"), proprietaryUpdate) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+    val onlineMetadata = Get(apiUri(s"repo/${repoId2.show}/targets.json")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      responseAs[SignedPayload[TargetsRole]].signed
+    }
+    
+    // Compare signed portions
+    assertOfflineMetadataMatches(offlineMetadata, onlineMetadata)
   }
 
   implicit class ErrorRepresentationOps(value: ErrorRepresentation) {

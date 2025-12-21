@@ -672,6 +672,9 @@ class RepoResourceDelegationsSpec
 
     val start = Instant.now
 
+    // On fast computers this test starts being flaky because it takes <1ms
+    Thread.sleep(10)
+
     val req1 = AddDelegationFromRemoteRequest(uri)
     addNewRemoteDelegationOk(delegation.name, req1)
 

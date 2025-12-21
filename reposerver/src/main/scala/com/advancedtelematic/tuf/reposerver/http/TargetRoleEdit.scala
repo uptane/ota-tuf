@@ -33,24 +33,12 @@ class TargetRoleEdit(signedRoleGeneration: SignedRoleGeneration)(
     json <- signedRoleGeneration.regenerateAllSignedRoles(targetItem.repoId)
   } yield json
 
-  private def mergeCustomJson(existing: Json, provided: Json): Json =
-    if (provided == Json.obj())
-      provided
-    else
-      (existing.asObject, provided.asObject) match {
-        case (Some(lhs), Some(rhs)) =>
-          Json.fromJsonObject(rhs.toIterable.foldLeft(lhs) { case (acc, (k, v)) =>
-            acc.add(k, v)
-          })
-        case _ => provided
-      }
-
   def updateTargetProprietaryCustom(repoId: RepoId,
                                     filename: TargetFilename,
                                     proprietaryJson: Json): Future[Unit] = for {
     existing <- targetItemRepo.findByFilename(repoId, filename)
     newCustomJson = existing.custom.map { custom =>
-      custom.copy(proprietary = mergeCustomJson(custom.proprietary, proprietaryJson))
+      TargetItemTransformations.transformTargetCustomForProprietaryUpdate(custom, proprietaryJson)
     }
     _ <- targetItemRepo.setCustom(repoId, filename, newCustomJson)
     _ <- signedRoleGeneration.regenerateAllSignedRoles(repoId)
@@ -69,13 +57,7 @@ class TargetRoleEdit(signedRoleGeneration: SignedRoleGeneration)(
       _ <- signedRoleGeneration.ensureTargetsCanBeSigned(repoId)
       existingTarget <- targetItemRepo.findByFilename(repoId, filename)
       newCustomJson = existingTarget.custom.map { existingCustom =>
-        existingCustom.copy(
-          uri = if (targetEdit.uri.isDefined) targetEdit.uri else existingCustom.uri,
-          hardwareIds =
-            if (targetEdit.hardwareIds.nonEmpty) targetEdit.hardwareIds
-            else existingCustom.hardwareIds,
-          proprietary = targetEdit.proprietaryCustom.getOrElse(existingCustom.proprietary)
-        )
+        TargetItemTransformations.transformTargetCustomForEdit(existingCustom, targetEdit)
       }
       _ <- targetItemRepo.setCustom(repoId, filename, newCustomJson)
       _ <- signedRoleGeneration.regenerateAllSignedRoles(repoId)
