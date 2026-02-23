@@ -670,13 +670,11 @@ class RepoResourceDelegationsSpec
 
     addNewTrustedDelegationsOk(delegation)
 
-    val start = Instant.now
-
-    // On fast computers this test starts being flaky because it takes <1ms
-    Thread.sleep(10)
-
     val req1 = AddDelegationFromRemoteRequest(uri)
+
+    val start = Instant.now
     addNewRemoteDelegationOk(delegation.name, req1)
+    val end = Instant.now
 
     Get(
       apiUri(s"repo/${repoId.show}/delegations/${delegation.name.value}.json")
@@ -687,7 +685,8 @@ class RepoResourceDelegationsSpec
       val tsStr = header("x-ats-delegation-last-fetched-at").value.value()
       val ts = Instant.parse(tsStr)
 
-      ts.isAfter(start) shouldBe true
+      ts.isBefore(start) shouldBe false
+      ts.isAfter(end) shouldBe false
     }
   }
 
