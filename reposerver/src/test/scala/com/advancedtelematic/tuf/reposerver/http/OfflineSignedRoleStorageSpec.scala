@@ -1,11 +1,10 @@
 package com.advancedtelematic.tuf.reposerver.http
 
 import java.time.Instant
-
-import cats.syntax.option._
-import cats.syntax.either._
+import cats.syntax.option.*
+import cats.syntax.either.*
 import org.apache.pekko.http.scaladsl.model.Uri
-import io.circe.syntax._
+import io.circe.syntax.*
 import cats.data.Validated.Valid
 import cats.data.ValidatedNel
 import com.advancedtelematic.libtuf.data.ClientDataType.{
@@ -21,12 +20,13 @@ import com.advancedtelematic.libtuf.data.TufDataType.{
   TargetFormat,
   ValidTargetFilename
 }
-import com.advancedtelematic.tuf.reposerver.util._
-import com.advancedtelematic.libtuf.data.ClientCodecs._
-import com.advancedtelematic.libats.codecs.CirceCodecs._
-import com.advancedtelematic.libats.data.DataType.{Checksum, HashMethod, ValidChecksum}
+import com.advancedtelematic.tuf.reposerver.util.*
+import com.advancedtelematic.libtuf.data.ClientCodecs.*
+import com.advancedtelematic.libats.codecs.CirceCodecs.*
+import com.advancedtelematic.libats.data.DataType.{Checksum, HashMethod, Namespace, ValidChecksum}
 import com.advancedtelematic.tuf.reposerver.db.TargetItemRepositorySupport
 import com.advancedtelematic.libats.data.RefinedUtils.RefineTry
+import com.advancedtelematic.libats.messaging.MemoryMessageBus
 import com.advancedtelematic.libtuf_server.keyserver.KeyserverClient
 import com.advancedtelematic.libtuf_server.repo.server.DataType.SignedRole
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.{StorageMethod, TargetItem}
@@ -50,6 +50,9 @@ class OfflineSignedRoleStorageSpec
     PatienceConfig().copy(timeout = Span(5, Seconds))
 
   val mockUri = Uri("https://example.com")
+
+  val memoryMessageBus = new MemoryMessageBus
+  val messageBusPublisher = memoryMessageBus.publisher()
 
   val defaultCustom = Map(
     "uri" -> mockUri.toString().asJson,
@@ -78,7 +81,9 @@ class OfflineSignedRoleStorageSpec
   val subject = new OfflineSignedRoleStorage(keyserver)
 
   val signedRoleGeneration = TufRepoSignedRoleGeneration(keyserver)
-  val targetRoleEdit = new TargetRoleEdit(signedRoleGeneration)
+  val publisher = new TufTargetsPublisher(messageBusPublisher)
+  val targetCommands = new TargetRoleEdit(keyserver, signedRoleGeneration, publisher)
+  val targetRoleEdit = targetCommands
 
   def storeOffline(
     repoId: RepoId,
@@ -91,20 +96,18 @@ class OfflineSignedRoleStorageSpec
 
   keyTypeTest("allows previously online targets to contain empty custom metadata") { keyType =>
     val repoId = RepoId.generate()
-    keyserver.createRoot(repoId).futureValue
+    keyserver.createRoot(repoId, keyType).futureValue
 
     targetRoleEdit
-      .addTargetItem(
-        TargetItem(
-          repoId,
-          mockFilename,
-          mockUri.some,
-          mockChecksum,
-          22,
-          None,
-          StorageMethod.Managed
-        )
-      )
+      .addTarget(Namespace(repoId.toString), TargetItem(
+        repoId,
+        mockFilename,
+        mockUri.some,
+        mockChecksum,
+        22,
+        None,
+        StorageMethod.Managed
+      ))
       .futureValue
     val existingItem = targetItemRepo.findByFilename(repoId, mockFilename).futureValue
 
@@ -136,7 +139,7 @@ class OfflineSignedRoleStorageSpec
       newCustom.some,
       StorageMethod.Managed
     )
-    targetRoleEdit.addTargetItem(oldTargetItem).futureValue
+    targetRoleEdit.addTarget(Namespace(repoId.toString), oldTargetItem).futureValue
 
     val newTargetItems =
       Map(mockFilename -> ClientTargetItem(mockHashes, oldTargetItem.length, newCustom.asJson.some))
@@ -168,7 +171,7 @@ class OfflineSignedRoleStorageSpec
       defaultCustom.as[TargetCustom].toOption,
       StorageMethod.Managed
     )
-    targetRoleEdit.addTargetItem(oldTargetItem).futureValue
+    targetRoleEdit.addTarget(Namespace(repoId.toString), oldTargetItem).futureValue
 
     val newChecksum = "33a1e103ecb162181620d521915879e68736ea20e4eabe22cc243115d4d43563"
       .refineTry[ValidChecksum]
