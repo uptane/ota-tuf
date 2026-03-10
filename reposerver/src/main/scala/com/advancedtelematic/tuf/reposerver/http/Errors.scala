@@ -30,6 +30,7 @@ object ErrorCodes {
   val MissingRemoteDelegationUri = ErrorCode("missing_remote_delegation_uri")
   val ImmutableFields = ErrorCode("immutable_fields_specified")
   val SetRootExpireError = ErrorCode("set_root_expire_failed")
+  val SbomNotFound = ErrorCode("sbom_not_found")
 }
 
 object Errors {
@@ -51,6 +52,9 @@ object Errors {
 
   val TargetNotFoundError =
     RawError(ErrorCodes.TargetNotFound, StatusCodes.NotFound, "TargetNotFound")
+
+  val SbomNotFoundError =
+    RawError(ErrorCodes.SbomNotFound, StatusCodes.NotFound, "SbomNotFound")
 
   val NoUriForUnamanagedTarget = RawError(
     ErrorCodes.NoUriForUnmanagedTarget,

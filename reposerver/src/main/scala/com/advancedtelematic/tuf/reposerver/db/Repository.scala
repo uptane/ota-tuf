@@ -436,6 +436,38 @@ protected[db] class FilenameCommentRepository()(implicit db: Database, ec: Execu
 
 }
 
+trait SbomRepositorySupport extends DatabaseSupport {
+  lazy val sbomRepo = new SbomRepository()(db, ec)
+}
+
+protected[db] class SbomRepository()(implicit db: Database, ec: ExecutionContext) {
+
+  import Schema.sboms
+
+  def persist(sbom: Sbom): Future[Sbom] = db.run {
+    sboms.insertOrUpdate(sbom).map(_ => sbom)
+  }
+
+  def find(filename: TargetFilename): Future[Sbom] = db.run {
+    sboms
+      .filter(_.filename === filename)
+      .result
+      .failIfNotSingle(SbomNotFoundError)
+  }
+
+  def findAll(offset: Offset, limit: Limit): Future[PaginationResult[Sbom]] = db.run {
+    sboms.paginateResult(offset, limit)
+  }
+
+  def delete(filename: TargetFilename): Future[Unit] = db.run {
+    sboms
+      .filter(_.filename === filename)
+      .delete
+      .handleSingleUpdateError(SbomNotFoundError)
+  }
+
+}
+
 trait DelegationRepositorySupport extends DatabaseSupport {
   lazy val delegationsRepo = new DelegationRepository()(db, ec)
 }
