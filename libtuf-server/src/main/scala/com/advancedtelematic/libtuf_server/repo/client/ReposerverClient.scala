@@ -208,7 +208,8 @@ trait ReposerverClient {
     hashes: Seq[TargetHash] = Seq.empty,
     filenames: Seq[TargetFilename] = Seq.empty,
     sortBy: Option[TargetItemsSort] = None,
-    sortDirection: Option[SortDirection] = None): Future[PaginationResult[ClientPackage]]
+    sortDirection: Option[SortDirection] = None,
+    hasSBOM: Option[Boolean] = None): Future[PaginationResult[ClientPackage]]
 
   def searchTargetsGroupedV2(
     namespace: Namespace,
@@ -222,7 +223,8 @@ trait ReposerverClient {
     hashes: Seq[TargetHash],
     filenames: Seq[Refined[String, ValidTargetFilename]],
     sortBy: Option[AggregatedTargetItemsSort],
-    sortDirection: Option[SortDirection]): Future[PaginationResult[ClientAggregatedPackage]]
+    sortDirection: Option[SortDirection],
+    hasSBOM: Option[Boolean]): Future[PaginationResult[ClientAggregatedPackage]]
 
   def setTargetComments(namespace: Namespace,
                         targetFilename: TargetFilename,
@@ -480,7 +482,8 @@ class ReposerverHttpClient(reposerverUri: Uri,
     hashes: Seq[TargetHash],
     filenames: Seq[Refined[String, ValidTargetFilename]],
     sortBy: Option[TargetItemsSort],
-    sortDirection: Option[SortDirection]): Future[PaginationResult[ClientPackage]] = {
+    sortDirection: Option[SortDirection],
+    hasSBOM: Option[Boolean]): Future[PaginationResult[ClientPackage]] = {
 
     val params = PackageSearchParameters(
       origin = origins,
@@ -490,7 +493,8 @@ class ReposerverHttpClient(reposerverUri: Uri,
       version = version,
       hardwareIds = hardwareIds,
       hashes = hashes,
-      filenames = filenames
+      filenames = filenames,
+      hasSBOM = hasSBOM
     )
 
     val req = HttpRequest(
@@ -526,7 +530,8 @@ class ReposerverHttpClient(reposerverUri: Uri,
     hashes: Seq[TargetHash],
     filenames: Seq[Refined[String, ValidTargetFilename]],
     sortBy: Option[AggregatedTargetItemsSort],
-    sortDirection: Option[SortDirection]): Future[PaginationResult[ClientAggregatedPackage]] = {
+    sortDirection: Option[SortDirection],
+    hasSBOM: Option[Boolean] = None): Future[PaginationResult[ClientAggregatedPackage]] = {
     val req = HttpRequest(
       HttpMethods.GET,
       uri = apiV2Uri(Path(s"user_repo/grouped-search"))
@@ -554,6 +559,7 @@ class ReposerverHttpClient(reposerverUri: Uri,
               ++ sortDirection
                 .map(sortD => Map("sortDirection" -> sortD.entryName))
                 .getOrElse(Map.empty)
+              ++ hasSBOM.map(s => Map("hasSBOM" -> s.toString)).getOrElse(Map.empty)
           )
         )
     )

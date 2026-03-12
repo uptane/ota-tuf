@@ -35,6 +35,8 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 import PaginationResult.*
 import com.advancedtelematic.libtuf.data.PackageSearchParameters
+import com.advancedtelematic.tuf.reposerver.data.RepoDataType.CreateSbomRequest
+import eu.timepit.refined.api.Refined
 import eu.timepit.refined.refineMV
 
 class RepoTargetsResourceSpec
@@ -651,6 +653,101 @@ class RepoTargetsResourceSpec
     Post(apiUriV2(s"user_repo/search"), params3).namespaced ~> routes ~> check {
       status shouldBe StatusCodes.OK
       val values = responseAs[PaginationResult[Package]].values
+      values should have size 2
+    }
+  }
+
+  testWithRepo("filters by hasSBOM") { implicit ns => implicit repoId =>
+    addTargetToRepo(repoId)
+
+    uploadOfflineSignedTargetsRole()
+
+    val signedDelegationRole = buildSignedDelegatedTargets()
+
+    pushSignedDelegatedMetadataOk(signedDelegationRole)
+
+    Put(
+      apiUri("user_repo/targets/mypkg?name=library&version=0.0.1&hardwareIds=myid001"),
+      testEntity
+    ).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+
+    // Create an SBOM for the "mypkg" target
+    val sbomReq = CreateSbomRequest(Refined.unsafeApply("https://example.com/mypkg.spdx"))
+    Put(apiUri("sboms/mypkg"), sbomReq) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+    }
+
+    // hasSBOM=true should return only the target with an SBOM
+    val params =
+      PackageSearchParameters.empty.copy(hasSBOM = true.some)
+
+    Post(apiUriV2(s"user_repo/search"), params).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[Package]].values
+      values should have size 1
+      values.head.filename.value shouldBe "mypkg"
+    }
+
+    // hasSBOM=false should return only the target without an SBOM
+    val params1 =
+      PackageSearchParameters.empty.copy(hasSBOM = false.some)
+
+    Post(apiUriV2(s"user_repo/search"), params1).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[Package]].values
+      values should have size 1
+      values.head.filename.value shouldBe "mypath/mytargetName"
+    }
+
+    // No hasSBOM filter should return all targets
+    Post(apiUriV2(s"user_repo/search")).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[Package]].values
+      values should have size 2
+    }
+  }
+
+  testWithRepo("filters grouped-search by hasSBOM") { implicit ns => implicit repoId =>
+    addTargetToRepo(repoId)
+
+    uploadOfflineSignedTargetsRole()
+
+    val signedDelegationRole = buildSignedDelegatedTargets()
+
+    pushSignedDelegatedMetadataOk(signedDelegationRole)
+
+    Put(
+      apiUri("user_repo/targets/mypkg?name=library&version=0.0.1&hardwareIds=myid001"),
+      testEntity
+    ).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+
+    // Create an SBOM for the "mypkg" target
+    val sbomReq = CreateSbomRequest(Refined.unsafeApply("https://example.com/mypkg.spdx"))
+    Put(apiUri("sboms/mypkg"), sbomReq) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+    }
+
+    Get(apiUriV2(s"user_repo/grouped-search?hasSBOM=true")).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[AggregatedPackage]].values
+      values should have size 1
+      values.head.name.value shouldBe "library"
+    }
+
+    Get(apiUriV2(s"user_repo/grouped-search?hasSBOM=false")).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[AggregatedPackage]].values
+      values should have size 1
+      values.head.name.value shouldBe "mytargetName"
+    }
+
+    Get(apiUriV2(s"user_repo/grouped-search")).namespaced ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val values = responseAs[PaginationResult[AggregatedPackage]].values
       values should have size 2
     }
   }
