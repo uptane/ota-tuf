@@ -11,7 +11,7 @@ lazy val commonConfigs = Seq(ItTest, UnitTest)
 val libatsVersion = "5.0.0"
 
 lazy val commonDeps = libraryDependencies ++= {
-  val scalaTestV = "3.2.19"
+  val scalaTestV = "3.2.20"
   lazy val catsV = "2.13.0"
   lazy val pekkoHttpV = "1.2.0"
   lazy val enumeratumV = "1.9.6"
