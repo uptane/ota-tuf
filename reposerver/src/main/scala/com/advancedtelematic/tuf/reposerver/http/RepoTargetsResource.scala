@@ -73,9 +73,10 @@ class RepoTargetsResource(namespaceValidation: NamespaceValidation)(
     "version".as[String].?,
     "hardwareIds".as(CsvSeq[HardwareIdentifier]).?,
     "hashes".as(CsvSeq[Refined[String, ValidChecksum]]).?,
-    "filenames".as(CsvSeq[TargetFilename]).?
+    "filenames".as(CsvSeq[TargetFilename]).?,
+    "hasSBOM".as[Boolean].?
   ).tflatMap {
-    case (origin, originNot, nameContains, name, version, hardwareIds, hashes, filenames) =>
+    case (origin, originNot, nameContains, name, version, hardwareIds, hashes, filenames, hasSBOM) =>
       provide(
         PackageSearchParameters(
           origin.getOrElse(Seq.empty),
@@ -85,7 +86,8 @@ class RepoTargetsResource(namespaceValidation: NamespaceValidation)(
           version,
           hardwareIds.getOrElse(Seq.empty),
           hashes.getOrElse(Seq.empty),
-          filenames.getOrElse(Seq.empty)
+          filenames.getOrElse(Seq.empty),
+          hasSBOM
         )
       )
   }

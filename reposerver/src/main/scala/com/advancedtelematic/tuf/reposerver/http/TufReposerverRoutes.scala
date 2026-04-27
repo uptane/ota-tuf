@@ -36,13 +36,16 @@ class TufReposerverRoutes(keyserverClient: KeyserverClient,
       ErrorHandler.handleErrors {
         concat(
           pathPrefix("api" / "v1") {
-            new RepoResource(
-              keyserverClient,
-              namespaceValidation,
-              targetStore,
-              new TufTargetsPublisher(messageBusPublisher),
-              remoteDelegationClient
-            ).route
+            concat(
+              new RepoResource(
+                keyserverClient,
+                namespaceValidation,
+                targetStore,
+                new TufTargetsPublisher(messageBusPublisher),
+                remoteDelegationClient
+              ).route,
+              new SbomResource().route
+            )
           },
           pathPrefix("api" / "v2")(new RepoTargetsResource(namespaceValidation).route),
           DbHealthResource(

@@ -194,7 +194,8 @@ class DelegationsManagement()(implicit val db: Database, val ec: ExecutionContex
         signedRole,
         delegation.remoteUri,
         Option(Instant.now()),
-        delegation.remoteHeaders
+        delegation.remoteHeaders,
+        delegation.friendlyName
       )
     )
   }

@@ -7,10 +7,8 @@ import org.apache.pekko.http.scaladsl.model.headers.{`Content-Length`, RawHeader
 import org.apache.pekko.http.scaladsl.model.{
   EntityStreamException,
   HttpEntity,
-  HttpHeader,
   HttpRequest,
   HttpResponse,
-  MediaTypes,
   ParsingException,
   StatusCode,
   StatusCodes,
@@ -23,10 +21,11 @@ import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.ByteString
 import cats.data.Validated.{Invalid, Valid}
 import com.advancedtelematic.libats.codecs.CirceRefined.*
-import com.advancedtelematic.libats.codecs.CirceValidatedGeneric.validatedGenericDecoder
 import com.advancedtelematic.libats.data.DataType.HashMethod.HashMethod
 import com.advancedtelematic.libats.data.RefinedUtils.*
-import com.advancedtelematic.libats.http.Errors.{EntityAlreadyExists, MissingEntity}
+import com.advancedtelematic.libats.http.Errors.{
+  EntityAlreadyExists,
+}
 import com.advancedtelematic.libats.http.RefinedMarshallingSupport.*
 import com.advancedtelematic.libats.http.UUIDKeyPekko.*
 import com.advancedtelematic.libtuf.data.ClientCodecs.*
@@ -35,12 +34,12 @@ import com.advancedtelematic.libtuf.data.ClientDataType.{
   ClientTargetItem,
   DelegatedRoleName,
   Delegation,
-  DelegationClientTargetItem,
   DelegationInfo,
   RootRole,
   TargetCustom,
   TargetsRole
 }
+import com.advancedtelematic.libtuf.crypt.CanonicalJson.*
 import com.advancedtelematic.libtuf.data.TufCodecs.*
 import com.advancedtelematic.libtuf.data.TufDataType.RoleType.RoleType
 import com.advancedtelematic.libats.http.AnyvalMarshallingSupport.*
@@ -69,7 +68,6 @@ import com.advancedtelematic.tuf.reposerver.delegations.{
 }
 import com.advancedtelematic.tuf.reposerver.http.Errors.{
   DelegationNotFound,
-  NoRepoForNamespace,
   RequestCanceledByUpstream,
   TargetNotFoundError
 }
@@ -119,7 +117,8 @@ class RepoResource(keyserverClient: KeyserverClient,
     new TufRepoTargetItemsProvider()
   )
 
-  private val targetRoleEdit = new TargetRoleEdit(signedRoleGeneration)
+  private val targetRoleEdit =
+    new TargetRoleEdit(keyserverClient, signedRoleGeneration, tufTargetsPublisher)
   private val delegations = new DelegationsManagement()
   private val trustedDelegations = new TrustedDelegations
 
@@ -194,53 +193,46 @@ class RepoResource(keyserverClient: KeyserverClient,
       }
     } ~ createRepo(namespace, repoId, KeyType.default)
 
-  private def addTargetItem(namespace: Namespace, item: TargetItem): Future[JsonSignedPayload] =
-    for {
-      result <- targetRoleEdit.addTargetItem(item)
-      _ <- tufTargetsPublisher.targetAdded(namespace, item)
-    } yield result
-
   private def addTarget(namespace: Namespace,
                         filename: TargetFilename,
                         repoId: RepoId,
-                        clientItem: RequestTargetItem): Route =
+                        clientItem: RequestTargetItem): Route = {
+    val targetFormat = clientItem.targetFormat.orElse(Some(TargetFormat.BINARY))
+    val custom = for {
+      name <- clientItem.name
+      version <- clientItem.version
+    } yield TargetCustom(
+      name,
+      version,
+      clientItem.hardwareIds,
+      targetFormat,
+      uri = Option(clientItem.uri.toURI)
+    )
+
+    val item = TargetItem(
+      repoId,
+      filename,
+      Option(clientItem.uri),
+      clientItem.checksum,
+      clientItem.length,
+      custom,
+      StorageMethod.Unmanaged
+    )
+
     complete {
-      val targetFormat = clientItem.targetFormat.orElse(Some(TargetFormat.BINARY))
-      val custom = for {
-        name <- clientItem.name
-        version <- clientItem.version
-      } yield TargetCustom(
-        name,
-        version,
-        clientItem.hardwareIds,
-        targetFormat,
-        uri = Option(clientItem.uri.toURI)
-      )
-
-      addTargetItem(
-        namespace,
-        TargetItem(
-          repoId,
-          filename,
-          Option(clientItem.uri),
-          clientItem.checksum,
-          clientItem.length,
-          custom,
-          StorageMethod.Unmanaged
-        )
-      )
+      targetRoleEdit.addTarget(namespace, item)
     }
+  }
 
-  private def storeTarget(ns: Namespace,
-                          repoId: RepoId,
-                          filename: TargetFilename,
-                          custom: TargetCustom,
-                          file: Source[ByteString, Any],
-                          size: Option[Long]): Future[JsonSignedPayload] =
-    for {
-      item <- targetStore.store(repoId, filename, file, custom, size)
-      result <- addTargetItem(ns, item)
-    } yield result
+  private def storeAndAddTarget(ns: Namespace,
+                                repoId: RepoId,
+                                filename: TargetFilename,
+                                custom: TargetCustom,
+                                file: Source[ByteString, Any],
+                                size: Option[Long]): Future[JsonSignedPayload] =
+    targetStore.store(repoId, filename, file, custom, size).flatMap { item =>
+      targetRoleEdit.addTarget(ns, item)
+    }
 
   private def addTargetFromContent(namespace: Namespace,
                                    filename: TargetFilename,
@@ -250,7 +242,9 @@ class RepoResource(keyserverClient: KeyserverClient,
         withSizeLimit(userRepoSizeLimit) {
           withRequestTimeout(userRepoUploadRequestTimeout, timeoutResponseHandler) {
             fileUpload("file") { case (_, file) =>
-              complete(storeTarget(namespace, repoId, filename, custom, file, size = None))
+              complete {
+                storeAndAddTarget(namespace, repoId, filename, custom, file, size = None)
+              }
             }
           }
         },
@@ -260,19 +254,26 @@ class RepoResource(keyserverClient: KeyserverClient,
         ) & extractRequestEntity) { entity =>
           entity.contentLengthOption match {
             case Some(size) if size > 0 =>
-              complete(
-                storeTarget(namespace, repoId, filename, custom, entity.dataBytes, Option(size))
-                  .map(_ => StatusCodes.NoContent)
-              )
+              complete {
+                storeAndAddTarget(
+                  namespace,
+                  repoId,
+                  filename,
+                  custom,
+                  entity.dataBytes,
+                  Option(size)
+                ).map { _ =>
+                  StatusCodes.NoContent
+                }
+              }
             case _ => reject(MissingHeaderRejection("Content-Length"))
           }
         },
         parameter(Symbol("fileUri")) { fileUri =>
           complete {
-            for {
-              item <- targetStore.storeFromUri(repoId, filename, Uri(fileUri), custom)
-              result <- addTargetItem(namespace, item)
-            } yield result
+            targetStore.storeFromUri(repoId, filename, Uri(fileUri), custom).flatMap { item =>
+              targetRoleEdit.addTarget(namespace, item)
+            }
           }
         }
       )
@@ -284,7 +285,7 @@ class RepoResource(keyserverClient: KeyserverClient,
 
   private def findRootByVersion(repoId: RepoId, version: Int): Route =
     onComplete(keyserverClient.fetchRootRole(repoId, version)) {
-      case Success(root)                           => complete(root)
+      case Success(root) => complete(JsonSignedPayload(root.signatures, root.signed.asJson))
       case Failure(err) if err == RootRoleNotFound =>
         // Devices always request current version + 1 to see if it exists, so this is a normal response, do not log an error and instead just log a debug message
         log.debug(s"Root role not found in keyserver for $repoId, version=$version")
@@ -336,28 +337,26 @@ class RepoResource(keyserverClient: KeyserverClient,
       }
     }
 
-  def deleteTargetItem(namespace: Namespace, repoId: RepoId, filename: TargetFilename): Route =
-    complete {
-      for {
-        targetItem <- targetStore.targetItemRepo.findByFilename(repoId, filename)
-        _ <- targetRoleEdit.deleteTargetItem(repoId, filename)
-        _ <- targetStore.delete(targetItem)
-        _ <- tufTargetsPublisher.targetsMetaModified(namespace)
-      } yield StatusCodes.NoContent
-    }
+  def deleteTargetItem(namespace: Namespace, repoId: RepoId, filename: TargetFilename): Route = {
+    val f = targetRoleEdit.deleteTarget(namespace, repoId, filename, targetStore)
+
+    complete(f.map(_ => StatusCodes.NoContent))
+  }
 
   def editTargetItem(namespace: Namespace,
                      repoId: RepoId,
                      filename: TargetFilename,
-                     targetEdit: EditTargetItem): Future[ClientTargetItem] =
-    for {
-      _ <- targetRoleEdit.editTargetItemCustom(repoId, filename, targetEdit)
-      targetItem <- targetItemRepo.findByFilename(repoId, filename)
-    } yield ClientTargetItem(
-      Seq(targetItem.checksum.method -> targetItem.checksum.hash).toMap,
-      targetItem.length,
-      Some(targetItem.custom.asJson)
-    )
+                     targetEdit: EditTargetItem): Route =
+    complete {
+      for {
+        _ <- targetRoleEdit.editTarget(repoId, filename, targetEdit)
+        targetItem <- targetItemRepo.findByFilename(repoId, filename)
+      } yield ClientTargetItem(
+        Seq(targetItem.checksum.method -> targetItem.checksum.hash).toMap,
+        targetItem.length,
+        Some(targetItem.custom.asJson)
+      )
+    }
 
   def saveOfflineTargetsRole(repoId: RepoId,
                              namespace: Namespace,
@@ -425,27 +424,21 @@ class RepoResource(keyserverClient: KeyserverClient,
          */
         pathPrefix("trusted-delegations") {
           (pathEnd & put & entity(as[List[Delegation]])) { payload =>
-            val f = trustedDelegations
-              .add(repoId, payload)(signedRoleGeneration)
-              .map(_ => StatusCodes.NoContent)
-            f.foreach { _ =>
-              // Launch and forget. We don't care about kafka msg errors in the api response, we will log any errors if sending fails
-              tufTargetsPublisher.targetsMetaModified(namespace)
+            complete {
+              targetRoleEdit
+                .addDelegations(namespace, repoId, payload, trustedDelegations, signedRoleGeneration, this)
+                .map(_ => StatusCodes.NoContent)
             }
-            complete(f)
           } ~
             (pathEnd & get) {
               complete(trustedDelegations.get(repoId))
             } ~
             (path(DelegatedRoleNamePath) & delete) { delegatedRoleName =>
-              val f = trustedDelegations
-                .remove(repoId, delegatedRoleName)(signedRoleGeneration)
-                .map(_ => StatusCodes.NoContent)
-              f.foreach { _ =>
-                // Launch and forget. We don't care about kafka msg errors in the api response, we will log any errors if sending fails
-                tufTargetsPublisher.targetsMetaModified(namespace)
+              complete {
+                targetRoleEdit
+                  .removeDelegation(namespace, repoId, delegatedRoleName, trustedDelegations, signedRoleGeneration)
+                  .map(_ => StatusCodes.NoContent)
               }
-              complete(f)
             } ~
             (put & path(DelegatedRoleNamePath / "remote") & pathEnd & entity(
               as[AddDelegationFromRemoteRequest]
@@ -494,14 +487,11 @@ class RepoResource(keyserverClient: KeyserverClient,
             } ~
             path("keys") {
               (put & entity(as[List[TufKey]])) { keys =>
-                val f = trustedDelegations
-                  .setKeys(repoId, keys)(signedRoleGeneration)
-                  .map(_ => StatusCodes.NoContent)
-                f.foreach { _ =>
-                  // Launch and forget. We don't care about kafka msg errors in the api response, we will log any errors if sending fails
-                  tufTargetsPublisher.targetsMetaModified(namespace)
+                complete {
+                  targetRoleEdit
+                    .setDelegationKeys(namespace, repoId, keys, trustedDelegations, signedRoleGeneration)
+                    .map(_ => StatusCodes.NoContent)
                 }
-                complete(f)
               } ~
                 get {
                   complete(trustedDelegations.getKeys(repoId))
@@ -601,9 +591,11 @@ class RepoResource(keyserverClient: KeyserverClient,
         // Ben thinks we should just move this under the patch endpoint below at PATCH:user_repo/targets/{targetFileName}
         pathPrefix("proprietary-custom" / TargetFilenamePath) { filename =>
           (patch & entity(as[Json])) { proprietaryCustom =>
-            val f =
-              targetRoleEdit.updateTargetProprietaryCustom(repoId, filename, proprietaryCustom)
-            complete(f.map(_ => StatusCodes.NoContent))
+            complete {
+              targetRoleEdit
+                .updateProprietaryCustom(repoId, filename, proprietaryCustom)
+                .map(_ => StatusCodes.NoContent)
+            }
           }
         } ~
         pathPrefix("targets") {
@@ -658,7 +650,7 @@ class RepoResource(keyserverClient: KeyserverClient,
                   deleteTargetItem(namespace, repoId, filename)
                 } ~
                 (patch & entity(as[EditTargetItem])) { item =>
-                  complete(editTargetItem(namespace, repoId, filename, item))
+                  editTargetItem(namespace, repoId, filename, item)
                 }
             } ~
             withRequestTimeout(

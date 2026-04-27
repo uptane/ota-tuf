@@ -27,7 +27,7 @@ import com.advancedtelematic.tuf.reposerver.target_store.TargetStoreEngine.{
   TargetStoreResult
 }
 import com.amazonaws.HttpMethod
-import com.amazonaws.auth.{AWSCredentials, AWSCredentialsProvider}
+import com.amazonaws.auth.{AWSCredentials, AWSCredentialsProvider, DefaultAWSCredentialsProviderChain}
 import com.amazonaws.regions.Regions
 import com.amazonaws.services.s3.{AmazonS3ClientBuilder, Headers}
 import com.amazonaws.services.s3.model.{
@@ -55,9 +55,18 @@ class S3TargetStoreEngine(credentials: S3Credentials)(implicit val system: Actor
 
   private val log = LoggerFactory.getLogger(this.getClass)
 
+  private val credentialsProvider =
+    if (credentials.hasExplicitCredentials) {
+      log.info("Using explicit AWS access/secret key credentials for S3")
+      credentials
+    } else {
+      log.info("No explicit AWS credentials configured, using DefaultAWSCredentialsProviderChain (supports IRSA/instance profile/env vars)")
+      DefaultAWSCredentialsProviderChain.getInstance()
+    }
+
   private lazy val s3client = AmazonS3ClientBuilder
     .standard()
-    .withCredentials(credentials)
+    .withCredentials(credentialsProvider)
     .withRegion(credentials.region)
     .withDualstackEnabled(true)
     .build()
@@ -90,7 +99,6 @@ class S3TargetStoreEngine(credentials: S3Credentials)(implicit val system: Actor
       val meta = new ObjectMetadata()
       meta.setContentLength(size)
       val request = new PutObjectRequest(bucketId, storagePath.toString, is, meta)
-        .withCannedAcl(CannedAccessControlList.AuthenticatedRead)
 
       log.info(s"Uploading $filename to amazon s3 using streaming upload")
 
@@ -111,7 +119,6 @@ class S3TargetStoreEngine(credentials: S3Credentials)(implicit val system: Actor
                        filename: TargetFilename): Future[(Uri, Long)] = {
     val storagePath = storageFilename(repoId, filename)
     val request = new PutObjectRequest(credentials.bucketId, storagePath.toString, file)
-      .withCannedAcl(CannedAccessControlList.AuthenticatedRead)
 
     log.info(s"Uploading ${filename.value} to amazon s3")
 
@@ -208,6 +215,9 @@ class S3TargetStoreEngine(credentials: S3Credentials)(implicit val system: Actor
 class S3Credentials(accessKey: String, secretKey: String, val bucketId: String, val region: Regions)
     extends AWSCredentials
     with AWSCredentialsProvider {
+
+  val hasExplicitCredentials: Boolean = accessKey.nonEmpty && secretKey.nonEmpty
+
   override def getAWSAccessKeyId: String = accessKey
 
   override def getAWSSecretKey: String = secretKey

@@ -16,7 +16,7 @@ import com.advancedtelematic.libtuf_server.data.Requests.TargetComment
 import com.advancedtelematic.tuf.reposerver.db.DBDataType.{DbDelegation, DbSignedRole}
 import SlickMappings.delegatedRoleNameMapper
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.StorageMethod.StorageMethod
-import com.advancedtelematic.tuf.reposerver.data.RepoDataType.{DelegatedTargetItem, TargetItem}
+import com.advancedtelematic.tuf.reposerver.data.RepoDataType.{DelegatedTargetItem, Sbom, SbomUri, TargetItem}
 import io.circe.Json
 
 object Schema {
@@ -151,4 +151,17 @@ object Schema {
   }
 
   protected[db] val delegations = TableQuery[DelegationTable]
+
+  class SbomTable(tag: Tag) extends Table[Sbom](tag, "sboms") {
+    def filename = column[TargetFilename]("filename")
+    def uri = column[SbomUri]("uri")
+    def createdAt = column[Instant]("created_at")(javaInstantMapping)
+    def updatedAt = column[Instant]("updated_at")(javaInstantMapping)
+
+    def pk = primaryKey("sboms_pk", filename)
+
+    override def * = (filename, uri) <> ((Sbom.apply _).tupled, Sbom.unapply)
+  }
+
+  protected[db] val sboms = TableQuery[SbomTable]
 }

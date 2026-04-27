@@ -6,7 +6,8 @@ import com.advancedtelematic.libats.data.DataType.Namespace
 import com.advancedtelematic.libats.data.ErrorCode
 import com.advancedtelematic.libats.http.Errors.{JsonError, RawError}
 import com.advancedtelematic.libtuf.data.ClientDataType.DelegatedRoleName
-import com.advancedtelematic.libtuf.data.TufDataType.RepoId
+import com.advancedtelematic.libtuf.data.TufDataType.{KeyId, RepoId}
+import io.circe.Json
 import io.circe.syntax._
 
 object ErrorCodes {
@@ -29,6 +30,7 @@ object ErrorCodes {
   val MissingRemoteDelegationUri = ErrorCode("missing_remote_delegation_uri")
   val ImmutableFields = ErrorCode("immutable_fields_specified")
   val SetRootExpireError = ErrorCode("set_root_expire_failed")
+  val SbomNotFound = ErrorCode("sbom_not_found")
 }
 
 object Errors {
@@ -50,6 +52,9 @@ object Errors {
 
   val TargetNotFoundError =
     RawError(ErrorCodes.TargetNotFound, StatusCodes.NotFound, "TargetNotFound")
+
+  val SbomNotFoundError =
+    RawError(ErrorCodes.SbomNotFound, StatusCodes.NotFound, "SbomNotFound")
 
   val NoUriForUnamanagedTarget = RawError(
     ErrorCodes.NoUriForUnmanagedTarget,
@@ -180,5 +185,18 @@ object Errors {
         "expire-not-before was set on reposerver roles but not on root.json. Check the attached cause and try again",
         cause = Option(ex)
       )
+
+  def TargetsKeysNotFoundWithMetadata(metadataBase64: String, keyIds: Seq[KeyId], threshold: Int) = {
+    JsonError(
+      ErrorCodes.RoleKeysNotFound,
+      StatusCodes.PreconditionFailed,
+      Json.obj(
+        "unsigned_metadata_base64" -> metadataBase64.asJson,
+        "required_key_ids" -> keyIds.map(_.value).asJson,
+        "threshold" -> threshold.asJson
+      ),
+      "The targets key(s) for this repo are offline"
+    )
+  }
 
 }
