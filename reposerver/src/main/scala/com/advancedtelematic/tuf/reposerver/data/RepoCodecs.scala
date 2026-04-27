@@ -3,7 +3,9 @@ package com.advancedtelematic.tuf.reposerver.data
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.{
   AddDelegationFromRemoteRequest,
   AggregatedPackage,
-  Package
+  CreateSbomRequest,
+  Package,
+  Sbom
 }
 import com.advancedtelematic.libtuf.data.ClientCodecs.*
 import com.advancedtelematic.libats.codecs.CirceRefined.*
@@ -24,5 +26,9 @@ object RepoCodecs {
 
   implicit val aggregatedPackageCodec: Codec[AggregatedPackage] =
     deriveCodec[AggregatedPackage]
+
+  implicit val sbomCodec: Codec[Sbom] = deriveCodec[Sbom]
+
+  implicit val createSbomRequestCodec: Codec[CreateSbomRequest] = deriveCodec[CreateSbomRequest]
 
 }

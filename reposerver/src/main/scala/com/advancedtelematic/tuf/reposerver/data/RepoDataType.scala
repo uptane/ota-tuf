@@ -12,12 +12,20 @@ import com.advancedtelematic.libtuf.data.TufDataType.{
 }
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.Package.TargetOrigin
 import eu.timepit.refined.api.Refined
+import eu.timepit.refined.boolean.And
+import eu.timepit.refined.collection.MaxSize
 import eu.timepit.refined.predicates.all.NonEmpty
+import eu.timepit.refined.string.{Uri => UriString}
 import io.circe.{Codec, Json}
 
 import java.time.Instant
 
 object RepoDataType {
+
+  type SbomUri = Refined[String, UriString And MaxSize[2048]]
+
+  case class Sbom(filename: TargetFilename, uri: SbomUri)
+  case class CreateSbomRequest(uri: SbomUri)
 
   object StorageMethod {
     sealed trait StorageMethod

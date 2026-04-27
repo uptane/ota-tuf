@@ -393,7 +393,8 @@ case class PackageSearchParameters(origin: Seq[String],
                                    version: Option[String],
                                    hardwareIds: Seq[HardwareIdentifier],
                                    hashes: Seq[Refined[String, ValidChecksum]],
-                                   filenames: Seq[Refined[String, ValidTargetFilename]])
+                                   filenames: Seq[Refined[String, ValidTargetFilename]],
+                                   hasSBOM: Option[Boolean])
 
 object PackageSearchParameters {
 
@@ -405,7 +406,8 @@ object PackageSearchParameters {
     version = None,
     hardwareIds = Seq.empty,
     hashes = Seq.empty,
-    filenames = Seq.empty
+    filenames = Seq.empty,
+    hasSBOM = None
   )
 
 }
