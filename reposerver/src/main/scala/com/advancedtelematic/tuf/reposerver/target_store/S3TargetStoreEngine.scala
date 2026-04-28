@@ -1,9 +1,7 @@
 package com.advancedtelematic.tuf.reposerver.target_store
 
 import java.io.File
-import java.time.temporal.ChronoUnit
-import java.time.{Duration, Instant}
-import java.util.Date
+import java.time.Duration
 
 import scala.async.Async._
 import scala.jdk.CollectionConverters._
@@ -26,20 +24,34 @@ import com.advancedtelematic.tuf.reposerver.target_store.TargetStoreEngine.{
   TargetRetrieveResult,
   TargetStoreResult
 }
-import com.amazonaws.HttpMethod
-import com.amazonaws.auth.{AWSCredentials, AWSCredentialsProvider, DefaultAWSCredentialsProviderChain}
-import com.amazonaws.regions.Regions
-import com.amazonaws.services.s3.{AmazonS3ClientBuilder, Headers}
-import com.amazonaws.services.s3.model.{
-  CannedAccessControlList,
-  CompleteMultipartUploadRequest,
-  GeneratePresignedUrlRequest,
-  InitiateMultipartUploadRequest,
-  ObjectMetadata,
-  PartETag,
-  PutObjectRequest
-}
 import org.slf4j.LoggerFactory
+import software.amazon.awssdk.auth.credentials.{
+  AwsBasicCredentials,
+  AwsCredentials,
+  AwsCredentialsProvider,
+  DefaultCredentialsProvider
+}
+import software.amazon.awssdk.core.sync.RequestBody
+import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.s3.S3Client
+import software.amazon.awssdk.services.s3.model.{
+  CompletedMultipartUpload,
+  CompletedPart,
+  CompleteMultipartUploadRequest,
+  CreateMultipartUploadRequest,
+  DeleteObjectRequest,
+  GetObjectRequest,
+  GetUrlRequest,
+  HeadObjectRequest,
+  PutObjectRequest,
+  UploadPartRequest
+}
+import software.amazon.awssdk.services.s3.presigner.S3Presigner
+import software.amazon.awssdk.services.s3.presigner.model.{
+  GetObjectPresignRequest,
+  PutObjectPresignRequest,
+  UploadPartPresignRequest
+}
 
 import scala.concurrent._
 import scala.concurrent.Future
@@ -55,20 +67,27 @@ class S3TargetStoreEngine(credentials: S3Credentials)(implicit val system: Actor
 
   private val log = LoggerFactory.getLogger(this.getClass)
 
-  private val credentialsProvider =
+  private val credentialsProvider: AwsCredentialsProvider =
     if (credentials.hasExplicitCredentials) {
       log.info("Using explicit AWS access/secret key credentials for S3")
       credentials
     } else {
-      log.info("No explicit AWS credentials configured, using DefaultAWSCredentialsProviderChain (supports IRSA/instance profile/env vars)")
-      DefaultAWSCredentialsProviderChain.getInstance()
+      log.info("No explicit AWS credentials configured, using DefaultCredentialsProvider (supports IRSA/instance profile/env vars)")
+      DefaultCredentialsProvider.create()
     }
 
-  private lazy val s3client = AmazonS3ClientBuilder
-    .standard()
-    .withCredentials(credentialsProvider)
-    .withRegion(credentials.region)
-    .withDualstackEnabled(true)
+  private lazy val s3client = S3Client
+    .builder()
+    .credentialsProvider(credentialsProvider)
+    .region(credentials.region)
+    .dualstackEnabled(true)
+    .build()
+
+  private lazy val presigner = S3Presigner
+    .builder()
+    .credentialsProvider(credentialsProvider)
+    .region(credentials.region)
+    .dualstackEnabled(true)
     .build()
 
   override def store(repoId: RepoId,
@@ -96,16 +115,23 @@ class S3TargetStoreEngine(credentials: S3Credentials)(implicit val system: Actor
                            size: Long): Future[TargetStoreResult] = {
     val storagePath = storageFilename(repoId, filename)
     val sink = StreamConverters.asInputStream().mapMaterializedValue { is =>
-      val meta = new ObjectMetadata()
-      meta.setContentLength(size)
-      val request = new PutObjectRequest(bucketId, storagePath.toString, is, meta)
+      val request = PutObjectRequest.builder()
+        .bucket(bucketId)
+        .key(storagePath.toString)
+        .contentLength(size)
+        .build()
 
       log.info(s"Uploading $filename to amazon s3 using streaming upload")
 
       val uploadF = async {
-        await(Future(blocking(s3client.putObject(request))))
+        await(Future(blocking(s3client.putObject(request, RequestBody.fromInputStream(is, size)))))
         log.info(s"$filename with size $size uploaded to s3")
-        await(Future(blocking(s3client.getUrl(bucketId, storagePath.toString))))
+        await(Future(blocking(
+          s3client.utilities().getUrl(GetUrlRequest.builder()
+            .bucket(bucketId)
+            .key(storagePath.toString)
+            .build())
+        )))
       }
 
       uploadF.map(uri => Uri(uri.toString) -> size)
@@ -118,30 +144,47 @@ class S3TargetStoreEngine(credentials: S3Credentials)(implicit val system: Actor
                        file: File,
                        filename: TargetFilename): Future[(Uri, Long)] = {
     val storagePath = storageFilename(repoId, filename)
-    val request = new PutObjectRequest(credentials.bucketId, storagePath.toString, file)
+    val request = PutObjectRequest.builder()
+      .bucket(credentials.bucketId)
+      .key(storagePath.toString)
+      .build()
 
     log.info(s"Uploading ${filename.value} to amazon s3")
 
     async {
-      await(Future(blocking(s3client.putObject(request))))
-      val uri = await(Future(blocking(s3client.getUrl(bucketId, storagePath.toString))))
+      await(Future(blocking(s3client.putObject(request, RequestBody.fromFile(file)))))
+      val uri = await(Future(blocking(
+        s3client.utilities().getUrl(GetUrlRequest.builder()
+          .bucket(bucketId)
+          .key(storagePath.toString)
+          .build())
+      )))
       val metadata = await(Future {
-        blocking(s3client.getObjectMetadata(bucketId, storagePath.toString))
+        blocking(s3client.headObject(HeadObjectRequest.builder()
+          .bucket(bucketId)
+          .key(storagePath.toString)
+          .build()))
       })
 
       log.info(s"$filename uploaded to s3")
 
-      (Uri(uri.toString), metadata.getContentLength)
+      (Uri(uri.toString), metadata.contentLength())
     }
   }
 
   override def retrieve(repoId: RepoId, filename: TargetFilename): Future[TargetRetrieveResult] = {
     val storagePath = storageFilename(repoId, filename)
     val publicExpireTime = Duration.ofDays(1)
-    val expire = java.util.Date.from(Instant.now.plus(publicExpireTime))
     Future {
       val signedUri = blocking {
-        s3client.generatePresignedUrl(bucketId, storagePath.toString, expire)
+        presigner.presignGetObject(GetObjectPresignRequest.builder()
+          .signatureDuration(publicExpireTime)
+          .getObjectRequest(GetObjectRequest.builder()
+            .bucket(bucketId)
+            .key(storagePath.toString)
+            .build())
+          .build())
+          .url()
       }
 
       TargetRedirect(Uri(signedUri.toURI.toString))
@@ -151,7 +194,10 @@ class S3TargetStoreEngine(credentials: S3Credentials)(implicit val system: Actor
   override def delete(repoId: RepoId, filename: TargetFilename): Future[Unit] = Future {
     blocking {
       val storagePath = storageFilename(repoId, filename)
-      s3client.deleteObject(bucketId, storagePath.toString)
+      s3client.deleteObject(DeleteObjectRequest.builder()
+        .bucket(bucketId)
+        .key(storagePath.toString)
+        .build())
     }
   }
 
@@ -159,17 +205,20 @@ class S3TargetStoreEngine(credentials: S3Credentials)(implicit val system: Actor
                                filename: TargetFilename,
                                length: Long): Future[Uri] = {
     val objectId = storageFilename(repoId, filename).toString
-    val expiresAt = Date.from(Instant.now().plus(3, ChronoUnit.HOURS))
 
     log.info(s"Signing s3 url for $objectId")
 
     FastFuture.successful {
-      val req = new GeneratePresignedUrlRequest(bucketId, objectId, HttpMethod.PUT)
-      req.putCustomRequestHeader("Content-Length", length.toString)
-      req.setExpiration(expiresAt)
-      val url = s3client.generatePresignedUrl(req)
+      val presigned = presigner.presignPutObject(PutObjectPresignRequest.builder()
+        .signatureDuration(Duration.ofHours(3))
+        .putObjectRequest(PutObjectRequest.builder()
+          .bucket(bucketId)
+          .key(objectId)
+          .contentLength(length)
+          .build())
+        .build())
       log.debug(s"Signed s3 url for $objectId")
-      url.toString
+      presigned.url().toString
     }
   }
 
@@ -177,10 +226,13 @@ class S3TargetStoreEngine(credentials: S3Credentials)(implicit val system: Actor
     repoId: RepoId,
     filename: TargetFilename): Future[InitMultipartUploadResult] = FastFuture {
     val objectId: String = storageFilename(repoId, filename).toString
-    val req = new InitiateMultipartUploadRequest(bucketId, objectId)
-    Try(s3client.initiateMultipartUpload(req))
+    val req = CreateMultipartUploadRequest.builder()
+      .bucket(bucketId)
+      .key(objectId)
+      .build()
+    Try(s3client.createMultipartUpload(req))
       .map(rs =>
-        InitMultipartUploadResult(MultipartUploadId(rs.getUploadId), multipartUploadPartSize)
+        InitMultipartUploadResult(MultipartUploadId(rs.uploadId()), multipartUploadPartSize)
       )
   }
 
@@ -191,12 +243,18 @@ class S3TargetStoreEngine(credentials: S3Credentials)(implicit val system: Actor
                               md5: String,
                               contentLength: Int): Future[GetSignedUrlResult] = FastFuture {
     val objectId: String = storageFilename(repoId, filename).toString
-    val req = new GeneratePresignedUrlRequest(bucketId, objectId, HttpMethod.PUT)
-    req.addRequestParameter("uploadId", uploadId.value)
-    req.addRequestParameter("partNumber", partNumber)
-    req.setContentMd5(md5)
-    req.putCustomRequestHeader(Headers.CONTENT_LENGTH, contentLength.toString)
-    Try(s3client.generatePresignedUrl(req)).map(GetSignedUrlResult.apply)
+    val req = UploadPartPresignRequest.builder()
+      .signatureDuration(Duration.ofHours(3))
+      .uploadPartRequest(UploadPartRequest.builder()
+        .bucket(bucketId)
+        .key(objectId)
+        .uploadId(uploadId.value)
+        .partNumber(partNumber.toInt)
+        .contentMD5(md5)
+        .contentLength(contentLength.toLong)
+        .build())
+      .build()
+    Try(presigner.presignUploadPart(req)).map(r => GetSignedUrlResult(r.url()))
   }
 
   override def completeMultipartUpload(repoId: RepoId,
@@ -205,24 +263,30 @@ class S3TargetStoreEngine(credentials: S3Credentials)(implicit val system: Actor
                                        partETags: Seq[UploadPartETag]): Future[Unit] =
     FastFuture {
       val objectId: String = storageFilename(repoId, filename).toString
-      val eTags = partETags.map(t => new PartETag(t.part, t.eTag.value))
-      val req = new CompleteMultipartUploadRequest(bucketId, objectId, uploadId.value, eTags.asJava)
+      val completedParts = partETags.map(t =>
+        CompletedPart.builder()
+          .partNumber(t.part)
+          .eTag(t.eTag.value)
+          .build()
+      )
+      val req = CompleteMultipartUploadRequest.builder()
+        .bucket(bucketId)
+        .key(objectId)
+        .uploadId(uploadId.value)
+        .multipartUpload(CompletedMultipartUpload.builder()
+          .parts(completedParts.asJava)
+          .build())
+        .build()
       Try(s3client.completeMultipartUpload(req))
     }
 
 }
 
-class S3Credentials(accessKey: String, secretKey: String, val bucketId: String, val region: Regions)
-    extends AWSCredentials
-    with AWSCredentialsProvider {
+class S3Credentials(accessKey: String, secretKey: String, val bucketId: String, val region: Region)
+    extends AwsCredentialsProvider {
 
   val hasExplicitCredentials: Boolean = accessKey.nonEmpty && secretKey.nonEmpty
 
-  override def getAWSAccessKeyId: String = accessKey
-
-  override def getAWSSecretKey: String = secretKey
-
-  override def refresh(): Unit = ()
-
-  override def getCredentials: AWSCredentials = this
+  override def resolveCredentials(): AwsCredentials =
+    AwsBasicCredentials.create(accessKey, secretKey)
 }
