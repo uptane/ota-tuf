@@ -4,7 +4,8 @@ CREATE TABLE sboms (
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   PRIMARY KEY (filename)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci
+;
 
 ALTER view aggregated_items AS
       select items.*, IF(sboms.uri is null, false, true) AS has_sbom FROM
