@@ -23,7 +23,7 @@ import com.advancedtelematic.tuf.reposerver
 import com.advancedtelematic.tuf.reposerver.delegations.HttpRemoteDelegationClient
 import com.advancedtelematic.tuf.reposerver.http.{NamespaceValidation, TufReposerverRoutes}
 import com.advancedtelematic.tuf.reposerver.target_store._
-import com.amazonaws.regions.Regions
+import software.amazon.awssdk.regions.Region
 import com.codahale.metrics.MetricRegistry
 import com.typesafe.config.{Config, ConfigFactory}
 import org.bouncycastle.jce.provider.BouncyCastleProvider
@@ -47,7 +47,7 @@ trait Settings {
     val accessKey = _config.getString("storage.s3.accessKey")
     val secretKey = _config.getString("storage.s3.secretKey")
     val bucketId = _config.getString("storage.s3.bucketId")
-    val region = Regions.fromName(_config.getString("storage.s3.region"))
+    val region = Region.of(_config.getString("storage.s3.region"))
     new S3Credentials(accessKey, secretKey, bucketId, region)
   }
 
