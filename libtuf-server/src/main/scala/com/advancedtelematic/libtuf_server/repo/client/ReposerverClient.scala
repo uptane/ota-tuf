@@ -132,11 +132,13 @@ object ReposerverClient {
   type SbomUri = Refined[String, UriString]
 
   case class Sbom(filename: TargetFilename, uri: SbomUri)
+
   object Sbom {
     implicit val sbomCodec: Codec[Sbom] = deriveCodec
   }
 
   case class CreateSbomRequest(uri: SbomUri)
+
   object CreateSbomRequest {
     implicit val createSbomRequestCodec: Codec[CreateSbomRequest] = deriveCodec
   }
@@ -196,20 +198,19 @@ trait ReposerverClient {
                            origin: Option[String] = None,
                            originNot: Option[String] = None): Future[ClientPackage]
 
-  def searchTargetsV2(
-    namespace: Namespace,
-    offset: Option[Long],
-    limit: Option[Long],
-    origins: Seq[String] = Seq.empty,
-    nameContains: Option[String] = None,
-    name: Option[String] = None,
-    version: Option[String] = None,
-    hardwareIds: Seq[HardwareIdentifier] = Seq.empty,
-    hashes: Seq[TargetHash] = Seq.empty,
-    filenames: Seq[TargetFilename] = Seq.empty,
-    sortBy: Option[TargetItemsSort] = None,
-    sortDirection: Option[SortDirection] = None,
-    hasSBOM: Option[Boolean] = None): Future[PaginationResult[ClientPackage]]
+  def searchTargetsV2(namespace: Namespace,
+                      offset: Option[Long],
+                      limit: Option[Long],
+                      origins: Seq[String] = Seq.empty,
+                      nameContains: Option[String] = None,
+                      name: Option[String] = None,
+                      version: Option[String] = None,
+                      hardwareIds: Seq[HardwareIdentifier] = Seq.empty,
+                      hashes: Seq[TargetHash] = Seq.empty,
+                      filenames: Seq[TargetFilename] = Seq.empty,
+                      sortBy: Option[TargetItemsSort] = None,
+                      sortDirection: Option[SortDirection] = None,
+                      hasSBOM: Option[Boolean] = None): Future[PaginationResult[ClientPackage]]
 
   def searchTargetsGroupedV2(
     namespace: Namespace,
@@ -280,13 +281,17 @@ trait ReposerverClient {
 
   def hardwareIdsWithPackages(namespace: Namespace): Future[PaginationResult[HardwareIdentifier]]
 
-  def listSboms(namespace: Namespace, offset: Option[Long], limit: Option[Long]): Future[PaginationResult[ReposerverClient.Sbom]]
+  def listSboms(namespace: Namespace,
+                offset: Option[Long],
+                limit: Option[Long]): Future[PaginationResult[ReposerverClient.Sbom]]
 
   def findSbom(namespace: Namespace, filename: TargetFilename): Future[ReposerverClient.Sbom]
 
   def findSbomRawUri(namespace: Namespace, filename: TargetFilename): Future[URI]
 
-  def persistSbom(namespace: Namespace, filename: TargetFilename, req: ReposerverClient.CreateSbomRequest): Future[ReposerverClient.Sbom]
+  def persistSbom(namespace: Namespace,
+                  filename: TargetFilename,
+                  req: ReposerverClient.CreateSbomRequest): Future[ReposerverClient.Sbom]
 
   def deleteSbom(namespace: Namespace, filename: TargetFilename): Future[Unit]
 }
@@ -470,20 +475,19 @@ class ReposerverHttpClient(reposerverUri: Uri,
     execHttpUnmarshalledWithNamespace[ClientPackage](namespace, req).ok
   }
 
-  def searchTargetsV2(
-    namespace: Namespace,
-    offset: Option[Long],
-    limit: Option[Long],
-    origins: Seq[String],
-    nameContains: Option[String],
-    name: Option[String],
-    version: Option[String],
-    hardwareIds: Seq[HardwareIdentifier],
-    hashes: Seq[TargetHash],
-    filenames: Seq[Refined[String, ValidTargetFilename]],
-    sortBy: Option[TargetItemsSort],
-    sortDirection: Option[SortDirection],
-    hasSBOM: Option[Boolean]): Future[PaginationResult[ClientPackage]] = {
+  def searchTargetsV2(namespace: Namespace,
+                      offset: Option[Long],
+                      limit: Option[Long],
+                      origins: Seq[String],
+                      nameContains: Option[String],
+                      name: Option[String],
+                      version: Option[String],
+                      hardwareIds: Seq[HardwareIdentifier],
+                      hashes: Seq[TargetHash],
+                      filenames: Seq[Refined[String, ValidTargetFilename]],
+                      sortBy: Option[TargetItemsSort],
+                      sortDirection: Option[SortDirection],
+                      hasSBOM: Option[Boolean]): Future[PaginationResult[ClientPackage]] = {
 
     val params = PackageSearchParameters(
       origin = origins,
@@ -825,8 +829,8 @@ class ReposerverHttpClient(reposerverUri: Uri,
   }
 
   override def listSboms(namespace: Namespace,
-                          offset: Option[Long],
-                          limit: Option[Long]): Future[PaginationResult[ReposerverClient.Sbom]] = {
+                         offset: Option[Long],
+                         limit: Option[Long]): Future[PaginationResult[ReposerverClient.Sbom]] = {
     val req = HttpRequest(
       HttpMethods.GET,
       uri = apiUri(Path("sboms")).withQuery(Query(paginationParams(offset, limit)))
@@ -835,7 +839,7 @@ class ReposerverHttpClient(reposerverUri: Uri,
   }
 
   override def findSbom(namespace: Namespace,
-                         filename: TargetFilename): Future[ReposerverClient.Sbom] = {
+                        filename: TargetFilename): Future[ReposerverClient.Sbom] = {
     val req = HttpRequest(HttpMethods.GET, uri = apiUri(Path("sboms") / filename.value))
     execHttpUnmarshalledWithNamespace[ReposerverClient.Sbom](namespace, req).ok
   }
@@ -845,14 +849,15 @@ class ReposerverHttpClient(reposerverUri: Uri,
     execHttpFullWithNamespace[Unit](namespace, req).ok.map { resp =>
       resp.httpResponse.headers.find(_.is("location")) match {
         case Some(locationHeader) => new URI(locationHeader.value)
-        case None => throw NotFound
+        case None                 => throw NotFound
       }
     }
   }
 
-  override def persistSbom(namespace: Namespace,
-                            filename: TargetFilename,
-                            req: ReposerverClient.CreateSbomRequest): Future[ReposerverClient.Sbom] = {
+  override def persistSbom(
+    namespace: Namespace,
+    filename: TargetFilename,
+    req: ReposerverClient.CreateSbomRequest): Future[ReposerverClient.Sbom] = {
     val httpReq = HttpRequest(
       HttpMethods.PUT,
       uri = apiUri(Path("sboms") / filename.value),
