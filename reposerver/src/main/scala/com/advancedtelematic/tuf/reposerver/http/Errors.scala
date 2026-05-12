@@ -186,7 +186,7 @@ object Errors {
         cause = Option(ex)
       )
 
-  def TargetsKeysNotFoundWithMetadata(metadataBase64: String, keyIds: Seq[KeyId], threshold: Int) = {
+  def TargetsKeysNotFoundWithMetadata(metadataBase64: String, keyIds: Seq[KeyId], threshold: Int) =
     JsonError(
       ErrorCodes.RoleKeysNotFound,
       StatusCodes.PreconditionFailed,
@@ -197,6 +197,5 @@ object Errors {
       ),
       "The targets key(s) for this repo are offline"
     )
-  }
 
 }

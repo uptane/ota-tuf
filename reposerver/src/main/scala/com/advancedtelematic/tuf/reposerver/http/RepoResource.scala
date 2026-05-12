@@ -23,9 +23,7 @@ import cats.data.Validated.{Invalid, Valid}
 import com.advancedtelematic.libats.codecs.CirceRefined.*
 import com.advancedtelematic.libats.data.DataType.HashMethod.HashMethod
 import com.advancedtelematic.libats.data.RefinedUtils.*
-import com.advancedtelematic.libats.http.Errors.{
-  EntityAlreadyExists,
-}
+import com.advancedtelematic.libats.http.Errors.EntityAlreadyExists
 import com.advancedtelematic.libats.http.RefinedMarshallingSupport.*
 import com.advancedtelematic.libats.http.UUIDKeyPekko.*
 import com.advancedtelematic.libtuf.data.ClientCodecs.*
@@ -119,6 +117,7 @@ class RepoResource(keyserverClient: KeyserverClient,
 
   private val targetRoleEdit =
     new TargetRoleEdit(keyserverClient, signedRoleGeneration, tufTargetsPublisher)
+
   private val delegations = new DelegationsManagement()
   private val trustedDelegations = new TrustedDelegations
 
@@ -426,7 +425,14 @@ class RepoResource(keyserverClient: KeyserverClient,
           (pathEnd & put & entity(as[List[Delegation]])) { payload =>
             complete {
               targetRoleEdit
-                .addDelegations(namespace, repoId, payload, trustedDelegations, signedRoleGeneration, this)
+                .addDelegations(
+                  namespace,
+                  repoId,
+                  payload,
+                  trustedDelegations,
+                  signedRoleGeneration,
+                  this
+                )
                 .map(_ => StatusCodes.NoContent)
             }
           } ~
@@ -436,7 +442,13 @@ class RepoResource(keyserverClient: KeyserverClient,
             (path(DelegatedRoleNamePath) & delete) { delegatedRoleName =>
               complete {
                 targetRoleEdit
-                  .removeDelegation(namespace, repoId, delegatedRoleName, trustedDelegations, signedRoleGeneration)
+                  .removeDelegation(
+                    namespace,
+                    repoId,
+                    delegatedRoleName,
+                    trustedDelegations,
+                    signedRoleGeneration
+                  )
                   .map(_ => StatusCodes.NoContent)
               }
             } ~
@@ -489,7 +501,13 @@ class RepoResource(keyserverClient: KeyserverClient,
               (put & entity(as[List[TufKey]])) { keys =>
                 complete {
                   targetRoleEdit
-                    .setDelegationKeys(namespace, repoId, keys, trustedDelegations, signedRoleGeneration)
+                    .setDelegationKeys(
+                      namespace,
+                      repoId,
+                      keys,
+                      trustedDelegations,
+                      signedRoleGeneration
+                    )
                     .map(_ => StatusCodes.NoContent)
                 }
               } ~
