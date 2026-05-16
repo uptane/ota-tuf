@@ -8,7 +8,7 @@ libraryDependencies ++= {
     "com.softwaremill.sttp.client4" %% "core" % "4.0.23",
     "com.softwaremill.sttp.client4" %% "slf4j-backend" % "4.0.23",
     "org.slf4j" % "slf4j-api" % "1.7.16" % "provided",
-    "com.azure" % "azure-storage-blob" % "12.33.4",
+    "com.azure" % "azure-storage-blob" % "12.34.0",
     "com.azure" % "azure-identity" % "1.18.3"
   )
 }
