@@ -9,6 +9,8 @@ src_managed/
 project/boot/
 project/plugins/project/
 project/target
+project/project
+project/metals.sbt
 README.html
 
 # Scala-IDE specific
@@ -19,3 +21,4 @@ README.html
 aws.env
 .bloop/
 .bsp/
+.metals/
