@@ -44,7 +44,11 @@ import com.advancedtelematic.libtuf_server.repo.client.ReposerverClient.EditTarg
 import com.advancedtelematic.libtuf_server.repo.server.DataType.SignedRole
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.{StorageMethod, TargetItem}
 import com.advancedtelematic.tuf.reposerver.db.SignedRoleDbTestUtil._
-import com.advancedtelematic.tuf.reposerver.db.{SignedRoleRepositorySupport, TargetItemRepositorySupport}
+import com.advancedtelematic.tuf.reposerver.db.{
+  RepoNamespaceRepositorySupport,
+  SignedRoleRepositorySupport,
+  TargetItemRepositorySupport
+}
 import com.advancedtelematic.tuf.reposerver.target_store.TargetStoreEngine.{
   TargetBytes,
   TargetRetrieveResult
@@ -78,7 +82,8 @@ class RepoResourceSpec
     with Whenever
     with PatienceConfiguration
     with SignedRoleRepositorySupport
-    with TargetItemRepositorySupport {
+    with TargetItemRepositorySupport
+    with RepoNamespaceRepositorySupport {
 
   override val ec: scala.concurrent.ExecutionContextExecutor = this.executor
 
@@ -2142,6 +2147,105 @@ class RepoResourceSpec
 
       updatedRole.version shouldBe oldRoot.version + 1
     }
+  }
+
+  test("rotating root preserves a previously set expires-not-before floor") {
+    val repoId = addTargetToRepo()
+    repoNamespaceRepo.persist(repoId, Namespace("OTA-3699-rotate-floor-test")).futureValue
+    val floor = Instant.now().plus(400, ChronoUnit.DAYS).truncatedTo(ChronoUnit.SECONDS)
+
+    Put(
+      apiUri(s"repo/${repoId.show}/targets/expire/not-before"),
+      ExpireNotBeforeRequest(floor)
+    ) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+
+    val rootAfterFloor = Get(apiUri(s"repo/${repoId.show}/root.json")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      responseAs[SignedPayload[RootRole]].signed
+    }
+    rootAfterFloor.expires.isAfter(floor.minusSeconds(1)) shouldBe true
+
+    Put(apiUri(s"repo/${repoId.show}/root/rotate")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+    }
+
+    Get(apiUri(s"repo/${repoId.show}/root.json")) ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      val rotatedRoot = responseAs[SignedPayload[RootRole]].signed
+      rotatedRoot.version shouldBe rootAfterFloor.version + 1
+      // rotation must not regress root's expiry below the still-active floor, consistent
+      // with how routine metadata refresh already honors it (OTA-3699 follow-up)
+      rotatedRoot.expires.isAfter(floor.minusSeconds(1)) shouldBe true
+    }
+  }
+
+  test("expires-not-before floor cannot be lowered without an explicit override") {
+    val repoId = addTargetToRepo()
+    repoNamespaceRepo.persist(repoId, Namespace("OTA-3699-override-test")).futureValue
+    val highFloor = Instant.now().plus(400, ChronoUnit.DAYS).truncatedTo(ChronoUnit.SECONDS)
+    val lowFloor = Instant.now().plus(10, ChronoUnit.DAYS).truncatedTo(ChronoUnit.SECONDS)
+
+    Put(
+      apiUri(s"repo/${repoId.show}/targets/expire/not-before"),
+      ExpireNotBeforeRequest(highFloor)
+    ) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+
+    Put(
+      apiUri(s"repo/${repoId.show}/targets/expire/not-before"),
+      ExpireNotBeforeRequest(lowFloor)
+    ) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+
+    // default (no override): later, lower request is a no-op
+    repoNamespaceRepo.getExpiresNotBefore(repoId).futureValue shouldBe Some(highFloor)
+
+    Put(
+      apiUri(s"repo/${repoId.show}/targets/expire/not-before"),
+      ExpireNotBeforeRequest(lowFloor, overrideExpiry = Some(true))
+    ) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+
+    // explicit override: the floor can be lowered on purpose
+    repoNamespaceRepo.getExpiresNotBefore(repoId).futureValue shouldBe Some(lowFloor)
+  }
+
+  // OTA-3704: a repo with no repo_namespaces row (e.g. an old repo that predates this
+  // column, or one that never finished creation) cannot persist a floor at all. Before this
+  // fix the request came back 204 anyway, silently discarding it; root.json would look
+  // extended right now but lose the floor as soon as anything else regenerated it.
+  test("expires-not-before returns an error when the repo has no persisted namespace") {
+    val repoId = addTargetToRepo()
+    val floor = Instant.now().plus(400, ChronoUnit.DAYS).truncatedTo(ChronoUnit.SECONDS)
+
+    Put(
+      apiUri(s"repo/${repoId.show}/targets/expire/not-before"),
+      ExpireNotBeforeRequest(floor)
+    ) ~> routes ~> check {
+      status shouldBe StatusCodes.NotFound
+    }
+
+    repoNamespaceRepo.getExpiresNotBefore(repoId).futureValue shouldBe None
+  }
+
+  test("expires-not-before accepts a request body without overrideExpiry") {
+    val repoId = addTargetToRepo()
+    repoNamespaceRepo.persist(repoId, Namespace("OTA-3699-omitted-field-test")).futureValue
+    val floor = Instant.now().plus(400, ChronoUnit.DAYS).truncatedTo(ChronoUnit.SECONDS)
+
+    Put(
+      apiUri(s"repo/${repoId.show}/targets/expire/not-before"),
+      HttpEntity(ContentTypes.`application/json`, s"""{"expireAt":"$floor"}""")
+    ) ~> routes ~> check {
+      status shouldBe StatusCodes.NoContent
+    }
+
+    repoNamespaceRepo.getExpiresNotBefore(repoId).futureValue shouldBe Some(floor)
   }
 
   test("rotate returns 412 when key is offline") {

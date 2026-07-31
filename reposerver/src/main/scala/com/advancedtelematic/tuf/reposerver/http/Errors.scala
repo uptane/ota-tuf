@@ -30,6 +30,7 @@ object ErrorCodes {
   val MissingRemoteDelegationUri = ErrorCode("missing_remote_delegation_uri")
   val ImmutableFields = ErrorCode("immutable_fields_specified")
   val SetRootExpireError = ErrorCode("set_root_expire_failed")
+  val SetExpiresNotBeforeError = ErrorCode("set_expires_not_before_failed")
   val SbomNotFound = ErrorCode("sbom_not_found")
 }
 
@@ -183,6 +184,14 @@ object Errors {
         ErrorCodes.SetRootExpireError,
         StatusCodes.BadGateway,
         "expire-not-before was set on reposerver roles but not on root.json. Check the attached cause and try again",
+        cause = Option(ex)
+      )
+
+  case class SetExpiresNotBefore(ex: Throwable)
+      extends com.advancedtelematic.libats.http.Errors.Error(
+        ErrorCodes.SetExpiresNotBeforeError,
+        StatusCodes.NotFound,
+        "expire-not-before could not be persisted for this repo, root.json was not extended. Check the attached cause and try again",
         cause = Option(ex)
       )
 
