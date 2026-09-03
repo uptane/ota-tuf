@@ -319,7 +319,6 @@ trait RepoNamespaceRepositorySupport extends DatabaseSupport {
 
 protected[db] class RepoNamespaceRepository()(implicit db: Database, ec: ExecutionContext) {
 
-  import com.advancedtelematic.libats.slick.db.SlickPipeToUnit.pipeToUnit
   import Schema.repoNamespaces
 
   val MissingRepoNamespace = MissingEntity[(RepoId, Namespace)]()
@@ -327,7 +326,7 @@ protected[db] class RepoNamespaceRepository()(implicit db: Database, ec: Executi
   val AlreadyExists = EntityAlreadyExists[(RepoId, Namespace)]()
 
   def persist(repoId: RepoId, namespace: Namespace): Future[Unit] = db.run {
-    (repoNamespaces += (repoId, namespace, None)).handleIntegrityErrors(AlreadyExists)
+    (repoNamespaces += (repoId, namespace, None)).handleIntegrityErrors(AlreadyExists).map(_ => ())
   }
 
   def getExpiresNotBefore(repoId: RepoId): Future[Option[Instant]] = db
