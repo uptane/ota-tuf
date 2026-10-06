@@ -6,6 +6,6 @@ libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.6.5"
 
 libraryDependencies += "io.circe" %% "circe-generic-extras" % "0.14.4"
 
-libraryDependencies += "io.circe" %% "circe-literal" % "0.14.16" % Test
+libraryDependencies += "io.circe" %% "circe-literal" % "0.14.17" % Test
 
 fork := true
