@@ -70,7 +70,7 @@ class KeyserverBoot(override val globalConfig: Config,
     val routes: Route =
       (versionHeaders(nameVersion) & requestMetrics(metricRegistry) & logResponseMetrics(
         projectName
-      )) {
+      ) & decodeRequest & encodeResponse) {
         tracing.traceRequests { _ =>
           new TufKeyserverRoutes(
             metricsRoutes = prometheusMetricsRoutes,

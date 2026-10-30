@@ -128,7 +128,7 @@ class ReposerverBoot(override val globalConfig: Config,
     val routes: Route =
       (versionHeaders(nameVersion) & requestMetrics(metricRegistry) & logResponseMetrics(
         projectName
-      ) & logRequestResult(("reposerver", Logging.DebugLevel))) {
+      ) & logRequestResult(("reposerver", Logging.DebugLevel)) & decodeRequest & encodeResponse) {
         tracing.traceRequests { implicit requestTracing =>
           new TufReposerverRoutes(
             keyStoreClient,
