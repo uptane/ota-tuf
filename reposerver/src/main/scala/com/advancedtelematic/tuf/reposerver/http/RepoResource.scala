@@ -299,11 +299,9 @@ class RepoResource(keyserverClient: KeyserverClient,
     }
 
   private def findRole(repoId: RepoId, roleType: RoleType): Route =
-    encodeResponse {
-      onSuccess(signedRoleGeneration.findRole(repoId, roleType, roleRefresher)) { signedRole =>
-        respondWithCheckSum(signedRole.checksum.hash) {
-          complete(signedRole.content)
-        }
+    onSuccess(signedRoleGeneration.findRole(repoId, roleType, roleRefresher)) { signedRole =>
+      respondWithCheckSum(signedRole.checksum.hash) {
+        complete(signedRole.content)
       }
     }
 
@@ -675,15 +673,13 @@ class RepoResource(keyserverClient: KeyserverClient,
               userRepoUploadRequestTimeout,
               timeoutResponseHandler
             ) { // For when SignedPayload[TargetsRole] is too big and takes a long time to upload
-              decodeRequest {
-                (pathEnd & put & entity(as[SignedPayload[TargetsRole]])) { signedPayload =>
-                  extractRoleChecksumHeader { checksum =>
-                    onSuccess(saveOfflineTargetsRole(repoId, namespace, signedPayload, checksum)) {
-                      newSignedRole =>
-                        respondWithCheckSum(newSignedRole.checksum.hash) {
-                          complete(StatusCodes.NoContent)
-                        }
-                    }
+              (pathEnd & put & entity(as[SignedPayload[TargetsRole]])) { signedPayload =>
+                extractRoleChecksumHeader { checksum =>
+                  onSuccess(saveOfflineTargetsRole(repoId, namespace, signedPayload, checksum)) {
+                    newSignedRole =>
+                      respondWithCheckSum(newSignedRole.checksum.hash) {
+                        complete(StatusCodes.NoContent)
+                      }
                   }
                 }
               }
