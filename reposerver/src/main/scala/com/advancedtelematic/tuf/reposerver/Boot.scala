@@ -24,8 +24,8 @@ import com.advancedtelematic.tuf.reposerver.delegations.HttpRemoteDelegationClie
 import com.advancedtelematic.tuf.reposerver.http.{NamespaceValidation, TufReposerverRoutes}
 import com.advancedtelematic.tuf.reposerver.target_store._
 import software.amazon.awssdk.regions.Region
-import com.codahale.metrics.MetricRegistry
 import com.typesafe.config.{Config, ConfigFactory}
+import io.prometheus.client.CollectorRegistry
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.slf4j.LoggerFactory
 
@@ -82,7 +82,7 @@ trait Settings {
 
 class ReposerverBoot(override val globalConfig: Config,
                      override val dbConfig: Config,
-                     override val metricRegistry: MetricRegistry)(
+                     override val collectorRegistry: CollectorRegistry = CollectorRegistry.defaultRegistry)(
   implicit override val system: ActorSystem)
     extends BootApp
     with Directives
@@ -126,7 +126,7 @@ class ReposerverBoot(override val globalConfig: Config,
     implicit val tracing = Tracing.fromConfig(globalConfig, "reposerver")
 
     val routes: Route =
-      (versionHeaders(nameVersion) & requestMetrics(metricRegistry) & logResponseMetrics(
+      (versionHeaders(nameVersion) & requestMetrics & logResponseMetrics(
         projectName
       ) & logRequestResult(("reposerver", Logging.DebugLevel)) & decodeRequest & encodeResponse) {
         tracing.traceRequests { implicit requestTracing =>
@@ -137,8 +137,7 @@ class ReposerverBoot(override val globalConfig: Config,
             messageBusPublisher,
             remoteDelegationClient,
             prometheusMetricsRoutes,
-            Seq(keyserverHealthCheck),
-            metricRegistry
+            Seq(keyserverHealthCheck)
           ).routes
         }
       }
@@ -152,6 +151,6 @@ object Boot extends BootAppDefaultConfig with VersionInfo with BootAppDatabaseCo
   Security.addProvider(new BouncyCastleProvider)
 
   def main(args: Array[String]): Unit =
-    new ReposerverBoot(globalConfig, dbConfig, MetricsSupport.metricRegistry).bind()
+    new ReposerverBoot(globalConfig, dbConfig).bind()
 
 }

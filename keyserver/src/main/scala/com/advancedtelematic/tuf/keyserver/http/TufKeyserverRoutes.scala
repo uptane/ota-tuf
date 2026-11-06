@@ -6,16 +6,14 @@ import org.apache.pekko.stream.Materializer
 import com.advancedtelematic.libats.http.ErrorHandler
 import com.advancedtelematic.libats.http.DefaultRejectionHandler._
 import com.advancedtelematic.libats.slick.monitoring.DbHealthResource
-import com.advancedtelematic.metrics.{HealthCheck, MetricsSupport}
+import com.advancedtelematic.metrics.HealthCheck
 import com.advancedtelematic.tuf.keyserver.VersionInfo
-import com.codahale.metrics.MetricRegistry
 
 import scala.concurrent.ExecutionContext
 import slick.jdbc.MySQLProfile.api._
 
 class TufKeyserverRoutes(dependencyChecks: Seq[HealthCheck] = Seq.empty,
-                         metricsRoutes: Route = Directives.reject,
-                         metricRegistry: MetricRegistry = MetricsSupport.metricRegistry)(
+                         metricsRoutes: Route = Directives.reject)(
   implicit val db: Database,
   val ec: ExecutionContext,
   mat: Materializer)
@@ -28,11 +26,7 @@ class TufKeyserverRoutes(dependencyChecks: Seq[HealthCheck] = Seq.empty,
       ErrorHandler.handleErrors {
         pathPrefix("api" / "v1") {
           new RootRoleResource().route
-        } ~ DbHealthResource(
-          versionMap,
-          dependencies = dependencyChecks,
-          metricRegistry = metricRegistry
-        ).route ~ metricsRoutes
+        } ~ DbHealthResource(versionMap, dependencies = dependencyChecks).route ~ metricsRoutes
       }
     }
 
