@@ -28,7 +28,10 @@ import com.advancedtelematic.libtuf.data.TufDataType.{
 import com.advancedtelematic.libtuf_server.crypto.Sha256Digest
 import com.advancedtelematic.libtuf_server.repo.client.ReposerverClient.RequestTargetItem
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.TargetItem
-import com.advancedtelematic.tuf.reposerver.db.{SignedRoleRepositorySupport, TargetItemRepositorySupport}
+import com.advancedtelematic.tuf.reposerver.db.{
+  SignedRoleRepositorySupport,
+  TargetItemRepositorySupport
+}
 import com.advancedtelematic.tuf.reposerver.http.{RoleChecksumHeader, TufRepoSignedRoleGeneration}
 import eu.timepit.refined.api.Refined
 import io.circe.Json
@@ -118,24 +121,32 @@ trait RepoResourceSpecUtil
 
   val offlineTargets = createOfflineTargets(offlineTargetFilename)
 
-  private def normalizeCustomJson(custom: Option[Json]): Option[Json] = {
+  private def normalizeCustomJson(custom: Option[Json]): Option[Json] =
     custom.map { json =>
-      json.asObject.map { obj =>
-        Json.fromJsonObject(obj.remove("createdAt").remove("updatedAt"))
-      }.getOrElse(json)
+      json.asObject
+        .map { obj =>
+          Json.fromJsonObject(obj.remove("createdAt").remove("updatedAt"))
+        }
+        .getOrElse(json)
     }
-  }
 
   def extractTargetsRoleFromError(errorRepr: ErrorRepresentation): TargetsRole = {
-    val metadataBase64 = errorRepr.cause.flatMap(_.as[io.circe.JsonObject].toOption)
+    val metadataBase64 = errorRepr.cause
+      .flatMap(_.as[io.circe.JsonObject].toOption)
       .flatMap(_.apply("unsigned_metadata_base64"))
       .flatMap(_.asString)
-      .getOrElse(throw new RuntimeException("Could not extract unsigned_metadata_base64 from error response"))
-    val decodedJson = new String(java.util.Base64.getDecoder.decode(metadataBase64), java.nio.charset.StandardCharsets.UTF_8)
+      .getOrElse(
+        throw new RuntimeException("Could not extract unsigned_metadata_base64 from error response")
+      )
+    val decodedJson = new String(
+      java.util.Base64.getDecoder.decode(metadataBase64),
+      java.nio.charset.StandardCharsets.UTF_8
+    )
     io.circe.parser.parse(decodedJson).flatMap(_.as[TargetsRole]).valueOr(throw _)
   }
 
-  def assertOfflineMetadataMatches(offlineMetadata: TargetsRole, onlineMetadata: TargetsRole): Assertion = {
+  def assertOfflineMetadataMatches(offlineMetadata: TargetsRole,
+                                   onlineMetadata: TargetsRole): Assertion = {
     // Normalize targets by removing createdAt/updatedAt from custom JSON
     val normalizedOfflineTargets = offlineMetadata.targets.map { case (filename, item) =>
       filename -> item.copy(custom = normalizeCustomJson(item.custom))
@@ -149,4 +160,5 @@ trait RepoResourceSpecUtil
     offlineMetadata.delegations shouldBe onlineMetadata.delegations
     offlineMetadata.version shouldBe onlineMetadata.version
   }
+
 }

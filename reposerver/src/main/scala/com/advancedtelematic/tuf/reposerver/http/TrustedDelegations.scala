@@ -5,7 +5,12 @@ import cats.data.Validated.*
 import cats.data.{NonEmptyList, ValidatedNel}
 import com.advancedtelematic.libats.http.Errors.MissingEntityId
 import com.advancedtelematic.tuf.reposerver.http.Errors.*
-import com.advancedtelematic.libtuf.data.ClientDataType.{DelegatedRoleName, Delegation, Delegations, TargetsRole}
+import com.advancedtelematic.libtuf.data.ClientDataType.{
+  DelegatedRoleName,
+  Delegation,
+  Delegations,
+  TargetsRole
+}
 import com.advancedtelematic.libtuf.data.TufDataType.{JsonSignedPayload, RepoId, TufKey}
 import com.advancedtelematic.libtuf.data.ClientCodecs.*
 import com.advancedtelematic.libtuf_server.repo.server.SignedRoleGeneration

@@ -115,7 +115,9 @@ class PackageSearch()(implicit db: Database) {
           .map(_.value)}) > 0) AND
         IF(${searchParams.filenames.isEmpty}, true, FIND_IN_SET(filename, ${searchParams.filenames
           .map(_.value)}) > 0 ) AND
-        IF(${searchParams.hasSBOM.isEmpty}, true, has_sbom = ${searchParams.hasSBOM.getOrElse(false)})
+        IF(${searchParams.hasSBOM.isEmpty}, true, has_sbom = ${searchParams.hasSBOM.getOrElse(
+          false
+        )})
       ORDER BY
           #${sortBy.column} #${sortDirection.entryName},
           version,
@@ -274,7 +276,9 @@ class PackageSearch()(implicit db: Database) {
           .map(_.value)}) > 0) AND
         IF(${searchParams.filenames.isEmpty}, true, FIND_IN_SET(filename, ${searchParams.filenames
           .map(_.value)}) > 0 ) AND
-        IF(${searchParams.hasSBOM.isEmpty}, true, has_sbom = ${searchParams.hasSBOM.getOrElse(false)})
+        IF(${searchParams.hasSBOM.isEmpty}, true, has_sbom = ${searchParams.hasSBOM.getOrElse(
+          false
+        )})
       GROUP BY name
       ORDER BY
           #${sortBy.column} #${sortDirection.entryName},

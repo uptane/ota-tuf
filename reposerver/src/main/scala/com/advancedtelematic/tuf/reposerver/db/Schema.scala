@@ -16,7 +16,12 @@ import com.advancedtelematic.libtuf_server.data.Requests.TargetComment
 import com.advancedtelematic.tuf.reposerver.db.DBDataType.{DbDelegation, DbSignedRole}
 import SlickMappings.delegatedRoleNameMapper
 import com.advancedtelematic.tuf.reposerver.data.RepoDataType.StorageMethod.StorageMethod
-import com.advancedtelematic.tuf.reposerver.data.RepoDataType.{DelegatedTargetItem, Sbom, SbomUri, TargetItem}
+import com.advancedtelematic.tuf.reposerver.data.RepoDataType.{
+  DelegatedTargetItem,
+  Sbom,
+  SbomUri,
+  TargetItem
+}
 import io.circe.Json
 
 object Schema {

@@ -76,7 +76,17 @@ class RepoTargetsResource(namespaceValidation: NamespaceValidation)(
     "filenames".as(CsvSeq[TargetFilename]).?,
     "hasSBOM".as[Boolean].?
   ).tflatMap {
-    case (origin, originNot, nameContains, name, version, hardwareIds, hashes, filenames, hasSBOM) =>
+    case (
+          origin,
+          originNot,
+          nameContains,
+          name,
+          version,
+          hardwareIds,
+          hashes,
+          filenames,
+          hasSBOM
+        ) =>
       provide(
         PackageSearchParameters(
           origin.getOrElse(Seq.empty),

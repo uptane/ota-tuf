@@ -12,10 +12,7 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.scalatest.concurrent.PatienceConfiguration
 import PaginationResult.*
 
-class SbomResourceSpec
-    extends TufReposerverSpec
-    with ResourceSpec
-    with PatienceConfiguration {
+class SbomResourceSpec extends TufReposerverSpec with ResourceSpec with PatienceConfiguration {
 
   private def createSbomRequest(uri: String): CreateSbomRequest =
     CreateSbomRequest(Refined.unsafeApply(uri))

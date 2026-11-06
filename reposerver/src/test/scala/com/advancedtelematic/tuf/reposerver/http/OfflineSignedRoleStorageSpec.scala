@@ -99,15 +99,18 @@ class OfflineSignedRoleStorageSpec
     keyserver.createRoot(repoId, keyType).futureValue
 
     targetRoleEdit
-      .addTarget(Namespace(repoId.toString), TargetItem(
-        repoId,
-        mockFilename,
-        mockUri.some,
-        mockChecksum,
-        22,
-        None,
-        StorageMethod.Managed
-      ))
+      .addTarget(
+        Namespace(repoId.toString),
+        TargetItem(
+          repoId,
+          mockFilename,
+          mockUri.some,
+          mockChecksum,
+          22,
+          None,
+          StorageMethod.Managed
+        )
+      )
       .futureValue
     val existingItem = targetItemRepo.findByFilename(repoId, mockFilename).futureValue
 

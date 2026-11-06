@@ -11,10 +11,10 @@ lazy val commonConfigs = Seq(ItTest, UnitTest)
 val libatsVersion = "7.0.0"
 
 lazy val commonDeps = libraryDependencies ++= {
-  val scalaTestV = "3.2.19"
+  val scalaTestV = "3.2.20"
   lazy val catsV = "2.13.0"
   lazy val pekkoHttpV = "1.4.2"
-  lazy val enumeratumV = "1.9.6"
+  lazy val enumeratumV = "1.9.8"
 
   Seq(
     "org.scala-lang.modules" %% "scala-async" % "1.0.1",
@@ -32,7 +32,7 @@ lazy val commonDeps = libraryDependencies ++= {
 lazy val serverDependencies = libraryDependencies ++= {
   lazy val pekkoV = "1.7.1"
   lazy val pekkoHttpV = "1.4.2"
-  lazy val enumeratumV = "1.9.6"
+  lazy val enumeratumV = "1.9.8"
 
   Seq(
     "org.apache.pekko" %% "pekko-actor" % pekkoV,
@@ -41,7 +41,7 @@ lazy val serverDependencies = libraryDependencies ++= {
     "org.apache.pekko" %% "pekko-http" % pekkoHttpV,
     "org.apache.pekko" %% "pekko-slf4j" % pekkoV,
     "org.apache.pekko" %% "pekko-http-testkit" % pekkoHttpV % "test",
-    "com.softwaremill.sttp.client4" %% "pekko-http-backend" % "4.0.19" % "test",
+    "com.softwaremill.sttp.client4" %% "pekko-http-backend" % "4.1.1" % "test",
     "org.apache.pekko" %% "pekko-stream" % "1.1.4" % "test",
     "io.github.uptane" %% "libats-http" % libatsVersion,
     "io.github.uptane" %% "libats-http-tracing" % libatsVersion,
@@ -50,10 +50,10 @@ lazy val serverDependencies = libraryDependencies ++= {
     "io.github.uptane" %% "libats-metrics-prometheus" % libatsVersion,
     "io.github.uptane" %% "libats-slick" % libatsVersion,
     "io.github.uptane" %% "libats-logging" % libatsVersion,
-    "org.mariadb.jdbc" % "mariadb-java-client" % "3.5.7",
+    "org.mariadb.jdbc" % "mariadb-java-client" % "3.5.11",
     "com.beachape" %% "enumeratum" % enumeratumV,
     "com.beachape" %% "enumeratum-circe" % enumeratumV,
-    "io.scalaland" %% "chimney" % "1.9.0"
+    "io.scalaland" %% "chimney" % "2.1.0"
   )
 }
 
@@ -136,7 +136,7 @@ lazy val cli = (project in file("cli"))
     topLevelDirectory := Some("uptane-sign"),
     executableScriptName := "uptane-sign",
     Universal / mappings += (file("cli/LICENSE") -> "docs/LICENSE"),
-    libraryDependencies += "com.typesafe" % "config" % "1.4.6" % Test
+    libraryDependencies += "com.typesafe" % "config" % "1.4.9" % Test
   )
   .dependsOn(libtuf)
 
