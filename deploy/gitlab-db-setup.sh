@@ -2,26 +2,26 @@
 
 set -xeuo pipefail
 
-MYSQL_COMMAND=$1
+MARIADB_COMMAND=$1
 HOST=$2
 
-if [ "$MYSQL_COMMAND" = "mysql" ]; then
-    MYSQL=mysql
+if [ "$MARIADB_COMMAND" = "mariadb" ]; then
+    MARIADB=mariadb
 else
-    MYSQL="docker run -i --rm --link $HOST mariadb:10.4 mysql"
+    MARIADB="docker run -i --rm --link $HOST mariadb:10.4 mariadb"
 fi
 
-# If using local mysql and mysqladmin is also installed locally use it
-if [[ "$MYSQL_COMMAND" == "mysql" ]] && command -v mysqladmin &> /dev/null;
+# If using local mariadb and mariadbadmin is also installed locally use it
+if [[ "$MARIADB_COMMAND" == "mariadb" ]] && command -v mariadb-admin &> /dev/null;
 then
-    MYSQLADMIN=mysqladmin
+    MARIADBADMIN=mariadb-admin
 else
-    MYSQLADMIN="docker run -i --rm --link $HOST mariadb:10.4 mysqladmin"
+    MARIADBADMIN="docker run -i --rm --link $HOST mariadb:10.4 mariadbadmin"
 fi
 
-until $MYSQLADMIN ping --silent --protocol=TCP -h $HOST -P 3306 -u root -proot; do echo waiting for mysql; sleep 1; done
+until $MARIADBADMIN ping --skip-ssl --silent --protocol=TCP -h $HOST -P 3306 -u root -proot; do echo waiting for mariadb; sleep 1; done
 
-$MYSQL -v -h $HOST -u root -proot <<EOF
+$MARIADB --skip-ssl -v -h $HOST -u root -proot <<EOF
 CREATE USER 'tuf_repo' identified by 'tuf_repo' ;
 CREATE DATABASE tuf_repo ;
 GRANT ALL PRIVILEGES ON \`tuf_repo%\`.* TO 'tuf_repo'@'%' ;

@@ -82,14 +82,17 @@ class SignedRoleGeneration(keyserverClient: KeyserverClient,
       SignedRole.withChecksum[T](signedRole.asJsonSignedPayload, role.version, role.expires)
     }
 
-  private def fetchRootRole(repoId: RepoId): Future[SignedRole[RootRole]] =
-    keyserverClient.fetchRootRole(repoId).flatMap { rootRole =>
+  private def fetchRootRole(repoId: RepoId): Future[SignedRole[RootRole]] = async {
+    val notBefore = await(signedRoleProvider.expireNotBefore(repoId))
+    val rootRole = await(keyserverClient.fetchRootRole(repoId, notBefore))
+    await(
       SignedRole.withChecksum[RootRole](
         rootRole.asJsonSignedPayload,
         rootRole.signed.version,
         rootRole.signed.expires
       )
-    }
+    )
+  }
 
   private def findFreshRole[T](repoId: RepoId, repoRoleRefresh: RepoRoleRefresh)(
     implicit tufRole: TufRole[T]): Future[SignedRole[T]] = {

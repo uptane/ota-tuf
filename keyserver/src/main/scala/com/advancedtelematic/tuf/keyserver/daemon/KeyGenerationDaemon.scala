@@ -16,15 +16,12 @@ import com.advancedtelematic.libats.http.{BootApp, BootAppDatabaseConfig, BootAp
 import com.advancedtelematic.libats.slick.monitoring.{DatabaseMetrics, DbHealthResource}
 import com.advancedtelematic.metrics.MetricsSupport
 import com.advancedtelematic.metrics.prometheus.PrometheusMetricsSupport
-import com.codahale.metrics.MetricRegistry
 import com.typesafe.config.Config
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future
 
-class KeyserverDaemon(override val globalConfig: Config,
-                      override val dbConfig: Config,
-                      override val metricRegistry: MetricRegistry)(
+class KeyserverDaemon(override val globalConfig: Config, override val dbConfig: Config)(
   implicit override val system: ActorSystem)
     extends BootApp
     with Settings
@@ -51,10 +48,7 @@ class KeyserverDaemon(override val globalConfig: Config,
 
     val routes: Route =
       (versionHeaders(nameVersion) & logResponseMetrics(projectName + "-daemon")) {
-        DbHealthResource(
-          versionMap,
-          metricRegistry = metricRegistry
-        ).route ~ prometheusMetricsRoutes
+        DbHealthResource(versionMap).route ~ prometheusMetricsRoutes
       }
 
     Http().newServerAt(host, daemonPort).bindFlow(routes)
@@ -66,7 +60,7 @@ class DaemonBootMain extends BootAppDefaultConfig with BootAppDatabaseConfig wit
   Security.addProvider(new BouncyCastleProvider())
 
   def main(args: Array[String]): Unit =
-    new KeyserverDaemon(globalConfig, dbConfig, MetricsSupport.metricRegistry).bind()
+    new KeyserverDaemon(globalConfig, dbConfig).bind()
 
 }
 

@@ -2,11 +2,16 @@ package com.advancedtelematic.tuf.reposerver.http
 
 import java.time.Instant
 import org.apache.pekko.http.scaladsl.util.FastFuture
+import com.advancedtelematic.libats.data.DataType.Namespace
+import com.advancedtelematic.libats.http.Errors.MissingEntity
 import com.advancedtelematic.libtuf.data.ClientCodecs._
 import com.advancedtelematic.libtuf.data.ClientDataType.{TimestampRole, _}
 import com.advancedtelematic.libtuf.data.TufDataType.{Ed25519KeyType, RepoId, RoleType}
 import com.advancedtelematic.libtuf_server.repo.server.RepoRoleRefresh
-import com.advancedtelematic.tuf.reposerver.db.SignedRoleRepositorySupport
+import com.advancedtelematic.tuf.reposerver.db.{
+  RepoNamespaceRepositorySupport,
+  SignedRoleRepositorySupport
+}
 import com.advancedtelematic.tuf.reposerver.util.{FakeKeyserverClient, TufReposerverSpec}
 import com.advancedtelematic.libats.test.MysqlDatabaseSpec
 import org.scalatest.concurrent.ScalaFutures
@@ -21,6 +26,7 @@ class SignedRoleGenerationSpec
     extends TufReposerverSpec
     with MysqlDatabaseSpec
     with SignedRoleRepositorySupport
+    with RepoNamespaceRepositorySupport
     with ScalaFutures {
   override implicit val ec: ExecutionContext = Implicits.global
 
@@ -148,6 +154,86 @@ class SignedRoleGenerationSpec
 
     val renewedTargets = signedRoleGeneration.findRole[TargetsRole](repoId).futureValue
     renewedTargets.version shouldBe oldTargets.version + 1
+  }
+
+  test("root.json renewal should honor the expires_not_before floor, same as targets") {
+    val repoId = setupRepo().futureValue
+    val ns = Namespace("OTA-3699-implen-lockbox")
+    repoNamespaceRepo.persist(repoId, ns).futureValue
+
+    val lockboxExpiresAt =
+      Instant.now().plus(365, ChronoUnit.DAYS).truncatedTo(ChronoUnit.SECONDS)
+    repoNamespaceRepo.setExpiresNotBefore(repoId, Some(lockboxExpiresAt)).futureValue
+
+    signedRoleGeneration.regenerateAllSignedRoles(repoId).futureValue
+
+    val renewedTargets = signedRoleGeneration.findRole[TargetsRole](repoId).futureValue
+    val renewedRoot = signedRoleGeneration.findRole[RootRole](repoId).futureValue
+
+    // targets already honor the lockbox's requested floor (existing, correct behavior)
+    renewedTargets.expiresAt shouldBe lockboxExpiresAt
+
+    // root.json should be pushed out to the same floor, but today it is not
+    renewedRoot.expiresAt shouldBe lockboxExpiresAt
+  }
+
+  test("expires_not_before floor never regresses when a later lockbox requests an earlier one") {
+    val repoId = setupRepo().futureValue
+    repoNamespaceRepo.persist(repoId, Namespace("OTA-3699-floor-regression")).futureValue
+
+    val aliceFloor = Instant.now().plus(1000, ChronoUnit.DAYS).truncatedTo(ChronoUnit.SECONDS)
+    repoNamespaceRepo.setExpiresNotBefore(repoId, Some(aliceFloor)).futureValue
+    signedRoleGeneration.regenerateAllSignedRoles(repoId).futureValue
+
+    val rootAfterAlice = signedRoleGeneration.findRole[RootRole](repoId).futureValue
+    rootAfterAlice.expiresAt shouldBe aliceFloor
+
+    val eveFloor = Instant.now().plus(100, ChronoUnit.DAYS).truncatedTo(ChronoUnit.SECONDS)
+    repoNamespaceRepo.setExpiresNotBefore(repoId, Some(eveFloor)).futureValue
+    signedRoleGeneration.regenerateAllSignedRoles(repoId).futureValue
+
+    val rootAfterEve = signedRoleGeneration.findRole[RootRole](repoId).futureValue
+
+    // Fixed: eve's later, shorter-lived request is rejected as a no-op; alice's
+    // still-valid lockbox keeps its coverage.
+    rootAfterEve.expiresAt shouldBe aliceFloor
+    repoNamespaceRepo.getExpiresNotBefore(repoId).futureValue shouldBe Some(aliceFloor)
+  }
+
+  test("expires_not_before floor can still be raised by a later lockbox") {
+    val repoId = setupRepo().futureValue
+    repoNamespaceRepo.persist(repoId, Namespace("OTA-3699-floor-raise")).futureValue
+
+    val firstFloor = Instant.now().plus(10, ChronoUnit.DAYS).truncatedTo(ChronoUnit.SECONDS)
+    repoNamespaceRepo.setExpiresNotBefore(repoId, Some(firstFloor)).futureValue
+
+    val laterFloor = Instant.now().plus(400, ChronoUnit.DAYS).truncatedTo(ChronoUnit.SECONDS)
+    repoNamespaceRepo.setExpiresNotBefore(repoId, Some(laterFloor)).futureValue
+
+    repoNamespaceRepo.getExpiresNotBefore(repoId).futureValue shouldBe Some(laterFloor)
+  }
+
+  test(
+    "regenerateAllSignedRoles cannot honor a floor that failed to persist (no repo_namespaces row)"
+  ) {
+    val repoId = setupRepo().futureValue
+    val floor = Instant.now().plus(400, ChronoUnit.DAYS).truncatedTo(ChronoUnit.SECONDS)
+
+    // no repoNamespaceRepo.persist(repoId, ...) call: reproduces the missing-row case
+    repoNamespaceRepo
+      .setExpiresNotBefore(repoId, Some(floor))
+      .failed
+      .futureValue shouldBe a[MissingEntity[_]]
+
+    repoNamespaceRepo.getExpiresNotBefore(repoId).futureValue shouldBe None
+
+    signedRoleGeneration.regenerateAllSignedRoles(repoId).futureValue
+
+    val root = signedRoleGeneration.findRole[RootRole](repoId).futureValue
+
+    // OTA-3704: root never reaches the floor, because it was never durably persisted in
+    // the first place. This is a separate bug from OTA-3699, still open after that fix.
+    root.expiresAt should not be floor
   }
 
 }

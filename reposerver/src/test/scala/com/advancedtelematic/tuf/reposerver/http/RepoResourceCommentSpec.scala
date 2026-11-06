@@ -107,7 +107,10 @@ class RepoResourceCommentSpec
 
     Get(apiUri(s"repo/${repoId.show}/comments/myfile01")) ~> routes ~> check {
       status shouldBe StatusCodes.OK
-      entityAs[CommentRequest] shouldBe CommentRequest(TargetComment("ಠ_ಠ"))
+      entityAs[FilenameComment] shouldBe FilenameComment(
+        "myfile01".refineTry[ValidTargetFilename].get,
+        TargetComment("ಠ_ಠ")
+      )
     }
   }
 

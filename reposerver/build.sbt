@@ -1,7 +1,7 @@
 libraryDependencies ++=
   Seq(
-    "com.amazonaws" % "aws-java-sdk-s3" % "1.12.797",
-    "com.amazonaws" % "aws-java-sdk-sts" % "1.12.797"
+    "software.amazon.awssdk" % "s3" % "2.31.1",
+    "software.amazon.awssdk" % "sts" % "2.31.1"
   )
 
 Compile / mainClass := Some("com.advancedtelematic.tuf.reposerver.Boot")

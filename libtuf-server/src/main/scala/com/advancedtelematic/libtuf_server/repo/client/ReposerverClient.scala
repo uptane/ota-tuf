@@ -231,7 +231,9 @@ trait ReposerverClient {
                         targetFilename: TargetFilename,
                         comment: String): Future[Unit]
 
-  def setTargetsMetadataExpiration(namespace: Namespace, expiry: Instant): Future[Unit]
+  def setTargetsMetadataExpiration(namespace: Namespace,
+                                   expiry: Instant,
+                                   overrideExpiry: Boolean = false): Future[Unit]
 
   def fetchSingleTargetComments(namespace: Namespace,
                                 targetFilename: TargetFilename): Future[FilenameComment]
@@ -684,15 +686,13 @@ class ReposerverHttpClient(reposerverUri: Uri,
     execHttpUnmarshalledWithNamespace[Unit](namespace, req).ok
   }
 
-  override def setTargetsMetadataExpiration(namespace: Namespace, expiry: Instant): Future[Unit] = {
-    val body =
-      HttpEntity(ContentTypes.`application/json`, ExpireNotBeforeRequest(expiry).asJson.noSpaces)
-    val req = HttpRequest(
-      HttpMethods.PUT,
-      uri = apiUri(Path(s"user_repo/targets/expire/not-before")),
-      entity = body
-    )
-    execHttpUnmarshalledWithNamespace[Unit](namespace, req).ok
+  override def setTargetsMetadataExpiration(namespace: Namespace,
+                                            expiry: Instant,
+                                            overrideExpiry: Boolean = false): Future[Unit] = {
+    val entity = ExpireNotBeforeRequest(expiry, Option(overrideExpiry))
+    val req =
+      HttpRequest(HttpMethods.PUT, uri = apiUri(Path(s"user_repo/targets/expire/not-before")))
+    execJsonHttpWithNamespace[Unit, ExpireNotBeforeRequest](namespace, req, entity).ok
   }
 
   override def fetchTargetsComments(

@@ -8,12 +8,12 @@ lazy val UnitTest = config("ut").extend(Test)
 
 lazy val commonConfigs = Seq(ItTest, UnitTest)
 
-val libatsVersion = "5.0.0"
+val libatsVersion = "7.0.0"
 
 lazy val commonDeps = libraryDependencies ++= {
   val scalaTestV = "3.2.20"
   lazy val catsV = "2.13.0"
-  lazy val pekkoHttpV = "1.2.0"
+  lazy val pekkoHttpV = "1.4.2"
   lazy val enumeratumV = "1.9.8"
 
   Seq(
@@ -30,8 +30,8 @@ lazy val commonDeps = libraryDependencies ++= {
 }
 
 lazy val serverDependencies = libraryDependencies ++= {
-  lazy val pekkoV = "1.1.5"
-  lazy val pekkoHttpV = "1.2.0"
+  lazy val pekkoV = "1.7.1"
+  lazy val pekkoHttpV = "1.4.2"
   lazy val enumeratumV = "1.9.8"
 
   Seq(

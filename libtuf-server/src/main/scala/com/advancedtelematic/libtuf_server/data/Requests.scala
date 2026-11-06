@@ -34,7 +34,7 @@ object Requests {
   implicit val filenameCommentEncoder: Encoder[FilenameComment] = deriveEncoder
   implicit val filenameCommentDecoder: Decoder[FilenameComment] = deriveDecoder
 
-  case class ExpireNotBeforeRequest(expireAt: Instant)
+  case class ExpireNotBeforeRequest(expireAt: Instant, overrideExpiry: Option[Boolean] = None)
 
   implicit val refreshRequestEncoder: Encoder[ExpireNotBeforeRequest] =
     io.circe.generic.semiauto.deriveEncoder[ExpireNotBeforeRequest]

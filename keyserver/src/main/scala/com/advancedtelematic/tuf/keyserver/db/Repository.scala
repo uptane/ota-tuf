@@ -101,7 +101,6 @@ protected[db] class KeyRepository()(implicit db: Database, ec: ExecutionContext)
 
   import KeyRepository._
   import Schema.keys
-  import com.advancedtelematic.libats.slick.db.SlickPipeToUnit.pipeToUnit
 
   def persist(key: Key): Future[Unit] = db.run(persistAction(key))
 
@@ -115,7 +114,7 @@ protected[db] class KeyRepository()(implicit db: Database, ec: ExecutionContext)
     db.run(keys.filter(_.id.inSet(keyIds)).result.failIfEmpty(KeyNotFound))
 
   protected[db] def persistAllAction(keys: Seq[Key]): DBIO[Unit] =
-    DBIO.sequence(keys.map(Schema.keys.insertOrUpdate))
+    DBIO.sequence(keys.map(Schema.keys.insertOrUpdate)).map(_ => ())
 
   protected[db] def persistAction(key: Key): DBIO[Unit] =
     Schema.keys.insertOrUpdate(key).map(_ => ())

@@ -22,8 +22,8 @@ import com.advancedtelematic.metrics.{
   PekkoHttpRequestMetrics
 }
 import com.advancedtelematic.tuf.keyserver.http.TufKeyserverRoutes
-import com.codahale.metrics.MetricRegistry
 import com.typesafe.config.{Config, ConfigFactory}
+import io.prometheus.client.CollectorRegistry
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.slf4j.LoggerFactory
 
@@ -43,7 +43,7 @@ trait Settings {
 
 class KeyserverBoot(override val globalConfig: Config,
                     override val dbConfig: Config,
-                    override val metricRegistry: MetricRegistry)(
+                    override val collectorRegistry: CollectorRegistry = CollectorRegistry.defaultRegistry)(
   implicit override val system: ActorSystem)
     extends BootApp
     with Directives
@@ -68,18 +68,15 @@ class KeyserverBoot(override val globalConfig: Config,
     val tracing = Tracing.fromConfig(globalConfig, projectName)
 
     val routes: Route =
-      (versionHeaders(nameVersion) & requestMetrics(metricRegistry) & logResponseMetrics(
+      (versionHeaders(nameVersion) & requestMetrics & logResponseMetrics(
         projectName
-      )) {
+      ) & decodeRequest & encodeResponse) {
         tracing.traceRequests { _ =>
-          new TufKeyserverRoutes(
-            metricsRoutes = prometheusMetricsRoutes,
-            metricRegistry = metricRegistry
-          ).routes
+          new TufKeyserverRoutes(metricsRoutes = prometheusMetricsRoutes).routes
         }
       }
 
-    Http().newServerAt(host, port).bindFlow(withConnectionMetrics(routes, metricRegistry))
+    Http().newServerAt(host, port).bindFlow(withConnectionMetrics(routes))
   }
 
 }
@@ -88,6 +85,6 @@ object Boot extends BootAppDefaultConfig with BootAppDatabaseConfig with Version
   Security.addProvider(new BouncyCastleProvider)
 
   def main(args: Array[String]): Unit =
-    new KeyserverBoot(globalConfig, dbConfig, MetricsSupport.metricRegistry).bind()
+    new KeyserverBoot(globalConfig, dbConfig).bind()
 
 }

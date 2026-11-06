@@ -299,17 +299,15 @@ class RepoResource(keyserverClient: KeyserverClient,
     }
 
   private def findRole(repoId: RepoId, roleType: RoleType): Route =
-    encodeResponse {
-      onSuccess(signedRoleGeneration.findRole(repoId, roleType, roleRefresher)) { signedRole =>
-        respondWithCheckSum(signedRole.checksum.hash) {
-          complete(signedRole.content)
-        }
+    onSuccess(signedRoleGeneration.findRole(repoId, roleType, roleRefresher)) { signedRole =>
+      respondWithCheckSum(signedRole.checksum.hash) {
+        complete(signedRole.content)
       }
     }
 
   def findComment(repoId: RepoId, filename: TargetFilename): Route =
     complete {
-      filenameCommentRepo.find(repoId, filename).map(CommentRequest.apply)
+      filenameCommentRepo.find(repoId, filename).map(c => FilenameComment(filename, c))
     }
 
   def findCommentsForFiles(repoId: RepoId, filenames: Seq[TargetFilename]): Route =
@@ -619,18 +617,18 @@ class RepoResource(keyserverClient: KeyserverClient,
         pathPrefix("targets") {
           path("expire" / "not-before") {
             (put & entity(as[ExpireNotBeforeRequest])) { req =>
-              onComplete(repoNamespaceRepo.setExpiresNotBefore(repoId, Option(req.expireAt))) { _ =>
-                val f = keyserverClient
-                  .fetchRootRole(repoId, Option(req.expireAt))
-                  .map { _ =>
-                    StatusCodes.NoContent
-                  }
-                  .recoverWith { case err =>
-                    FastFuture.failed(Errors.SetRootExpire(err))
-                  }
-
-                complete(f)
-              }
+              val f = repoNamespaceRepo
+                .setExpiresNotBefore(repoId, Option(req.expireAt), force = req.overrideExpiry.getOrElse(false))
+                .recoverWith { case err =>
+                  FastFuture.failed(Errors.SetExpiresNotBefore(err))
+                }
+                .flatMap { _ =>
+                  keyserverClient
+                    .fetchRootRole(repoId, Option(req.expireAt))
+                    .map(_ => StatusCodes.NoContent)
+                    .recoverWith { case err => FastFuture.failed(Errors.SetRootExpire(err)) }
+                }
+              complete(f)
             }
           } ~
             path(TargetFilenamePath) { filename =>
@@ -675,15 +673,13 @@ class RepoResource(keyserverClient: KeyserverClient,
               userRepoUploadRequestTimeout,
               timeoutResponseHandler
             ) { // For when SignedPayload[TargetsRole] is too big and takes a long time to upload
-              decodeRequest {
-                (pathEnd & put & entity(as[SignedPayload[TargetsRole]])) { signedPayload =>
-                  extractRoleChecksumHeader { checksum =>
-                    onSuccess(saveOfflineTargetsRole(repoId, namespace, signedPayload, checksum)) {
-                      newSignedRole =>
-                        respondWithCheckSum(newSignedRole.checksum.hash) {
-                          complete(StatusCodes.NoContent)
-                        }
-                    }
+              (pathEnd & put & entity(as[SignedPayload[TargetsRole]])) { signedPayload =>
+                extractRoleChecksumHeader { checksum =>
+                  onSuccess(saveOfflineTargetsRole(repoId, namespace, signedPayload, checksum)) {
+                    newSignedRole =>
+                      respondWithCheckSum(newSignedRole.checksum.hash) {
+                        complete(StatusCodes.NoContent)
+                      }
                   }
                 }
               }

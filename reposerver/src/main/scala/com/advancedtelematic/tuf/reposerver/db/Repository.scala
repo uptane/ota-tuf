@@ -1,5 +1,6 @@
 package com.advancedtelematic.tuf.reposerver.db
 
+import java.sql.Timestamp
 import java.time.Instant
 import org.apache.pekko.http.scaladsl.model.Uri
 
@@ -41,6 +42,7 @@ import com.advancedtelematic.libtuf.data.ClientDataType.{
   TimestampRole,
   TufRole
 }
+import com.advancedtelematic.libtuf_server.db.SlickSetParameters.*
 import com.advancedtelematic.libtuf_server.data.Requests.TargetComment
 import com.advancedtelematic.libtuf_server.data.TufSlickMappings.*
 import com.advancedtelematic.tuf.reposerver.db.DBDataType.{DbDelegation, DbSignedRole}
@@ -317,7 +319,6 @@ trait RepoNamespaceRepositorySupport extends DatabaseSupport {
 
 protected[db] class RepoNamespaceRepository()(implicit db: Database, ec: ExecutionContext) {
 
-  import com.advancedtelematic.libats.slick.db.SlickPipeToUnit.pipeToUnit
   import Schema.repoNamespaces
 
   val MissingRepoNamespace = MissingEntity[(RepoId, Namespace)]()
@@ -325,7 +326,7 @@ protected[db] class RepoNamespaceRepository()(implicit db: Database, ec: Executi
   val AlreadyExists = EntityAlreadyExists[(RepoId, Namespace)]()
 
   def persist(repoId: RepoId, namespace: Namespace): Future[Unit] = db.run {
-    (repoNamespaces += (repoId, namespace, None)).handleIntegrityErrors(AlreadyExists)
+    (repoNamespaces += (repoId, namespace, None)).handleIntegrityErrors(AlreadyExists).map(_ => ())
   }
 
   def getExpiresNotBefore(repoId: RepoId): Future[Option[Instant]] = db
@@ -338,14 +339,25 @@ protected[db] class RepoNamespaceRepository()(implicit db: Database, ec: Executi
     }
     .map(_.flatten)
 
-  def setExpiresNotBefore(repoId: RepoId, expiresNotBefore: Option[Instant]): Future[Unit] =
-    db.run {
-      repoNamespaces
-        .filter(_.repoId === repoId)
-        .map(_.expiresNotBefore)
-        .update(expiresNotBefore)
-        .handleSingleUpdateError(MissingEntity[RepoId]())
-    }
+  def setExpiresNotBefore(repoId: RepoId,
+                          expiresNotBefore: Option[Instant],
+                          force: Boolean = false): Future[Unit] = {
+    val query =
+      sqlu"""
+        UPDATE repo_namespaces
+        SET expires_not_before = IF(
+          $force, $expiresNotBefore,
+          CASE
+            WHEN $expiresNotBefore IS NULL THEN expires_not_before
+            WHEN expires_not_before IS NULL THEN $expiresNotBefore
+            ELSE GREATEST($expiresNotBefore, expires_not_before)
+          END
+        )
+        WHERE repo_id = ${repoId};
+      """
+
+    db.run(query.handleSingleUpdateError(MissingEntity[RepoId]()))
+  }
 
   def ensureNotExists(namespace: Namespace): Future[Unit] =
     findFor(namespace)

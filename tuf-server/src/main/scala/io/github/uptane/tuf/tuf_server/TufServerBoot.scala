@@ -6,8 +6,8 @@ import com.advancedtelematic.libats.http.BootAppDefaultConfig
 import com.advancedtelematic.tuf.keyserver.KeyserverBoot
 import com.advancedtelematic.tuf.keyserver.daemon.KeyserverDaemon
 import com.advancedtelematic.tuf.reposerver.ReposerverBoot
-import com.codahale.metrics.MetricRegistry
 import com.typesafe.config.{Config, ConfigFactory}
+import io.prometheus.client.CollectorRegistry
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 
 import java.security.Security
@@ -20,16 +20,19 @@ object TufServerBoot extends BootAppDefaultConfig with VersionInfo {
   def main(args: Array[String]): Unit = {
     Security.addProvider(new BouncyCastleProvider)
 
+    // each service serves its own metrics on its own port, plus the jvm wide ones
+    val keyserverRegistry = new CollectorRegistry()
+    val reposerverRegistry = new CollectorRegistry()
+
     val keyserverDbConfig = globalConfig.getConfig("ats.keyserver.database")
     val keyserverActorSystem = ActorSystem("keyserver-actor-system")
-    val keyserverBind = new KeyserverBoot(globalConfig, keyserverDbConfig, new MetricRegistry)(
-      keyserverActorSystem
-    ).bind()
+    val keyserverBind =
+      new KeyserverBoot(globalConfig, keyserverDbConfig, keyserverRegistry)(keyserverActorSystem).bind()
 
     val reposerverDbConfig = globalConfig.getConfig("ats.reposerver.database")
-    val reposerverBind = new ReposerverBoot(globalConfig, reposerverDbConfig, new MetricRegistry)(
-      ActorSystem("reposerver-actor-system")
-    ).bind()
+    val reposerverActorSystem = ActorSystem("reposerver-actor-system")
+    val reposerverBind =
+      new ReposerverBoot(globalConfig, reposerverDbConfig, reposerverRegistry)(reposerverActorSystem).bind()
 
     val bind = Future.sequence(List(keyserverBind, reposerverBind))
 
