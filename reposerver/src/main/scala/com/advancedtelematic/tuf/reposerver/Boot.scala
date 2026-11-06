@@ -18,7 +18,7 @@ import com.advancedtelematic.libats.slick.db.{BootMigrations, DatabaseSupport}
 import com.advancedtelematic.libats.slick.monitoring.DatabaseMetrics
 import com.advancedtelematic.libtuf_server.keyserver.KeyserverHttpClient
 import com.advancedtelematic.metrics.prometheus.PrometheusMetricsSupport
-import com.advancedtelematic.metrics.{MetricsSupport, PekkoHttpRequestMetrics}
+import com.advancedtelematic.metrics.{MetricsSupport, PekkoHttpConnectionMetrics, PekkoHttpRequestMetrics}
 import com.advancedtelematic.tuf.reposerver
 import com.advancedtelematic.tuf.reposerver.delegations.HttpRemoteDelegationClient
 import com.advancedtelematic.tuf.reposerver.http.{NamespaceValidation, TufReposerverRoutes}
@@ -93,6 +93,7 @@ class ReposerverBoot(override val globalConfig: Config,
     with MetricsSupport
     with DatabaseMetrics
     with PekkoHttpRequestMetrics
+    with PekkoHttpConnectionMetrics
     with PrometheusMetricsSupport {
 
   private lazy val log = LoggerFactory.getLogger(this.getClass)
@@ -142,7 +143,7 @@ class ReposerverBoot(override val globalConfig: Config,
         }
       }
 
-    Http().newServerAt(host, port).bindFlow(routes)
+    Http().newServerAt(host, port).bindFlow(withConnectionMetrics(routes))
   }
 
 }
