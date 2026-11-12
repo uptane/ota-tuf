@@ -33,5 +33,5 @@ jobs:
         with:
           jvm: 'temurin:1.17.0.3'
       - uses: coursier/cache-action@v6
-      - run: ./deploy/gitlab-db-setup.sh mysql db
+      - run: ./deploy/gitlab-db-setup.sh mariadb db
       - run: sbtn 'clean; Ut / test'
