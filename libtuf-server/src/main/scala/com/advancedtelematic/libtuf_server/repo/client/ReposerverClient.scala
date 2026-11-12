@@ -441,7 +441,7 @@ class ReposerverHttpClient(reposerverUri: Uri,
       HttpMethods.GET,
       uri = apiUri(Path("user_repo") / "targets" / targetFilename.value)
     )
-    execHttpFullWithNamespace[Unit](namespace, req).ok.map(_.httpResponse)
+    execHttpFullWithNamespace[HttpEntity](namespace, req).ok.map(_.httpResponse)
   }
 
   override def fetchSnapshotMetadata(namespace: Namespace): Future[JsonSignedPayload] = {
