@@ -6,7 +6,7 @@ jobs:
   run-tests:
     name: Run tests
     runs-on: ubuntu-latest
-    container: uptane/ci:latest
+    container: uptane/ci:21-jdk-noble
     services:
       tuf-nginx:
         image: uptane/tuf-nginx:latest
@@ -30,8 +30,6 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: coursier/setup-action@v1
-        with:
-          jvm: 'temurin:1.17.0.3'
       - uses: coursier/cache-action@v6
       - run: ./deploy/gitlab-db-setup.sh mariadb db
       - run: sbtn 'clean; Ut / test'
