@@ -14,7 +14,7 @@ lazy val commonDeps = libraryDependencies ++= {
   val scalaTestV = "3.2.20"
   lazy val catsV = "2.13.0"
   lazy val pekkoHttpV = "1.4.2"
-  lazy val enumeratumV = "1.9.8"
+  lazy val enumeratumV = "1.9.9"
 
   Seq(
     "org.scala-lang.modules" %% "scala-async" % "1.0.1",
@@ -32,7 +32,7 @@ lazy val commonDeps = libraryDependencies ++= {
 lazy val serverDependencies = libraryDependencies ++= {
   lazy val pekkoV = "1.7.1"
   lazy val pekkoHttpV = "1.4.2"
-  lazy val enumeratumV = "1.9.8"
+  lazy val enumeratumV = "1.9.9"
 
   Seq(
     "org.apache.pekko" %% "pekko-actor" % pekkoV,
